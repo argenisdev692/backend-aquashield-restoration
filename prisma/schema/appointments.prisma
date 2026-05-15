@@ -1,0 +1,46 @@
+// ============================================================
+//  Appointment — sales lead capture (CRM)
+//  - statusLead   : nullable enum (`status_lead`)
+//  - followUpCalls: arbitrary JSONB array
+//  - updatedAt managed by `set_updated_at_appointments` trigger.
+// ============================================================
+
+enum StatusLead {
+  New
+  Called
+  Pending
+  Declined
+
+  @@map("status_lead")
+}
+
+model Appointment {
+  id               String      @id @default(dbgenerated("uuid_generate_v7()")) @db.Uuid
+  firstName        String      @map("first_name") @db.VarChar(255)
+  lastName         String      @map("last_name") @db.VarChar(255)
+  phone            String      @db.VarChar(20)
+  email            String?     @db.VarChar(255)
+  address          String      @db.VarChar(255)
+  address2         String?     @map("address_2") @db.VarChar(255)
+  city             String      @db.VarChar(100)
+  state            String      @db.VarChar(100)
+  zipcode          String      @db.VarChar(20)
+  country          String      @db.VarChar(100)
+  message          String?
+  smsConsent       Boolean     @default(false) @map("sms_consent")
+  registrationDate DateTime?   @map("registration_date") @db.Timestamp(6)
+  statusLead       StatusLead? @map("status_lead")
+  followUpCalls    Json?       @map("follow_up_calls") @db.JsonB
+  notes            String?
+  owner            String?     @db.VarChar(255)
+  additionalNote   String?     @map("additional_note")
+  latitude         Float?      @db.DoublePrecision
+  longitude        Float?      @db.DoublePrecision
+  createdAt        DateTime    @default(now()) @map("created_at") @db.Timestamp(6)
+  updatedAt        DateTime    @default(now()) @map("updated_at") @db.Timestamp(6)
+  deletedAt        DateTime?   @map("deleted_at") @db.Timestamp(6)
+
+  @@index([statusLead], map: "idx_appointments_status_lead")
+  @@index([deletedAt], map: "idx_appointments_deleted_at")
+  @@map("appointments")
+}

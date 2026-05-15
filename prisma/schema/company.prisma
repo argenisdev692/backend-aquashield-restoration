@@ -1,0 +1,31 @@
+// ============================================================
+//  CompanyData — owner-company information attached to a User (1:1)
+//  - updatedAt managed by `set_updated_at_company_data` trigger.
+// ============================================================
+
+model CompanyData {
+  id            String    @id @default(dbgenerated("uuid_generate_v7()")) @db.Uuid
+  name          String?   @db.VarChar(255)
+  companyName   String    @map("company_name") @db.VarChar(255)
+  signaturePath String?   @map("signature_path") @db.VarChar(255)
+  email         String?   @db.VarChar(255)
+  phone         String?   @db.VarChar(20)
+  address       String?   @db.VarChar(255)
+  address2      String?   @map("address_2") @db.VarChar(255)
+  website       String?   @db.VarChar(255)
+  facebookLink  String?   @map("facebook_link") @db.VarChar(255)
+  instagramLink String?   @map("instagram_link") @db.VarChar(255)
+  linkedinLink  String?   @map("linkedin_link") @db.VarChar(255)
+  twitterLink   String?   @map("twitter_link") @db.VarChar(255)
+  userId        String    @unique @map("user_id") @db.Uuid
+  latitude      Float?    @db.DoublePrecision
+  longitude     Float?    @db.DoublePrecision
+  createdAt     DateTime  @default(now()) @map("created_at") @db.Timestamp(6)
+  updatedAt     DateTime  @default(now()) @map("updated_at") @db.Timestamp(6)
+  deletedAt     DateTime? @map("deleted_at") @db.Timestamp(6)
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId], map: "idx_company_data_user_id")
+  @@map("company_data")
+}

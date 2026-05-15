@@ -1,0 +1,17 @@
+// ============================================================
+//  Datasource + generator
+//  - Generator: `prisma-client` (Prisma 7 GA, replaces prisma-client-js)
+//  - Output:    src/generated/prisma  (imported as ./generated/prisma/client)
+//  - Driver:    @prisma/adapter-pg + pg  (configured in PrismaService at runtime)
+//  - DIRECT_URL is required for migrate / db push  (Supabase session pooler, port 5432)
+//  - URLs live in prisma.config.ts (Prisma 7 removed `url` / `directUrl` from the schema)
+// ============================================================
+
+generator client {
+  provider = "prisma-client"
+  output   = "../../src/generated/prisma"
+}
+
+datasource db {
+  provider = "postgresql"
+}

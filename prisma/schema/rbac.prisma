@@ -1,0 +1,95 @@
+// ============================================================
+//  RBAC + CASL — roles, permissions and their pivots
+//  - permissions.subject / action map to CASL Subjects / Action enum
+//    (see future src/shared/casl/casl-ability.factory.ts).
+//  - role_permissions.conditions / user_permissions.conditions are CASL
+//    ABAC ownership objects (JSONB), interpolated at runtime.
+//  - fields = Field-Level Security allowlist (TEXT[] in Postgres → String[]).
+// ============================================================
+
+model Role {
+  id          String    @id @default(dbgenerated("uuid_generate_v7()")) @db.Uuid
+  name        String    @unique @db.VarChar(50)
+  description String?
+  isSystem    Boolean   @default(false) @map("is_system")
+  createdAt   DateTime  @default(now()) @map("created_at") @db.Timestamp(6)
+  updatedAt   DateTime  @default(now()) @map("updated_at") @db.Timestamp(6)
+  deletedAt   DateTime? @map("deleted_at") @db.Timestamp(6)
+
+  users       UserRole[]
+  permissions RolePermission[]
+
+  @@index([name], map: "idx_roles_name")
+  @@map("roles")
+}
+
+model Permission {
+  id          String    @id @default(dbgenerated("uuid_generate_v7()")) @db.Uuid
+  name        String    @unique @db.VarChar(100) // "users:create"
+  description String?
+  module      String    @db.VarChar(50) // "users", "appointments", ...
+  subject     String    @db.VarChar(50) // CASL Subject: 'USER', 'APPOINTMENT', ...
+  action      String    @db.VarChar(50) // CASL Action: 'create', 'read', ...
+  createdAt   DateTime  @default(now()) @map("created_at") @db.Timestamp(6)
+  updatedAt   DateTime  @default(now()) @map("updated_at") @db.Timestamp(6)
+  deletedAt   DateTime? @map("deleted_at") @db.Timestamp(6)
+
+  roles RolePermission[]
+  users UserPermission[]
+
+  @@index([name], map: "idx_permissions_name")
+  @@index([module], map: "idx_permissions_module")
+  @@index([subject], map: "idx_permissions_subject")
+  @@map("permissions")
+}
+
+model UserRole {
+  userId     String    @map("user_id") @db.Uuid
+  roleId     String    @map("role_id") @db.Uuid
+  assignedAt DateTime  @default(now()) @map("assigned_at") @db.Timestamp(6)
+  assignedBy String?   @map("assigned_by") @db.Uuid
+  expiresAt  DateTime? @map("expires_at") @db.Timestamp(6)
+  updatedAt  DateTime? @default(now()) @map("updated_at") @db.Timestamp(6)
+
+  user       User  @relation(fields: [userId], references: [id], onDelete: Cascade)
+  role       Role  @relation(fields: [roleId], references: [id], onDelete: Cascade)
+  assigner   User? @relation("UserRoleAssignedBy", fields: [assignedBy], references: [id], onDelete: SetNull)
+
+  @@id([userId, roleId])
+  @@map("user_roles")
+}
+
+model RolePermission {
+  roleId       String    @map("role_id") @db.Uuid
+  permissionId String    @map("permission_id") @db.Uuid
+  conditions   Json?     @db.JsonB
+  fields       String[]
+  grantedAt    DateTime  @default(now()) @map("granted_at") @db.Timestamp(6)
+  updatedAt    DateTime? @default(now()) @map("updated_at") @db.Timestamp(6)
+
+  role       Role       @relation(fields: [roleId], references: [id], onDelete: Cascade)
+  permission Permission @relation(fields: [permissionId], references: [id], onDelete: Cascade)
+
+  @@id([roleId, permissionId])
+  @@index([roleId], map: "idx_role_permissions_role_id")
+  @@map("role_permissions")
+}
+
+model UserPermission {
+  userId       String    @map("user_id") @db.Uuid
+  permissionId String    @map("permission_id") @db.Uuid
+  isGranted    Boolean   @default(true) @map("is_granted")
+  conditions   Json?     @db.JsonB
+  fields       String[]
+  assignedAt   DateTime  @default(now()) @map("assigned_at") @db.Timestamp(6)
+  assignedBy   String?   @map("assigned_by") @db.Uuid
+  updatedAt    DateTime? @default(now()) @map("updated_at") @db.Timestamp(6)
+
+  user       User       @relation(fields: [userId], references: [id], onDelete: Cascade)
+  permission Permission @relation(fields: [permissionId], references: [id], onDelete: Cascade)
+  assigner   User?      @relation("UserPermissionAssignedBy", fields: [assignedBy], references: [id], onDelete: SetNull)
+
+  @@id([userId, permissionId])
+  @@index([userId], map: "idx_user_permissions_user_id")
+  @@map("user_permissions")
+}

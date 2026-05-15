@@ -1,0 +1,68 @@
+# ============================================================
+#  .dockerignore — keep the build context tiny
+# ============================================================
+
+# VCS
+.git
+.gitignore
+.gitattributes
+
+# Editor / IDE
+.idea
+.vscode
+*.swp
+*.swo
+
+# Node
+node_modules
+npm-debug.log*
+pnpm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# Build / coverage / cache
+dist
+build
+coverage
+.nyc_output
+.cache
+.tsbuildinfo
+*.tsbuildinfo
+
+# Prisma generator output (rebuilt inside the image)
+src/generated
+
+# Local env / secrets — NEVER ship these in the image
+.env
+.env.*
+env-note.txt
+
+# Local notes
+progress.txt
+
+# Docker meta
+Dockerfile
+.dockerignore
+docker-compose*.yml
+
+# Documentation that doesn't belong in the runtime image
+DATABASE-SETUP.txt
+DOCKER-SETUP.txt
+AGENTS.md
+CLAUDE.md
+README.md
+*.md
+
+# Misc OS junk
+.DS_Store
+Thumbs.db
+
+# Tests + claude tooling
+test
+.claude
+.windsurf
+
+# Backups / temp
+/backup
+.tmp
+.temp

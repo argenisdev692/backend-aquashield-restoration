@@ -1,0 +1,42 @@
+// ============================================================
+//  Auth side-tables
+//  - OtpCode      : append-only OTP store (login / email_verify / password_reset).
+//                   NO updatedAt — rows are immutable; only `used_at` is set on use.
+//                   Cleanup via scheduled job:
+//                     DELETE FROM otp_codes WHERE expires_at < NOW();
+//  - AuthSession  : refresh-token sessions for JWT rotation (one row per device).
+//                   `revoked_at IS NOT NULL` → session invalid (logout / theft).
+// ============================================================
+
+model OtpCode {
+  id        String    @id @default(dbgenerated("uuid_generate_v7()")) @db.Uuid
+  userId    String    @map("user_id") @db.Uuid
+  code      String    @db.Char(4)
+  type      String    @db.VarChar(30) // 'login' | 'email_verify' | 'password_reset'
+  expiresAt DateTime  @map("expires_at") @db.Timestamp(6)
+  usedAt    DateTime? @map("used_at") @db.Timestamp(6)
+  createdAt DateTime  @default(now()) @map("created_at") @db.Timestamp(6)
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId], map: "idx_otp_codes_user_id")
+  @@map("otp_codes")
+}
+
+model AuthSession {
+  id           String    @id @default(dbgenerated("uuid_generate_v7()")) @db.Uuid
+  userId       String    @map("user_id") @db.Uuid
+  refreshToken String    @unique @map("refresh_token") @db.VarChar(512)
+  deviceInfo   Json?     @map("device_info") @db.JsonB
+  ipAddress    String?   @map("ip_address") @db.Inet
+  revokedAt    DateTime? @map("revoked_at") @db.Timestamp(6)
+  expiresAt    DateTime  @map("expires_at") @db.Timestamp(6)
+  createdAt    DateTime  @default(now()) @map("created_at") @db.Timestamp(6)
+  updatedAt    DateTime  @default(now()) @map("updated_at") @db.Timestamp(6)
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId], map: "idx_auth_sessions_user_id")
+  @@index([refreshToken], map: "idx_auth_sessions_refresh_token")
+  @@map("auth_sessions")
+}

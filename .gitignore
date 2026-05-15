@@ -56,3 +56,9 @@ pids
 report.[0-9]*.[0-9]*.[0-9]*.[0-9]*.json
 
 /backup
+
+# Prisma generated client (output: ../src/generated/prisma in prisma/schema/datasource.prisma)
+/src/generated
+
+# Local notes (NEVER commit)
+env-note.txt

@@ -8,7 +8,10 @@
       "Bash(xargs grep -l \"rabbitmq\\\\|amqp\\\\|bullmq\\\\|outbox\\\\|saga\\\\|microservice\")",
       "mcp__tavily__tavily_search",
       "mcp__context7__resolve-library-id",
-      "mcp__context7__query-docs"
+      "mcp__context7__query-docs",
+      "Bash(npm --version)",
+      "Bash(npm ci *)",
+      "Bash(docker run *)"
     ]
   }
 }
