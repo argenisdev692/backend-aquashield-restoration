@@ -59,7 +59,7 @@ For each item mark ✅ PASS, ❌ FAIL (with `file:line` and brief description), 
 
 **Swagger / OpenAPI (BACKEND-NEST.md §1)**
 
-- [ ] `patchNestjsSwagger()` called in `main.ts` BEFORE `SwaggerModule.createDocument()`
+- [ ] `cleanupOpenApiDoc(document, { version: '3.0' })` from `'nestjs-zod'` applied BEFORE `SwaggerModule.setup()` (nestjs-zod v5 — `patchNestjsSwagger` removed)
 - [ ] `createZodDto` imported from `'nestjs-zod'` — NOT `'nestjs-zod/dto'`
 - [ ] Every controller class has `@ApiTags('module-name')`
 - [ ] Every authenticated controller class has `@ApiBearerAuth()`

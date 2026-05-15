@@ -133,18 +133,16 @@ export class ProjectsController {
 - **Only REST architecture is permitted.** `@nestjs/graphql` is strictly banned.
 - Swagger is driven entirely by Zod via `nestjs-zod` — no manual `@ApiProperty()` decorators.
 - Import `createZodDto` from `'nestjs-zod'` — NOT `'nestjs-zod/dto'` (subpath removed in v5).
-- `patchNestjsSwagger()` **MUST** be called in `main.ts` BEFORE `SwaggerModule.createDocument()` — without it Swagger shows empty schemas.
+- nestjs-zod v5 **removed `patchNestjsSwagger()`**. Instead, pass the generated document through `cleanupOpenApiDoc()` from `'nestjs-zod'` BEFORE `SwaggerModule.setup()` — without it Swagger shows empty/incorrect schemas. (v5 uses `z.toJSONSchema()` internally.)
 
 #### main.ts — Swagger bootstrap (required)
 
 ```typescript
-import { patchNestjsSwagger } from 'nestjs-zod';
+import { cleanupOpenApiDoc } from 'nestjs-zod'; // v5 — replaces patchNestjsSwagger
 import { SwaggerModule, DocumentBuilder } from '@nestjs/swagger';
 
 async function bootstrap(): Promise<void> {
   const app = await NestFactory.create(AppModule);
-
-  patchNestjsSwagger(); // ⚠️ MUST be before SwaggerModule.createDocument()
 
   const config = new DocumentBuilder()
     .setTitle('API')
@@ -154,7 +152,9 @@ async function bootstrap(): Promise<void> {
     .build();
 
   const document = SwaggerModule.createDocument(app, config);
-  SwaggerModule.setup('api', app, document); // UI: /api   JSON: /api-json
+  // ⚠️ nestjs-zod v5: clean the doc BEFORE setup (no more patchNestjsSwagger).
+  // { version: '3.0' } emits `nullable: true` instead of OpenAPI 3.1 `anyOf [null]`.
+  SwaggerModule.setup('api', app, cleanupOpenApiDoc(document, { version: '3.0' }));
 
   await app.listen(process.env.PORT ?? 3000);
 }
@@ -855,7 +855,7 @@ GET /projects/export?format=xlsx
 
 | Error                                      | Fix                                                                                        |
 | ------------------------------------------ | ------------------------------------------------------------------------------------------ |
-| Swagger shows empty `{}` schema for DTOs   | Call `patchNestjsSwagger()` in `main.ts` BEFORE `SwaggerModule.createDocument()`           |
+| Swagger shows empty `{}` schema for DTOs   | nestjs-zod v5: wrap the doc in `cleanupOpenApiDoc(document, { version: '3.0' })` before `SwaggerModule.setup()` (`patchNestjsSwagger` removed in v5) |
 | `createZodDto` import error in v5          | Use `from 'nestjs-zod'` — the `/dto` subpath was removed in nestjs-zod v5                  |
 | POST returns 201 but Swagger docs say 200  | Use `@ApiCreatedResponse()` instead of `@ApiOkResponse()` on POST handlers                 |
 | DELETE route not showing 204 in Swagger    | Use `@ApiNoContentResponse()` and `@HttpCode(204)` — not `@ApiOkResponse()`                |
@@ -880,7 +880,7 @@ GET /projects/export?format=xlsx
 
 | Situation                        | Solution                                                                              |
 | -------------------------------- | ------------------------------------------------------------------------------------- |
-| Swagger empty schemas            | `patchNestjsSwagger()` in `main.ts` before `SwaggerModule.createDocument()` (§1)     |
+| Swagger empty schemas            | `cleanupOpenApiDoc(document, { version: '3.0' })` before `SwaggerModule.setup()` — nestjs-zod v5, replaces `patchNestjsSwagger` (§1) |
 | Document POST response in Swagger| `@ApiCreatedResponse({ type: XxxResponse })` — not `@ApiOkResponse()` (§1)           |
 | Document DELETE in Swagger       | `@ApiNoContentResponse()` + `@HttpCode(204)` (§1)                                    |
 | Expose output schema in Swagger  | Response class extends `createZodDto(ResponseSchema)` — not plain interface (§1)     |

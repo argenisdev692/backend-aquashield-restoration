@@ -1,8 +1,62 @@
 import { NestFactory } from '@nestjs/core';
+import { ConfigService } from '@nestjs/config';
+import { DocumentBuilder, SwaggerModule } from '@nestjs/swagger';
+import { Logger } from 'nestjs-pino';
+import { cleanupOpenApiDoc } from 'nestjs-zod';
+import helmet from 'helmet';
+import hpp from 'hpp';
 import { AppModule } from './app.module';
 
-async function bootstrap() {
-  const app = await NestFactory.create(AppModule);
-  await app.listen(process.env.PORT ?? 3000);
+function corsOrigin(raw: string): boolean | string[] {
+  if (raw.trim() === '*') return true;
+  return raw
+    .split(',')
+    .map((o) => o.trim())
+    .filter(Boolean);
 }
-bootstrap();
+
+async function bootstrap(): Promise<void> {
+  const app = await NestFactory.create(AppModule, { bufferLogs: true });
+  app.useLogger(app.get(Logger));
+
+  const config = app.get(ConfigService);
+  const isProd = config.get<string>('NODE_ENV') === 'production';
+
+  // Security middleware (OWASP #5).
+  app.use(helmet());
+  app.use(hpp());
+  app.enableCors({
+    origin: corsOrigin(config.get<string>('CORS_ORIGINS', '*')),
+    credentials: true,
+  });
+
+  app.setGlobalPrefix(config.get<string>('GLOBAL_PREFIX', 'api/v1'));
+  app.enableShutdownHooks();
+
+  if (config.get<boolean>('SWAGGER_ENABLED')) {
+    const swaggerConfig = new DocumentBuilder()
+      .setTitle('Vidula API')
+      .setDescription('REST API — OpenAPI 3.0')
+      .setVersion('1.0')
+      .addBearerAuth()
+      .build();
+    const document = SwaggerModule.createDocument(app, swaggerConfig);
+    // nestjs-zod v5: patchNestjsSwagger was replaced by cleanupOpenApiDoc,
+    // applied to the generated doc before SwaggerModule.setup.
+    SwaggerModule.setup(
+      'api/docs',
+      app,
+      cleanupOpenApiDoc(document, { version: '3.0' }),
+    );
+  }
+
+  const port = config.get<number>('PORT', 3000);
+  await app.listen(port, '0.0.0.0');
+
+  if (!isProd) {
+    const logger = app.get(Logger);
+    logger.log(`Application listening on http://localhost:${port}`);
+  }
+}
+
+void bootstrap();

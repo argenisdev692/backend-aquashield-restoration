@@ -1,0 +1,27 @@
+// ============================================================
+//  ActivityLog — append-only audit trail (IAuditPort sink)
+//  - Written by ActivityLogService on every state mutation.
+//  - APPEND-ONLY: no updatedAt, no deletedAt, never UPDATE/DELETE rows.
+//  - No FK to users: actor may be a system process; keeps the trail
+//    durable even if the actor row is later removed.
+// ============================================================
+
+model ActivityLog {
+  id            String   @id @default(dbgenerated("uuid_generate_v7()")) @db.Uuid
+  action        String   @db.VarChar(100) // e.g. "users.created"
+  actorId       String?  @map("actor_id") @db.Uuid
+  resourceType  String?  @map("resource_type") @db.VarChar(50)
+  resourceId    String?  @map("resource_id") @db.VarChar(64)
+  traceId       String?  @map("trace_id") @db.VarChar(64)
+  correlationId String?  @map("correlation_id") @db.VarChar(64)
+  ipAddress     String?  @map("ip_address") @db.Inet
+  userAgent     String?  @map("user_agent") @db.VarChar(512)
+  metadata      Json?    @db.JsonB
+  createdAt     DateTime @default(now()) @map("created_at") @db.Timestamp(6)
+
+  @@index([actorId], map: "idx_activity_logs_actor_id")
+  @@index([action], map: "idx_activity_logs_action")
+  @@index([resourceId], map: "idx_activity_logs_resource_id")
+  @@index([createdAt], map: "idx_activity_logs_created_at")
+  @@map("activity_logs")
+}
