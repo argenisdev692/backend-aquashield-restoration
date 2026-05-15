@@ -19,6 +19,7 @@ import { CacheModule } from './shared/cache/cache.module';
 import { DatabaseModule } from './shared/database/database.module';
 import { PrismaService } from './shared/database/prisma.service';
 import { QueueModule } from './shared/messaging/queue.module';
+import { AuthModule } from './modules/auth/auth.module';
 
 @Module({
   imports: [
@@ -54,6 +55,7 @@ import { QueueModule } from './shared/messaging/queue.module';
     }),
     CoreModule,
     HealthModule,
+    AuthModule,
   ],
   controllers: [AppController],
   providers: [

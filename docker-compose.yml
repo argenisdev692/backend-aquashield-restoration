@@ -58,10 +58,9 @@ services:
     depends_on:
       redis:
         condition: service_healthy
-    # TCP probe — switch to GET /health once @nestjs/terminus is wired in:
-    #   test: ["CMD-SHELL", "wget -qO- http://localhost:8080/health || exit 1"]
+    # HTTP health check against @nestjs/terminus endpoint.
     healthcheck:
-      test: ["CMD-SHELL", "node -e \"require('net').createConnection(8080,'127.0.0.1').on('connect',()=>process.exit(0)).on('error',()=>process.exit(1))\""]
+      test: ["CMD-SHELL", "wget -qO- http://localhost:8080/api/v1/health || exit 1"]
       interval: 15s
       timeout: 5s
       retries: 5

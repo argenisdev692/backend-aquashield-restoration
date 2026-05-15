@@ -28,6 +28,8 @@ model User {
   latitude           Float?    @db.DoublePrecision
   longitude          Float?    @db.DoublePrecision
   termsAndConditions Boolean   @default(false) @map("terms_and_conditions")
+  totpSecret         String?   @map("totp_secret") @db.VarChar(255)
+  totpEnabled        Boolean   @default(false) @map("totp_enabled")
   createdAt          DateTime  @default(now()) @map("created_at") @db.Timestamp(6)
   updatedAt          DateTime  @default(now()) @map("updated_at") @db.Timestamp(6)
   deletedAt          DateTime? @map("deleted_at") @db.Timestamp(6)
