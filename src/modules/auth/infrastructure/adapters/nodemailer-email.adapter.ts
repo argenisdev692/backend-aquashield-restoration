@@ -17,18 +17,24 @@ export class NodemailerEmailAdapter implements IEmailPort {
     code: string;
     type: 'login' | 'email_verify' | 'password_reset';
   }): Promise<void> {
+    // Pre-rendered subject + HTML body are kept in scope so the real
+    // transport integration only has to add the `transporter.sendMail()`
+    // call below — no further refactor needed.
     const subject = this.getSubject(params.type);
     const body = this.getBody(params.code, params.type);
 
-    this.logger.info('Email sent (simulated)', {
+    this.logger.warn('Email transport is stubbed — OTP only logged', {
       to: params.to,
       type: params.type,
+      subjectLength: subject.length,
+      bodyLength: body.length,
     });
 
-    // TODO: Integrate with real email provider (SendGrid, SES, Resend, etc.)
-    // Example with nodemailer:
-    // const transporter = nodemailer.createTransport({ ... });
-    // await transporter.sendMail({ from, to: params.to, subject, html: body });
+    // TODO(prod): Integrate with the real email provider (SendGrid, SES,
+    // Resend, etc.). Example with nodemailer:
+    //   const transporter = nodemailer.createTransport({ ... });
+    //   await transporter.sendMail({ from, to: params.to, subject, html: body });
+    await Promise.resolve();
   }
 
   private getSubject(

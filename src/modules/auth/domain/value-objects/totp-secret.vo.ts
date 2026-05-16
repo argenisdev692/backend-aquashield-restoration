@@ -1,11 +1,11 @@
-import { generateSecret } from 'otplib';
-
+/**
+ * TOTP secret value object — pure domain, zero infrastructure imports.
+ *
+ * Secret *generation* belongs to an infrastructure adapter (`ITotpPort`);
+ * this VO only guards the invariant that a secret is well-formed.
+ */
 export class TotpSecret {
   private constructor(private readonly _value: string) {}
-
-  static generate(): TotpSecret {
-    return new TotpSecret(generateSecret());
-  }
 
   static from(value: string): TotpSecret {
     if (!value || value.length < 16) {

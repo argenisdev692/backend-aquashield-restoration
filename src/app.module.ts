@@ -32,6 +32,10 @@ import { AuthModule } from './modules/auth/auth.module';
           adapter: new TransactionalAdapterPrisma({
             prismaInjectionToken: PrismaService,
           }),
+          // Proxy `PrismaService` so existing repositories that inject it
+          // automatically see the active transaction within `@Transactional()`
+          // boundaries — no need to inject TransactionHost everywhere.
+          enableTransactionProxy: true,
         }),
       ],
     }),
@@ -58,9 +62,6 @@ import { AuthModule } from './modules/auth/auth.module';
     AuthModule,
   ],
   controllers: [AppController],
-  providers: [
-    AppService,
-    { provide: APP_GUARD, useClass: ThrottlerGuard },
-  ],
+  providers: [AppService, { provide: APP_GUARD, useClass: ThrottlerGuard }],
 })
 export class AppModule {}

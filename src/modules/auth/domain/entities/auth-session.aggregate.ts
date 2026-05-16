@@ -7,6 +7,9 @@ export interface DeviceInfo {
 }
 
 export class AuthSession {
+  // `_revokedAt` is the only mutable field; everything else is final.
+  private _revokedAt: Date | null;
+
   private constructor(
     public readonly id: string,
     public readonly userId: string,
@@ -15,8 +18,10 @@ export class AuthSession {
     public readonly ipAddress: string | null,
     public readonly expiresAt: Date,
     public readonly createdAt: Date,
-    public readonly revokedAt: Date | null,
-  ) {}
+    revokedAt: Date | null,
+  ) {
+    this._revokedAt = revokedAt;
+  }
 
   static create(params: {
     id: string;
@@ -42,7 +47,7 @@ export class AuthSession {
   static reconstitute(params: {
     id: string;
     userId: string;
-    refreshToken: string;
+    refreshTokenHash: string;
     deviceInfo: DeviceInfo | null;
     ipAddress: string | null;
     expiresAt: Date;
@@ -52,7 +57,7 @@ export class AuthSession {
     return new AuthSession(
       params.id,
       params.userId,
-      RefreshToken.from(params.refreshToken),
+      RefreshToken.fromHash(params.refreshTokenHash),
       params.deviceInfo,
       params.ipAddress,
       params.expiresAt,
@@ -62,11 +67,15 @@ export class AuthSession {
   }
 
   revoke(): void {
-    (this as { revokedAt: Date }).revokedAt = new Date();
+    this._revokedAt = new Date();
+  }
+
+  get revokedAt(): Date | null {
+    return this._revokedAt;
   }
 
   get isRevoked(): boolean {
-    return this.revokedAt !== null;
+    return this._revokedAt !== null;
   }
 
   get isExpired(): boolean {

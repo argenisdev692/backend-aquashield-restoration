@@ -1,9 +1,7 @@
 import { Injectable } from '@nestjs/common';
 import { PrismaService } from '../../../../../shared/database/prisma.service';
 import { LoggerService } from '../../../../../logger/logger.service';
-import type {
-  IOtpRepository,
-} from '../../../domain/repositories/otp.repository.interface';
+import type { IOtpRepository } from '../../../domain/repositories/otp.repository.interface';
 import type { OtpCode } from '../../../domain/value-objects/otp-code.vo';
 
 @Injectable()

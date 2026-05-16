@@ -1,9 +1,7 @@
 import { Inject, Injectable } from '@nestjs/common';
 import { ClsService } from 'nestjs-cls';
 import { LoggerService } from '../../../../logger/logger.service';
-import type {
-  IAuthSessionRepository,
-} from '../../domain/repositories/auth-session.repository.interface';
+import type { IAuthSessionRepository } from '../../domain/repositories/auth-session.repository.interface';
 import { AUTH_SESSION_REPOSITORY } from '../../domain/repositories/auth-session.repository.interface';
 import type { IAuditPort } from '../../../../shared/activity-log/audit.port';
 import { AUDIT_PORT } from '../../../../shared/activity-log/audit.port';

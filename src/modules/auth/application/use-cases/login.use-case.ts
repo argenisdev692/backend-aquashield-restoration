@@ -1,22 +1,17 @@
 import { Inject, Injectable, UnauthorizedException } from '@nestjs/common';
 import { EventEmitter2 } from '@nestjs/event-emitter';
-import { compare } from 'bcrypt';
 import { ClsService } from 'nestjs-cls';
 import { LoggerService } from '../../../../logger/logger.service';
-import type {
-  IUserAuthRepository,
-} from '../../domain/repositories/user-auth.repository.interface';
+import type { IUserAuthRepository } from '../../domain/repositories/user-auth.repository.interface';
 import { USER_AUTH_REPOSITORY } from '../../domain/repositories/user-auth.repository.interface';
-import type {
-  IOtpRepository,
-} from '../../domain/repositories/otp.repository.interface';
+import type { IOtpRepository } from '../../domain/repositories/otp.repository.interface';
 import { OTP_REPOSITORY } from '../../domain/repositories/otp.repository.interface';
 import type { IEmailPort } from '../../domain/ports/outbound/email.port';
 import { EMAIL_PORT } from '../../domain/ports/outbound/email.port';
+import type { IPasswordHasherPort } from '../../domain/ports/outbound/password-hasher.port';
+import { PASSWORD_HASHER_PORT } from '../../domain/ports/outbound/password-hasher.port';
 import { OtpCode } from '../../domain/value-objects/otp-code.vo';
-import {
-  OtpRequestedEvent,
-} from '../../domain/events/auth-events';
+import { OtpRequestedEvent } from '../../domain/events/auth-events';
 import type { IAuditPort } from '../../../../shared/activity-log/audit.port';
 import { AUDIT_PORT } from '../../../../shared/activity-log/audit.port';
 import type { LoginInput } from '../dtos/login.dto';
@@ -38,6 +33,8 @@ export class LoginUseCase {
     private readonly otpRepo: IOtpRepository,
     @Inject(EMAIL_PORT)
     private readonly emailPort: IEmailPort,
+    @Inject(PASSWORD_HASHER_PORT)
+    private readonly passwordHasher: IPasswordHasherPort,
     @Inject(AUDIT_PORT)
     private readonly audit: IAuditPort,
     private readonly eventEmitter: EventEmitter2,
@@ -56,7 +53,10 @@ export class LoginUseCase {
       throw new UnauthorizedException('Invalid credentials');
     }
 
-    const valid = await compare(dto.password, user.password);
+    const valid = await this.passwordHasher.compare(
+      dto.password,
+      user.password,
+    );
     if (!valid) {
       await this.audit.log({
         action: 'auth.login_failed',

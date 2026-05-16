@@ -26,6 +26,8 @@ model OtpCode {
 model AuthSession {
   id           String    @id @default(dbgenerated("uuid_generate_v7()")) @db.Uuid
   userId       String    @map("user_id") @db.Uuid
+  // Stores SHA-256 hex hash (64 chars) of the raw refresh token, NOT the raw
+  // value. VarChar(512) is kept for forward-compat with longer hash schemes.
   refreshToken String    @unique @map("refresh_token") @db.VarChar(512)
   deviceInfo   Json?     @map("device_info") @db.JsonB
   ipAddress    String?   @map("ip_address") @db.Inet

@@ -2,9 +2,7 @@ import { Inject, Injectable } from '@nestjs/common';
 import { EventEmitter2 } from '@nestjs/event-emitter';
 import { ClsService } from 'nestjs-cls';
 import { LoggerService } from '../../../../logger/logger.service';
-import type {
-  IUserAuthRepository,
-} from '../../domain/repositories/user-auth.repository.interface';
+import type { IUserAuthRepository } from '../../domain/repositories/user-auth.repository.interface';
 import { USER_AUTH_REPOSITORY } from '../../domain/repositories/user-auth.repository.interface';
 import { TwoFactorDisabledEvent } from '../../domain/events/auth-events';
 import type { IAuditPort } from '../../../../shared/activity-log/audit.port';

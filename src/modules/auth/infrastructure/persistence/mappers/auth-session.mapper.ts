@@ -4,12 +4,17 @@ import type { DeviceInfo } from '../../../domain/entities/auth-session.aggregate
 
 type SessionRow = Prisma.AuthSessionGetPayload<Record<string, never>>;
 
+/**
+ * Persistence column `refresh_token` stores the SHA-256 hex hash of the raw
+ * refresh token (never the raw value). The mapper is the only place that
+ * crosses the domain ↔ row boundary.
+ */
 export class AuthSessionMapper {
   static toDomain(row: SessionRow): AuthSession {
     return AuthSession.reconstitute({
       id: row.id,
       userId: row.userId,
-      refreshToken: row.refreshToken,
+      refreshTokenHash: row.refreshToken,
       deviceInfo: row.deviceInfo as DeviceInfo | null,
       ipAddress: row.ipAddress,
       expiresAt: row.expiresAt,
@@ -23,7 +28,7 @@ export class AuthSessionMapper {
   ): Prisma.AuthSessionUncheckedCreateInput {
     return {
       userId: session.userId,
-      refreshToken: session.refreshToken.value,
+      refreshToken: session.refreshToken.hash,
       deviceInfo: session.deviceInfo as Prisma.InputJsonValue | undefined,
       ipAddress: session.ipAddress,
       expiresAt: session.expiresAt,

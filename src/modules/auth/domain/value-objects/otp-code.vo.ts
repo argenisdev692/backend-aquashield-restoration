@@ -1,4 +1,4 @@
-import { randomInt } from 'node:crypto';
+import { randomInt, timingSafeEqual } from 'node:crypto';
 
 export class OtpCode {
   private constructor(
@@ -7,7 +7,9 @@ export class OtpCode {
   ) {}
 
   static generate(ttlMinutes: number = 5): OtpCode {
-    const code = randomInt(1000, 9999).toString();
+    // `randomInt(0, 10000)` covers the full 0000–9999 keyspace
+    // (upper bound is exclusive). Zero-padding preserves the 4-digit shape.
+    const code = randomInt(0, 10_000).toString().padStart(4, '0');
     const expiresAt = new Date(Date.now() + ttlMinutes * 60 * 1000);
     return new OtpCode(code, expiresAt);
   }
@@ -19,9 +21,20 @@ export class OtpCode {
     return new OtpCode(code, expiresAt);
   }
 
+  /**
+   * Constant-time equality check. Bails out early only on length mismatch
+   * (which is independent of the secret since DTOs enforce length === 4).
+   */
+  static safeEqual(a: string, b: string): boolean {
+    if (a.length !== b.length) return false;
+    const ab = Buffer.from(a, 'utf8');
+    const bb = Buffer.from(b, 'utf8');
+    return timingSafeEqual(ab, bb);
+  }
+
   verify(input: string): boolean {
     if (this.isExpired()) return false;
-    return this._code === input;
+    return OtpCode.safeEqual(this._code, input);
   }
 
   isExpired(): boolean {

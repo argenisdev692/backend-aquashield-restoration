@@ -19,6 +19,20 @@ export const TokenResponseSchema = z.object({
 
 export class TokenResponse extends createZodDto(TokenResponseSchema) {}
 
+/**
+ * `verify-otp` is a step in a possibly two-factor flow: it either issues
+ * tokens or signals that a TOTP second factor is still required. The shape
+ * is explicit so clients never have to infer state from empty token strings.
+ */
+export const VerifyOtpResponseSchema = z.object({
+  requiresTotp: z.boolean(),
+  accessToken: z.string().optional(),
+  refreshToken: z.string().optional(),
+  expiresIn: z.number().optional(),
+});
+
+export class VerifyOtpResponse extends createZodDto(VerifyOtpResponseSchema) {}
+
 export const TwoFactorSetupResponseSchema = z.object({
   secret: z.string(),
   qrCodeUri: z.string(),

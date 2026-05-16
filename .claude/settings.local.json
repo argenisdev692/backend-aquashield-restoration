@@ -12,7 +12,9 @@
       "Bash(npm --version)",
       "Bash(npm ci *)",
       "Bash(docker run *)",
-      "Bash(node -e \"const p=require\\('./package.json'\\); console.log\\('type:', p.type||'\\(none → CommonJS\\)'\\)\")"
+      "Bash(node -e \"const p=require\\('./package.json'\\); console.log\\('type:', p.type||'\\(none → CommonJS\\)'\\)\")",
+      "Bash(ls test *)",
+      "Bash(cat test/jest-e2e.json)"
     ]
   }
 }
