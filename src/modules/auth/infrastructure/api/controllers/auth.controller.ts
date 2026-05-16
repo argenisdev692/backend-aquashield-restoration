@@ -1,12 +1,25 @@
-import { Controller, Post, Body, HttpCode, UseGuards } from '@nestjs/common';
+import {
+  Controller,
+  Post,
+  Get,
+  Body,
+  Param,
+  Query,
+  HttpCode,
+  UseGuards,
+} from '@nestjs/common';
 import {
   ApiTags,
   ApiCreatedResponse,
+  ApiOkResponse,
   ApiBadRequestResponse,
   ApiUnauthorizedResponse,
   ApiForbiddenResponse,
+  ApiConflictResponse,
   ApiBearerAuth,
   ApiNoContentResponse,
+  ApiParam,
+  ApiQuery,
 } from '@nestjs/swagger';
 import { Throttle } from '@nestjs/throttler';
 import { ZodValidationPipe } from 'nestjs-zod';
@@ -16,16 +29,60 @@ import { CheckAbilities } from '../../../../../core/decorators/check-abilities.d
 import { Action } from '../../../../../core/access/actions.enum';
 import { CurrentUser } from '../../../../../core/decorators/current-user.decorator';
 import type { AuthenticatedUser } from '../../../../../core/access/actions.enum';
+
 import { LoginUseCase } from '../../../application/use-cases/login.use-case';
-import { VerifyOtpUseCase } from '../../../application/use-cases/verify-otp.use-case';
-import { VerifyTotpUseCase } from '../../../application/use-cases/verify-totp.use-case';
+import { LogoutUseCase } from '../../../application/use-cases/logout.use-case';
+import { LogoutAllSessionsUseCase } from '../../../application/use-cases/logout-all-sessions.use-case';
+import { RefreshTokenUseCase } from '../../../application/use-cases/refresh-token.use-case';
+import { RegisterUseCase } from '../../../application/use-cases/register.use-case';
+import { GetMeUseCase } from '../../../application/use-cases/get-me.use-case';
+import { UpdateProfileUseCase } from '../../../application/use-cases/update-profile.use-case';
+import { RequestPasswordResetUseCase } from '../../../application/use-cases/request-password-reset.use-case';
+import { ValidateResetTokenUseCase } from '../../../application/use-cases/validate-reset-token.use-case';
+import { ResetPasswordUseCase } from '../../../application/use-cases/reset-password.use-case';
+import { VerifyEmailUseCase } from '../../../application/use-cases/verify-email.use-case';
+import { ResendVerificationEmailUseCase } from '../../../application/use-cases/resend-verification-email.use-case';
+import { GetPasswordConfirmationStatusUseCase } from '../../../application/use-cases/get-password-confirmation-status.use-case';
+import { ConfirmPasswordUseCase } from '../../../application/use-cases/confirm-password.use-case';
+import { VerifyTwoFactorChallengeUseCase } from '../../../application/use-cases/verify-two-factor-challenge.use-case';
+import { GoogleAuthUseCase } from '../../../application/use-cases/google-auth.use-case';
 import { Enable2faUseCase } from '../../../application/use-cases/enable-2fa.use-case';
 import { Confirm2faUseCase } from '../../../application/use-cases/confirm-2fa.use-case';
 import { Disable2faUseCase } from '../../../application/use-cases/disable-2fa.use-case';
-import { RefreshTokenUseCase } from '../../../application/use-cases/refresh-token.use-case';
-import { LogoutUseCase } from '../../../application/use-cases/logout.use-case';
-import { LogoutAllSessionsUseCase } from '../../../application/use-cases/logout-all-sessions.use-case';
+import { VerifyOtpUseCase } from '../../../application/use-cases/verify-otp.use-case';
+import { VerifyTotpUseCase } from '../../../application/use-cases/verify-totp.use-case';
+
 import { LoginDto, LoginSchema } from '../../../application/dtos/login.dto';
+import { LogoutDto, LogoutSchema } from '../../../application/dtos/logout.dto';
+import {
+  RefreshTokenDto,
+  RefreshTokenSchema,
+} from '../../../application/dtos/refresh-token.dto';
+import { RegisterDto, RegisterSchema } from '../../../application/dtos/register.dto';
+import {
+  UpdateProfileDto,
+  UpdateProfileSchema,
+} from '../../../application/dtos/update-profile.dto';
+import {
+  RequestPasswordResetDto,
+  RequestPasswordResetSchema,
+} from '../../../application/dtos/request-password-reset.dto';
+import {
+  ResetPasswordDto,
+  ResetPasswordSchema,
+} from '../../../application/dtos/reset-password.dto';
+import {
+  ConfirmPasswordDto,
+  ConfirmPasswordSchema,
+} from '../../../application/dtos/confirm-password.dto';
+import {
+  VerifyTwoFactorChallengeDto,
+  VerifyTwoFactorChallengeSchema,
+} from '../../../application/dtos/verify-two-factor-challenge.dto';
+import {
+  GoogleAuthDto,
+  GoogleAuthSchema,
+} from '../../../application/dtos/google-auth.dto';
 import {
   VerifyOtpDto,
   VerifyOtpSchema,
@@ -35,46 +92,66 @@ import {
   Confirm2faSchema,
 } from '../../../application/dtos/confirm-2fa.dto';
 import {
-  RefreshTokenDto,
-  RefreshTokenSchema,
-} from '../../../application/dtos/refresh-token.dto';
-import { LogoutDto, LogoutSchema } from '../../../application/dtos/logout.dto';
-import {
   VerifyTotpDto,
   VerifyTotpSchema,
 } from '../../../application/dtos/verify-totp.dto';
+
 import {
   LoginResponse,
   TokenResponse,
-  VerifyOtpResponse,
   TwoFactorSetupResponse,
   MessageResponse,
+  RegisterResponse,
+  ForgotPasswordResponse,
+  ResetTokenValidationResponse,
+  EmailVerificationStatusResponse,
+  PasswordConfirmationStatusResponse,
+  TwoFactorChallengeInfoResponse,
+  TwoFactorChallengeResponse,
+  MeResponse,
+  GoogleAuthResponse,
+  VerifyOtpResponse,
 } from '../presenters/auth.response';
 
+const TTL_SECONDS_SHORT = 30;
+
 /**
- * Authenticated mutation endpoints chain `JwtAuthGuard` + `CaslGuard` per
- * project rule. The 2FA / logout endpoints act on the caller's OWN user
- * (ownership is implicit through `@CurrentUser`), so they do NOT declare
- * `@CheckAbilities()` — `CaslGuard` short-circuits to `true` when no rules
- * are declared, while still being present in the chain for future
- * cross-cutting policies. The public endpoints (`/login`, `/verify-otp`,
- * `/verify-totp`, `/refresh`) are intentionally NOT guarded — they are the
- * authentication gateway itself.
+ * Auth controller — covers all authentication, registration, email-verification,
+ * password-reset, 2FA, profile and Google-auth endpoints.
+ *
+ * Public endpoints (no guard): login, register, forgot-password, reset-password,
+ *   email/verify, two-factor-challenge, google-auth, verify-otp, verify-totp, refresh.
+ * Authenticated endpoints: me, update-profile, email/verification-notification,
+ *   user/confirm-password, logout, logout-all, 2fa/* .
  */
 @ApiTags('auth')
 @Controller('auth')
 export class AuthController {
   constructor(
     private readonly loginUseCase: LoginUseCase,
+    private readonly logoutUseCase: LogoutUseCase,
+    private readonly logoutAllSessionsUseCase: LogoutAllSessionsUseCase,
+    private readonly refreshTokenUseCase: RefreshTokenUseCase,
+    private readonly registerUseCase: RegisterUseCase,
+    private readonly getMeUseCase: GetMeUseCase,
+    private readonly updateProfileUseCase: UpdateProfileUseCase,
+    private readonly requestPasswordResetUseCase: RequestPasswordResetUseCase,
+    private readonly validateResetTokenUseCase: ValidateResetTokenUseCase,
+    private readonly resetPasswordUseCase: ResetPasswordUseCase,
+    private readonly verifyEmailUseCase: VerifyEmailUseCase,
+    private readonly resendVerificationEmailUseCase: ResendVerificationEmailUseCase,
+    private readonly getPasswordConfirmationStatusUseCase: GetPasswordConfirmationStatusUseCase,
+    private readonly confirmPasswordUseCase: ConfirmPasswordUseCase,
+    private readonly verifyTwoFactorChallengeUseCase: VerifyTwoFactorChallengeUseCase,
+    private readonly googleAuthUseCase: GoogleAuthUseCase,
     private readonly verifyOtpUseCase: VerifyOtpUseCase,
     private readonly verifyTotpUseCase: VerifyTotpUseCase,
     private readonly enable2faUseCase: Enable2faUseCase,
     private readonly confirm2faUseCase: Confirm2faUseCase,
     private readonly disable2faUseCase: Disable2faUseCase,
-    private readonly refreshTokenUseCase: RefreshTokenUseCase,
-    private readonly logoutUseCase: LogoutUseCase,
-    private readonly logoutAllSessionsUseCase: LogoutAllSessionsUseCase,
   ) {}
+
+  // ─── Authentication ────────────────────────────────────────────────────────
 
   @Post('login')
   @Throttle({ default: { limit: 5, ttl: 60_000 } })
@@ -87,49 +164,12 @@ export class AuthController {
     return this.loginUseCase.execute(dto);
   }
 
-  @Post('verify-otp')
-  @Throttle({ default: { limit: 5, ttl: 60_000 } })
-  @ApiCreatedResponse({ type: VerifyOtpResponse })
-  @ApiBadRequestResponse({ description: 'Validation failed' })
-  @ApiUnauthorizedResponse({ description: 'Invalid or expired OTP' })
-  async verifyOtp(
-    @Body(new ZodValidationPipe(VerifyOtpSchema)) dto: VerifyOtpDto,
-  ): Promise<VerifyOtpResponse> {
-    return this.verifyOtpUseCase.execute(dto);
-  }
-
-  @Post('verify-totp')
-  @Throttle({ default: { limit: 5, ttl: 60_000 } })
-  @ApiCreatedResponse({ type: TokenResponse })
-  @ApiBadRequestResponse({ description: 'Validation failed' })
-  @ApiUnauthorizedResponse({ description: 'Invalid TOTP code' })
-  async verifyTotp(
-    @Body(new ZodValidationPipe(VerifyTotpSchema)) dto: VerifyTotpDto,
-  ): Promise<TokenResponse> {
-    const { accessToken, refreshToken, expiresIn } =
-      await this.verifyTotpUseCase.execute(dto);
-    return { accessToken, refreshToken, expiresIn };
-  }
-
-  @Post('refresh')
-  @Throttle({ default: { limit: 10, ttl: 60_000 } })
-  @ApiCreatedResponse({ type: TokenResponse })
-  @ApiBadRequestResponse({ description: 'Validation failed' })
-  @ApiUnauthorizedResponse({ description: 'Invalid or revoked refresh token' })
-  async refresh(
-    @Body(new ZodValidationPipe(RefreshTokenSchema)) dto: RefreshTokenDto,
-  ): Promise<TokenResponse> {
-    return this.refreshTokenUseCase.execute(dto);
-  }
-
   @Post('logout')
   @HttpCode(204)
   @UseGuards(JwtAuthGuard, CaslGuard)
   @ApiBearerAuth()
   @ApiNoContentResponse()
-  @ApiBadRequestResponse({ description: 'Validation failed' })
   @ApiUnauthorizedResponse({ description: 'Authentication required' })
-  @ApiForbiddenResponse({ description: 'Insufficient permissions' })
   async logout(
     @CurrentUser() user: AuthenticatedUser,
     @Body(new ZodValidationPipe(LogoutSchema)) dto: LogoutDto,
@@ -143,10 +183,253 @@ export class AuthController {
   @ApiBearerAuth()
   @ApiNoContentResponse()
   @ApiUnauthorizedResponse({ description: 'Authentication required' })
-  @ApiForbiddenResponse({ description: 'Insufficient permissions' })
   async logoutAll(@CurrentUser() user: AuthenticatedUser): Promise<void> {
     await this.logoutAllSessionsUseCase.execute(user.id);
   }
+
+  @Post('refresh')
+  @Throttle({ default: { limit: 10, ttl: 60_000 } })
+  @ApiCreatedResponse({ type: TokenResponse })
+  @ApiBadRequestResponse({ description: 'Validation failed' })
+  @ApiUnauthorizedResponse({ description: 'Invalid or revoked refresh token' })
+  async refresh(
+    @Body(new ZodValidationPipe(RefreshTokenSchema)) dto: RefreshTokenDto,
+  ): Promise<TokenResponse> {
+    return this.refreshTokenUseCase.execute(dto);
+  }
+
+  // ─── Registration ──────────────────────────────────────────────────────────
+
+  @Post('register')
+  @Throttle({ default: { limit: 5, ttl: 60_000 } })
+  @ApiCreatedResponse({ type: RegisterResponse })
+  @ApiBadRequestResponse({ description: 'Validation failed' })
+  @ApiConflictResponse({ description: 'Email already registered' })
+  async register(
+    @Body(new ZodValidationPipe(RegisterSchema)) dto: RegisterDto,
+  ): Promise<RegisterResponse> {
+    return this.registerUseCase.execute(dto);
+  }
+
+  // ─── Profile ───────────────────────────────────────────────────────────────
+
+  @Get('me')
+  @UseGuards(JwtAuthGuard, CaslGuard)
+  @ApiBearerAuth()
+  @ApiOkResponse({ type: MeResponse })
+  @ApiUnauthorizedResponse({ description: 'Authentication required' })
+  async me(@CurrentUser() user: AuthenticatedUser): Promise<MeResponse> {
+    const profile = await this.getMeUseCase.execute(user.id);
+    return {
+      id: profile.id,
+      name: profile.name,
+      lastName: profile.lastName,
+      username: profile.username,
+      email: profile.email,
+      phone: profile.phone,
+      dateOfBirth: profile.dateOfBirth?.toISOString() ?? null,
+      address: profile.address,
+      address2: profile.address2,
+      zipCode: profile.zipCode,
+      city: profile.city,
+      state: profile.state,
+      country: profile.country,
+      gender: profile.gender,
+      profilePhotoPath: profile.profilePhotoPath,
+      emailVerified: profile.emailVerifiedAt !== null,
+      emailVerifiedAt: profile.emailVerifiedAt?.toISOString() ?? null,
+      totpEnabled: profile.totpEnabled,
+      passwordConfirmed: profile.passwordConfirmedAt !== null,
+      hasGoogleAuth: profile.googleId !== null,
+      roles: profile.roles,
+      permissions: profile.permissions,
+      createdAt: profile.createdAt.toISOString(),
+    };
+  }
+
+  @Post('update-profile')
+  @HttpCode(200)
+  @UseGuards(JwtAuthGuard, CaslGuard)
+  @ApiBearerAuth()
+  @ApiOkResponse({ type: MessageResponse })
+  @ApiBadRequestResponse({ description: 'Validation failed' })
+  @ApiUnauthorizedResponse({ description: 'Authentication required' })
+  async updateProfile(
+    @CurrentUser() user: AuthenticatedUser,
+    @Body(new ZodValidationPipe(UpdateProfileSchema)) dto: UpdateProfileDto,
+  ): Promise<MessageResponse> {
+    await this.updateProfileUseCase.execute(user.id, dto);
+    return { message: 'Profile updated successfully' };
+  }
+
+  // ─── Password Reset ────────────────────────────────────────────────────────
+
+  @Get('forgot-password')
+  @ApiOkResponse({ type: MessageResponse })
+  forgotPasswordInfo(): MessageResponse {
+    return {
+      message:
+        'POST to this endpoint with { email } to receive a 6-digit reset code by email. ' +
+        'Then POST to /auth/reset-password with { resetToken, code, email, password, passwordConfirmation }.',
+    };
+  }
+
+  @Post('forgot-password')
+  @HttpCode(200)
+  @Throttle({ default: { limit: 3, ttl: 60_000 } })
+  @ApiOkResponse({ type: ForgotPasswordResponse })
+  @ApiBadRequestResponse({ description: 'Validation failed' })
+  async forgotPassword(
+    @Body(new ZodValidationPipe(RequestPasswordResetSchema))
+    dto: RequestPasswordResetDto,
+  ): Promise<ForgotPasswordResponse> {
+    return this.requestPasswordResetUseCase.execute(dto);
+  }
+
+  @Get('reset-password/:token')
+  @ApiOkResponse({ type: ResetTokenValidationResponse })
+  @ApiParam({ name: 'token', type: String, description: 'Raw reset token from email link' })
+  async validateResetToken(
+    @Param('token') token: string,
+  ): Promise<ResetTokenValidationResponse> {
+    return this.validateResetTokenUseCase.execute(token);
+  }
+
+  @Post('reset-password')
+  @HttpCode(200)
+  @Throttle({ default: { limit: 5, ttl: 60_000 } })
+  @ApiOkResponse({ type: MessageResponse })
+  @ApiBadRequestResponse({ description: 'Validation failed' })
+  @ApiUnauthorizedResponse({ description: 'Invalid or expired reset token' })
+  async resetPassword(
+    @Body(new ZodValidationPipe(ResetPasswordSchema)) dto: ResetPasswordDto,
+  ): Promise<MessageResponse> {
+    await this.resetPasswordUseCase.execute(dto);
+    return { message: 'Password has been reset successfully. Please log in.' };
+  }
+
+  // ─── Email Verification ────────────────────────────────────────────────────
+
+  @Get('email/verify')
+  @UseGuards(JwtAuthGuard, CaslGuard)
+  @ApiBearerAuth()
+  @ApiOkResponse({ type: EmailVerificationStatusResponse })
+  @ApiUnauthorizedResponse({ description: 'Authentication required' })
+  async emailVerificationStatus(
+    @CurrentUser() user: AuthenticatedUser,
+  ): Promise<EmailVerificationStatusResponse> {
+    const profile = await this.getMeUseCase.execute(user.id);
+    return {
+      verified: profile.emailVerifiedAt !== null,
+      verifiedAt: profile.emailVerifiedAt?.toISOString() ?? null,
+    };
+  }
+
+  @Get('email/verify/:id/:hash')
+  @ApiOkResponse({ type: MessageResponse })
+  @ApiBadRequestResponse({ description: 'Invalid verification link' })
+  @ApiParam({ name: 'id', type: String, description: 'User UUID' })
+  @ApiParam({ name: 'hash', type: String, description: 'HMAC-SHA256 verification hash' })
+  async verifyEmail(
+    @Param('id') id: string,
+    @Param('hash') hash: string,
+  ): Promise<MessageResponse> {
+    await this.verifyEmailUseCase.execute(id, hash);
+    return { message: 'Email address verified successfully.' };
+  }
+
+  @Post('email/verification-notification')
+  @HttpCode(200)
+  @Throttle({ default: { limit: 3, ttl: 60_000 } })
+  @UseGuards(JwtAuthGuard, CaslGuard)
+  @ApiBearerAuth()
+  @ApiOkResponse({ type: MessageResponse })
+  @ApiBadRequestResponse({ description: 'Email already verified' })
+  @ApiUnauthorizedResponse({ description: 'Authentication required' })
+  async resendVerificationEmail(
+    @CurrentUser() user: AuthenticatedUser,
+  ): Promise<MessageResponse> {
+    await this.resendVerificationEmailUseCase.execute(user.id);
+    return { message: 'Verification email has been sent.' };
+  }
+
+  // ─── Password Confirmation ─────────────────────────────────────────────────
+
+  @Get('user/confirm-password')
+  @UseGuards(JwtAuthGuard, CaslGuard)
+  @ApiBearerAuth()
+  @ApiOkResponse({ type: PasswordConfirmationStatusResponse })
+  @ApiUnauthorizedResponse({ description: 'Authentication required' })
+  async passwordConfirmationStatus(
+    @CurrentUser() user: AuthenticatedUser,
+  ): Promise<PasswordConfirmationStatusResponse> {
+    const status = await this.getPasswordConfirmationStatusUseCase.execute(
+      user.id,
+    );
+    return {
+      confirmed: status.confirmed,
+      confirmedAt: status.confirmedAt?.toISOString() ?? null,
+    };
+  }
+
+  @Post('user/confirm-password')
+  @HttpCode(200)
+  @Throttle({ default: { limit: 5, ttl: 60_000 } })
+  @UseGuards(JwtAuthGuard, CaslGuard)
+  @ApiBearerAuth()
+  @ApiOkResponse({ type: MessageResponse })
+  @ApiBadRequestResponse({ description: 'Validation failed' })
+  @ApiUnauthorizedResponse({ description: 'Invalid credentials' })
+  async confirmPassword(
+    @CurrentUser() user: AuthenticatedUser,
+    @Body(new ZodValidationPipe(ConfirmPasswordSchema)) dto: ConfirmPasswordDto,
+  ): Promise<MessageResponse> {
+    await this.confirmPasswordUseCase.execute(user.id, dto);
+    return { message: 'Password confirmed.' };
+  }
+
+  // ─── Two-Factor Challenge ──────────────────────────────────────────────────
+
+  @Get('two-factor-challenge')
+  @ApiOkResponse({ type: TwoFactorChallengeInfoResponse })
+  @ApiQuery({ name: 'email', required: true, type: String })
+  async twoFactorChallengeInfo(
+    @Query('email') email: string,
+  ): Promise<TwoFactorChallengeInfoResponse> {
+    return {
+      email,
+      challengeType: 'otp',
+      message:
+        'Submit your 4-digit OTP (type: otp) or 6-digit TOTP code (type: totp) to POST /auth/two-factor-challenge.',
+    };
+  }
+
+  @Post('two-factor-challenge')
+  @Throttle({ default: { limit: 5, ttl: 60_000 } })
+  @ApiCreatedResponse({ type: TwoFactorChallengeResponse })
+  @ApiBadRequestResponse({ description: 'Validation failed' })
+  @ApiUnauthorizedResponse({ description: 'Invalid or expired code' })
+  async twoFactorChallenge(
+    @Body(new ZodValidationPipe(VerifyTwoFactorChallengeSchema))
+    dto: VerifyTwoFactorChallengeDto,
+  ): Promise<TwoFactorChallengeResponse> {
+    return this.verifyTwoFactorChallengeUseCase.execute(dto);
+  }
+
+  // ─── Google OAuth ──────────────────────────────────────────────────────────
+
+  @Post('google-auth')
+  @Throttle({ default: { limit: 10, ttl: 60_000 } })
+  @ApiCreatedResponse({ type: GoogleAuthResponse })
+  @ApiBadRequestResponse({ description: 'Validation failed' })
+  @ApiUnauthorizedResponse({ description: 'Invalid Google ID token' })
+  async googleAuth(
+    @Body(new ZodValidationPipe(GoogleAuthSchema)) dto: GoogleAuthDto,
+  ): Promise<GoogleAuthResponse> {
+    return this.googleAuthUseCase.execute(dto);
+  }
+
+  // ─── 2FA Management ───────────────────────────────────────────────────────
 
   @Post('2fa/enable')
   @UseGuards(JwtAuthGuard, CaslGuard)
@@ -174,7 +457,7 @@ export class AuthController {
     @Body(new ZodValidationPipe(Confirm2faSchema)) dto: Confirm2faDto,
   ): Promise<MessageResponse> {
     await this.confirm2faUseCase.execute(user.id, dto);
-    return { message: '2FA enabled' };
+    return { message: '2FA enabled successfully' };
   }
 
   @Post('2fa/disable')
@@ -187,5 +470,31 @@ export class AuthController {
   @ApiForbiddenResponse({ description: 'Insufficient permissions' })
   async disable2fa(@CurrentUser() user: AuthenticatedUser): Promise<void> {
     await this.disable2faUseCase.execute(user.id);
+  }
+
+  // ─── Legacy OTP/TOTP (kept for backward compatibility) ────────────────────
+
+  @Post('verify-otp')
+  @Throttle({ default: { limit: 5, ttl: 60_000 } })
+  @ApiCreatedResponse({ type: VerifyOtpResponse })
+  @ApiBadRequestResponse({ description: 'Validation failed' })
+  @ApiUnauthorizedResponse({ description: 'Invalid or expired OTP' })
+  async verifyOtp(
+    @Body(new ZodValidationPipe(VerifyOtpSchema)) dto: VerifyOtpDto,
+  ): Promise<VerifyOtpResponse> {
+    return this.verifyOtpUseCase.execute(dto);
+  }
+
+  @Post('verify-totp')
+  @Throttle({ default: { limit: 5, ttl: 60_000 } })
+  @ApiCreatedResponse({ type: TokenResponse })
+  @ApiBadRequestResponse({ description: 'Validation failed' })
+  @ApiUnauthorizedResponse({ description: 'Invalid TOTP code' })
+  async verifyTotp(
+    @Body(new ZodValidationPipe(VerifyTotpSchema)) dto: VerifyTotpDto,
+  ): Promise<TokenResponse> {
+    const { accessToken, refreshToken, expiresIn } =
+      await this.verifyTotpUseCase.execute(dto);
+    return { accessToken, refreshToken, expiresIn };
   }
 }

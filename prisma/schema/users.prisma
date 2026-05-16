@@ -28,20 +28,23 @@ model User {
   latitude           Float?    @db.DoublePrecision
   longitude          Float?    @db.DoublePrecision
   termsAndConditions Boolean   @default(false) @map("terms_and_conditions")
-  totpSecret         String?   @map("totp_secret") @db.VarChar(255)
-  totpEnabled        Boolean   @default(false) @map("totp_enabled")
-  createdAt          DateTime  @default(now()) @map("created_at") @db.Timestamp(6)
-  updatedAt          DateTime  @default(now()) @map("updated_at") @db.Timestamp(6)
-  deletedAt          DateTime? @map("deleted_at") @db.Timestamp(6)
+  totpSecret           String?   @map("totp_secret") @db.VarChar(255)
+  totpEnabled          Boolean   @default(false) @map("totp_enabled")
+  googleId             String?   @unique @map("google_id") @db.VarChar(255)
+  passwordConfirmedAt  DateTime? @map("password_confirmed_at") @db.Timestamp(6)
+  createdAt            DateTime  @default(now()) @map("created_at") @db.Timestamp(6)
+  updatedAt            DateTime  @default(now()) @map("updated_at") @db.Timestamp(6)
+  deletedAt            DateTime? @map("deleted_at") @db.Timestamp(6)
 
   // Relations
-  roles               UserRole[]
-  permissions         UserPermission[]
-  rolesAssignedByMe   UserRole[]       @relation("UserRoleAssignedBy")
-  permsAssignedByMe   UserPermission[] @relation("UserPermissionAssignedBy")
-  company             CompanyData?
-  otpCodes            OtpCode[]
-  authSessions        AuthSession[]
+  roles                UserRole[]
+  permissions          UserPermission[]
+  rolesAssignedByMe    UserRole[]            @relation("UserRoleAssignedBy")
+  permsAssignedByMe    UserPermission[]      @relation("UserPermissionAssignedBy")
+  company              CompanyData?
+  otpCodes             OtpCode[]
+  authSessions         AuthSession[]
+  passwordResetTokens  PasswordResetToken[]
 
   @@index([email], map: "idx_users_email")
   @@index([deletedAt], map: "idx_users_deleted_at")

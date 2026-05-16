@@ -2,6 +2,7 @@ import { Inject, Injectable, UnauthorizedException } from '@nestjs/common';
 import { EventEmitter2 } from '@nestjs/event-emitter';
 import { ClsService } from 'nestjs-cls';
 import { LoggerService } from '../../../../logger/logger.service';
+import { CacheService } from '../../../../shared/cache/cache.service';
 import type { IUserAuthRepository } from '../../domain/repositories/user-auth.repository.interface';
 import { USER_AUTH_REPOSITORY } from '../../domain/repositories/user-auth.repository.interface';
 import type { IOtpRepository } from '../../domain/repositories/otp.repository.interface';
@@ -24,6 +25,11 @@ export interface LoginResult {
   expiresIn?: number;
 }
 
+/** Maximum failed-password attempts before a security alert email is sent. */
+const FAILED_LOGIN_ALERT_THRESHOLD = 3;
+/** Window in seconds to track consecutive failed logins (15 minutes). */
+const FAILED_LOGIN_WINDOW_SECONDS = 15 * 60;
+
 @Injectable()
 export class LoginUseCase {
   constructor(
@@ -37,6 +43,7 @@ export class LoginUseCase {
     private readonly passwordHasher: IPasswordHasherPort,
     @Inject(AUDIT_PORT)
     private readonly audit: IAuditPort,
+    private readonly cache: CacheService,
     private readonly eventEmitter: EventEmitter2,
     private readonly logger: LoggerService,
     private readonly cls: ClsService,
@@ -53,21 +60,15 @@ export class LoginUseCase {
       throw new UnauthorizedException('Invalid credentials');
     }
 
-    const valid = await this.passwordHasher.compare(
-      dto.password,
-      user.password,
-    );
+    const valid = await this.passwordHasher.compare(dto.password, user.password);
     if (!valid) {
-      await this.audit.log({
-        action: 'auth.login_failed',
-        resourceType: 'USER',
-        resourceId: user.id,
-        metadata: { reason: 'invalid_password' },
-      });
+      await this.handleFailedLogin(user.id, dto.email, traceId);
       throw new UnauthorizedException('Invalid credentials');
     }
 
-    // Step 1: Email OTP required
+    // Clear the failure counter on a successful credential check.
+    await this.cache.del(this.failedLoginKey(dto.email));
+
     const otp = OtpCode.generate(5);
     await this.otpRepo.save({ userId: user.id, code: otp, type: 'login' });
     await this.emailPort.sendOtp({
@@ -88,10 +89,67 @@ export class LoginUseCase {
     });
 
     this.logger.info('OTP sent for login', { traceId, userId: user.id });
-
     return {
       requiresOtp: true,
       requiresTotp: user.totpEnabled,
     };
+  }
+
+  private async handleFailedLogin(
+    userId: string,
+    email: string,
+    traceId: string,
+  ): Promise<void> {
+    const key = this.failedLoginKey(email);
+    const current = (await this.cache.get<number>(key)) ?? 0;
+    const updated = current + 1;
+
+    await this.cache.set(key, updated, FAILED_LOGIN_WINDOW_SECONDS);
+
+    await this.audit.log({
+      action: 'auth.login_failed',
+      resourceType: 'USER',
+      resourceId: userId,
+      metadata: { attempt: updated },
+    });
+
+    this.logger.warn('Failed login attempt', {
+      traceId,
+      userId,
+      attempt: updated,
+    });
+
+    if (updated === FAILED_LOGIN_ALERT_THRESHOLD) {
+      this.logger.warn('Security alert: failed login threshold reached', {
+        traceId,
+        userId,
+        attempt: updated,
+      });
+
+      // Fire-and-forget: alert failure must never block the auth error response.
+      this.emailPort
+        .sendSecurityAlert({
+          to: email,
+          event: 'login_attempts',
+          attemptCount: updated,
+        })
+        .catch((err: Error) => {
+          this.logger.error('Failed to send security alert email', {
+            traceId,
+            error: err.message,
+          });
+        });
+
+      await this.audit.log({
+        action: 'auth.security_alert_sent',
+        resourceType: 'USER',
+        resourceId: userId,
+        metadata: { event: 'login_attempts', attemptCount: updated },
+      });
+    }
+  }
+
+  private failedLoginKey(email: string): string {
+    return `auth:login-failures:${email}`;
   }
 }

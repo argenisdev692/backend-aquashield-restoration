@@ -16,9 +16,18 @@ describe('Enable2faUseCase', () => {
     const userRepo = {
       findByEmail: jest.fn(),
       findById: jest.fn(),
+      findByGoogleId: jest.fn(),
+      findProfileById: jest.fn(),
+      create: jest.fn(),
       updateTotpSecret: jest.fn().mockResolvedValue(undefined),
       enableTotp: jest.fn(),
       disableTotp: jest.fn(),
+      updatePassword: jest.fn(),
+      setEmailVerified: jest.fn(),
+      setPasswordConfirmed: jest.fn(),
+      getPasswordConfirmedAt: jest.fn(),
+      setGoogleId: jest.fn(),
+      updateProfile: jest.fn(),
     };
     const totp = {
       generateSecret: jest.fn().mockReturnValue('ABCDEFGHIJKLMNOP'),

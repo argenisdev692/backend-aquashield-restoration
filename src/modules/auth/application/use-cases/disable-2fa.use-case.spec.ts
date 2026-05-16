@@ -16,9 +16,18 @@ describe('Disable2faUseCase', () => {
     const userRepo = {
       findByEmail: jest.fn(),
       findById: jest.fn(),
+      findByGoogleId: jest.fn(),
+      findProfileById: jest.fn(),
+      create: jest.fn(),
       updateTotpSecret: jest.fn(),
       enableTotp: jest.fn(),
       disableTotp: jest.fn().mockResolvedValue(undefined),
+      updatePassword: jest.fn(),
+      setEmailVerified: jest.fn(),
+      setPasswordConfirmed: jest.fn(),
+      getPasswordConfirmedAt: jest.fn(),
+      setGoogleId: jest.fn(),
+      updateProfile: jest.fn(),
     };
     const audit = { log: jest.fn().mockResolvedValue(undefined) };
     const eventEmitter = { emit: jest.fn() };

@@ -23,7 +23,13 @@ describe('OtpCode (domain VO)', () => {
 
   it('rejects a malformed code in from()', () => {
     expect(() => OtpCode.from('12', new Date())).toThrow(
-      'OTP code must be a 4-digit string',
+      'OTP code must be a 4 or 6 digit string',
     );
+  });
+
+  it('generates a 6-digit code with generate6()', () => {
+    const otp = OtpCode.generate6(10);
+    expect(otp.code).toMatch(/^\d{6}$/);
+    expect(otp.isExpired()).toBe(false);
   });
 });

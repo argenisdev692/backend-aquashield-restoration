@@ -14,7 +14,10 @@
       "Bash(docker run *)",
       "Bash(node -e \"const p=require\\('./package.json'\\); console.log\\('type:', p.type||'\\(none → CommonJS\\)'\\)\")",
       "Bash(ls test *)",
-      "Bash(cat test/jest-e2e.json)"
+      "Bash(cat test/jest-e2e.json)",
+      "mcp__filesystem__list_directory_with_sizes",
+      "Bash(npm install *)",
+      "Bash(node -e \"require\\('resend'\\); console.log\\('resend ok'\\)\")"
     ]
   }
 }

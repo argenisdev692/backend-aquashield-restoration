@@ -11,7 +11,7 @@
 model OtpCode {
   id        String    @id @default(dbgenerated("uuid_generate_v7()")) @db.Uuid
   userId    String    @map("user_id") @db.Uuid
-  code      String    @db.Char(4)
+  code      String    @db.VarChar(6) // 4 digits (login/email_verify) or 6 digits (password_reset)
   type      String    @db.VarChar(30) // 'login' | 'email_verify' | 'password_reset'
   expiresAt DateTime  @map("expires_at") @db.Timestamp(6)
   usedAt    DateTime? @map("used_at") @db.Timestamp(6)

@@ -17,9 +17,15 @@ const user = {
   totpSecret: null,
   totpEnabled: false,
   roleIds: ['r1'],
+  googleId: null,
+  emailVerifiedAt: null,
 };
 
-function build(overrides: { compare?: boolean; found?: typeof user | null }) {
+function build(overrides: {
+  compare?: boolean;
+  found?: typeof user | null;
+  cacheCount?: number;
+}) {
   const userRepo = {
     findByEmail: jest
       .fn()
@@ -27,9 +33,18 @@ function build(overrides: { compare?: boolean; found?: typeof user | null }) {
         overrides.found === undefined ? user : overrides.found,
       ),
     findById: jest.fn(),
+    findByGoogleId: jest.fn(),
+    findProfileById: jest.fn(),
+    create: jest.fn(),
     updateTotpSecret: jest.fn(),
     enableTotp: jest.fn(),
     disableTotp: jest.fn(),
+    updatePassword: jest.fn(),
+    setEmailVerified: jest.fn(),
+    setPasswordConfirmed: jest.fn(),
+    getPasswordConfirmedAt: jest.fn(),
+    setGoogleId: jest.fn(),
+    updateProfile: jest.fn(),
   };
   const otpRepo = {
     save: jest.fn().mockResolvedValue(undefined),
@@ -37,12 +52,24 @@ function build(overrides: { compare?: boolean; found?: typeof user | null }) {
     markUsed: jest.fn(),
     deleteExpired: jest.fn(),
   };
-  const emailPort = { sendOtp: jest.fn().mockResolvedValue(undefined) };
+  const emailPort = {
+    sendOtp: jest.fn().mockResolvedValue(undefined),
+    sendPasswordResetCode: jest.fn().mockResolvedValue(undefined),
+    sendPasswordResetLink: jest.fn().mockResolvedValue(undefined),
+    sendVerificationLink: jest.fn().mockResolvedValue(undefined),
+    sendWelcomeEmail: jest.fn().mockResolvedValue(undefined),
+    sendSecurityAlert: jest.fn().mockResolvedValue(undefined),
+  };
   const passwordHasher = {
     compare: jest.fn().mockResolvedValue(overrides.compare ?? true),
     hash: jest.fn(),
   };
   const audit = { log: jest.fn().mockResolvedValue(undefined) };
+  const cache = {
+    get: jest.fn().mockResolvedValue(overrides.cacheCount ?? 0),
+    set: jest.fn().mockResolvedValue(undefined),
+    del: jest.fn().mockResolvedValue(undefined),
+  };
   const eventEmitter = { emit: jest.fn() };
 
   const useCase = new LoginUseCase(
@@ -51,18 +78,21 @@ function build(overrides: { compare?: boolean; found?: typeof user | null }) {
     emailPort,
     passwordHasher,
     audit,
+    cache as never,
     eventEmitter as never,
     logger as never,
     cls as never,
   );
-  return { useCase, userRepo, otpRepo, emailPort, audit, eventEmitter };
+  return { useCase, userRepo, otpRepo, emailPort, audit, cache, eventEmitter };
 }
 
 describe('LoginUseCase', () => {
   beforeEach(() => jest.clearAllMocks());
 
   it('sends an OTP and audits auth.otp_requested on valid credentials', async () => {
-    const { useCase, otpRepo, emailPort, audit } = build({ compare: true });
+    const { useCase, otpRepo, emailPort, audit, cache } = build({
+      compare: true,
+    });
 
     const result = await useCase.execute({
       email: 'a@b.com',
@@ -72,10 +102,10 @@ describe('LoginUseCase', () => {
     expect(result).toEqual({ requiresOtp: true, requiresTotp: false });
     expect(otpRepo.save).toHaveBeenCalledTimes(1);
     expect(emailPort.sendOtp).toHaveBeenCalledTimes(1);
+    expect(cache.del).toHaveBeenCalledTimes(1);
     expect(audit.log).toHaveBeenCalledWith(
       expect.objectContaining({ action: 'auth.otp_requested' }),
     );
-    // Audit rule: write UseCases log INFO at START *and* END.
     expect(logger.info).toHaveBeenCalledWith(
       'Login attempt',
       expect.any(Object),
@@ -87,13 +117,36 @@ describe('LoginUseCase', () => {
   });
 
   it('audits auth.login_failed and throws on wrong password', async () => {
-    const { useCase, audit } = build({ compare: false });
+    const { useCase, audit, cache } = build({ compare: false });
 
     await expect(
       useCase.execute({ email: 'a@b.com', password: 'bad' }),
     ).rejects.toBeInstanceOf(UnauthorizedException);
+
+    expect(cache.set).toHaveBeenCalledTimes(1);
     expect(audit.log).toHaveBeenCalledWith(
       expect.objectContaining({ action: 'auth.login_failed' }),
+    );
+  });
+
+  it('sends a security alert email on the 3rd failed attempt', async () => {
+    const { useCase, emailPort, audit } = build({
+      compare: false,
+      cacheCount: 2,
+    });
+
+    await expect(
+      useCase.execute({ email: 'a@b.com', password: 'bad' }),
+    ).rejects.toBeInstanceOf(UnauthorizedException);
+
+    // Fire-and-forget: flush the promise
+    await Promise.resolve();
+
+    expect(emailPort.sendSecurityAlert).toHaveBeenCalledWith(
+      expect.objectContaining({ event: 'login_attempts', attemptCount: 3 }),
+    );
+    expect(audit.log).toHaveBeenCalledWith(
+      expect.objectContaining({ action: 'auth.security_alert_sent' }),
     );
   });
 

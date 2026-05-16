@@ -34,10 +34,21 @@ function build(opts: { active?: boolean; sessionFound?: boolean }) {
       totpSecret: null,
       totpEnabled: false,
       roleIds: ['r1'],
+      googleId: null,
+      emailVerifiedAt: null,
     }),
+    findByGoogleId: jest.fn(),
+    findProfileById: jest.fn(),
+    create: jest.fn(),
     updateTotpSecret: jest.fn(),
     enableTotp: jest.fn(),
     disableTotp: jest.fn(),
+    updatePassword: jest.fn(),
+    setEmailVerified: jest.fn(),
+    setPasswordConfirmed: jest.fn(),
+    getPasswordConfirmedAt: jest.fn(),
+    setGoogleId: jest.fn(),
+    updateProfile: jest.fn(),
   };
   const audit = { log: jest.fn().mockResolvedValue(undefined) };
   const tokenIssuer = {

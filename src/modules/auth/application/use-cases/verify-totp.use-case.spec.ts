@@ -14,9 +14,11 @@ const user = {
   id: 'u1',
   email: 'a@b.com',
   password: 'h',
-  totpSecret: 'SECRET',
+  totpSecret: 'SECRET' as string | null,
   totpEnabled: true,
   roleIds: ['r1'],
+  googleId: null as string | null,
+  emailVerifiedAt: null as Date | null,
 };
 
 function build(opts: { valid?: boolean; user?: typeof user | null }) {
@@ -25,9 +27,18 @@ function build(opts: { valid?: boolean; user?: typeof user | null }) {
       .fn()
       .mockResolvedValue(opts.user === undefined ? user : opts.user),
     findById: jest.fn(),
+    findByGoogleId: jest.fn(),
+    findProfileById: jest.fn(),
+    create: jest.fn(),
     updateTotpSecret: jest.fn(),
     enableTotp: jest.fn(),
     disableTotp: jest.fn(),
+    updatePassword: jest.fn(),
+    setEmailVerified: jest.fn(),
+    setPasswordConfirmed: jest.fn(),
+    getPasswordConfirmedAt: jest.fn(),
+    setGoogleId: jest.fn(),
+    updateProfile: jest.fn(),
   };
   const totp = {
     generateSecret: jest.fn(),
