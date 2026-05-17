@@ -51,6 +51,13 @@ export const EnvSchema = z.object({
   // ── API docs ───────────────────────────────────────────────
   SWAGGER_ENABLED: booleanFromString.default(true),
 
+  // ── Email (Resend) ──────────────────────────────────────────
+  RESEND_API_KEY: z.string().min(1),
+  RESEND_FROM_EMAIL: z.string().email(),
+
+  // ── Application ─────────────────────────────────────────────
+  APP_URL: z.string().url().default('http://localhost:3000'),
+
   // ── Cloudflare R2 (object storage) ─────────────────────────
   R2_ACCESS_KEY_ID: z.string().min(1),
   R2_SECRET_ACCESS_KEY: z.string().min(1),

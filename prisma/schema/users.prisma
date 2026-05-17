@@ -45,6 +45,7 @@ model User {
   otpCodes             OtpCode[]
   authSessions         AuthSession[]
   passwordResetTokens  PasswordResetToken[]
+  passwordSetupTokens  PasswordSetupToken[]
 
   @@index([email], map: "idx_users_email")
   @@index([deletedAt], map: "idx_users_deleted_at")

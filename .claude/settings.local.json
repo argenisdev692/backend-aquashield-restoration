@@ -18,7 +18,8 @@
       "mcp__filesystem__list_directory_with_sizes",
       "Bash(npm install *)",
       "Bash(node -e \"require\\('resend'\\); console.log\\('resend ok'\\)\")",
-      "Bash(git stash *)"
+      "Bash(git stash *)",
+      "WebSearch"
     ]
   }
 }
