@@ -81,6 +81,12 @@ const PERMISSIONS: readonly PermissionSeed[] = [
   { name: "company:update",  module: "company", subject: "COMPANY", action: "update",  description: "Edit company data" },
   { name: "company:delete",  module: "company", subject: "COMPANY", action: "delete",  description: "Soft-delete company data" },
   { name: "company:restore", module: "company", subject: "COMPANY", action: "restore", description: "Restore soft-deleted company data" },
+  // blog-categories
+  { name: "blog-categories:create",  module: "blog-categories", subject: "BLOG_CATEGORY", action: "create",  description: "Create blog categories" },
+  { name: "blog-categories:read",    module: "blog-categories", subject: "BLOG_CATEGORY", action: "read",    description: "View blog categories" },
+  { name: "blog-categories:update",  module: "blog-categories", subject: "BLOG_CATEGORY", action: "update",  description: "Edit blog categories" },
+  { name: "blog-categories:delete",  module: "blog-categories", subject: "BLOG_CATEGORY", action: "delete",  description: "Soft-delete blog categories" },
+  { name: "blog-categories:restore", module: "blog-categories", subject: "BLOG_CATEGORY", action: "restore", description: "Restore soft-deleted blog categories" },
 ];
 
 const ROLE_GRANTS: Readonly<Record<string, readonly string[] | "ALL">> = {
@@ -91,6 +97,7 @@ const ROLE_GRANTS: Readonly<Record<string, readonly string[] | "ALL">> = {
     "content:create", "content:read", "content:update", "content:delete", "content:publish",
     "appointments:create", "appointments:read", "appointments:update", "appointments:delete",
     "contacts:create", "contacts:read", "contacts:update", "contacts:delete",
+    "blog-categories:create", "blog-categories:read", "blog-categories:update", "blog-categories:delete", "blog-categories:restore",
     // company:* is intentionally excluded — super-admin only
   ],
   editor: [
@@ -98,6 +105,7 @@ const ROLE_GRANTS: Readonly<Record<string, readonly string[] | "ALL">> = {
     "content:create", "content:read", "content:update",
     "appointments:create", "appointments:read", "appointments:update",
     "contacts:read",
+    "blog-categories:create", "blog-categories:read", "blog-categories:update",
     // company:* is intentionally excluded — super-admin only
   ],
   viewer: [
@@ -105,9 +113,23 @@ const ROLE_GRANTS: Readonly<Record<string, readonly string[] | "ALL">> = {
     "content:read",
     "appointments:read",
     "contacts:read",
+    "blog-categories:read",
     // company:* is intentionally excluded — super-admin only
   ],
 };
+
+type BlogCategorySeed = Readonly<{
+  name: string;
+  description: string;
+  image: string | null;
+}>;
+
+const BLOG_CATEGORIES: readonly BlogCategorySeed[] = [
+  { name: "AI",              description: "Artificial Intelligence trends, tools and insights",               image: null },
+  { name: "Software",        description: "Software development, engineering and best practices",              image: null },
+  { name: "Marketing Online", description: "Digital marketing strategies, SEO and content marketing",          image: null },
+  { name: "Social Network",  description: "Social media platforms, networking and community building",         image: null },
+];
 
 type UserSeed = Readonly<{
   name: string;
@@ -228,6 +250,18 @@ async function main(): Promise<void> {
       update: { name: "Argenis Gonzalez", companyName: "Argenis Gonzalez" },
       create: { name: "Argenis Gonzalez", companyName: "Argenis Gonzalez", userId: superAdminUser.id },
     });
+
+    console.log("→ seeding blog_categories…");
+    for (const cat of BLOG_CATEGORIES) {
+      const existing = await prisma.blogCategory.findFirst({
+        where: { name: cat.name, deletedAt: null },
+      });
+      if (!existing) {
+        await prisma.blogCategory.create({
+          data: { name: cat.name, description: cat.description, image: cat.image, userId: superAdminUser.id },
+        });
+      }
+    }
 
     console.log("✓ seed complete");
   } finally {

@@ -21,6 +21,7 @@ export type Subjects =
   | 'COMPANY'
   | 'CONTACT'
   | 'CONTENT'
+  | 'BLOG_CATEGORY'
   | 'ACTIVITY_LOG'
   | 'ALL';
 

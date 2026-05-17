@@ -46,6 +46,7 @@ model User {
   authSessions         AuthSession[]
   passwordResetTokens  PasswordResetToken[]
   passwordSetupTokens  PasswordSetupToken[]
+  blogCategories       BlogCategory[]
 
   @@index([email], map: "idx_users_email")
   @@index([deletedAt], map: "idx_users_deleted_at")

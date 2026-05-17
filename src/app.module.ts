@@ -21,6 +21,7 @@ import { PrismaService } from './shared/database/prisma.service';
 import { QueueModule } from './shared/messaging/queue.module';
 import { AuthModule } from './modules/auth/auth.module';
 import { CompanyDataModule } from './modules/companydata/companydata.module';
+import { BlogCategoryModule } from './modules/blog-category/blog-category.module';
 import { UsersModule } from './modules/users/users.module';
 
 @Module({
@@ -63,6 +64,7 @@ import { UsersModule } from './modules/users/users.module';
     HealthModule,
     AuthModule,
     CompanyDataModule,
+    BlogCategoryModule,
     UsersModule,
   ],
   controllers: [AppController],
