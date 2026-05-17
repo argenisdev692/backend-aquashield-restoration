@@ -20,6 +20,7 @@ import { DatabaseModule } from './shared/database/database.module';
 import { PrismaService } from './shared/database/prisma.service';
 import { QueueModule } from './shared/messaging/queue.module';
 import { AuthModule } from './modules/auth/auth.module';
+import { CompanyDataModule } from './modules/companydata/companydata.module';
 
 @Module({
   imports: [
@@ -60,6 +61,7 @@ import { AuthModule } from './modules/auth/auth.module';
     CoreModule,
     HealthModule,
     AuthModule,
+    CompanyDataModule,
   ],
   controllers: [AppController],
   providers: [AppService, { provide: APP_GUARD, useClass: ThrottlerGuard }],

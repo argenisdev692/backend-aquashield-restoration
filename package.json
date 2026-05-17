@@ -101,6 +101,7 @@
     "@types/express": "^5.0.6",
     "@types/hpp": "^0.2.7",
     "@types/jest": "^30.0.0",
+    "@types/multer": "^2.1.0",
     "@types/node": "^22.19.19",
     "@types/passport-jwt": "^4.0.1",
     "@types/pdfkit": "^0.17.6",
@@ -138,6 +139,12 @@
     "testRegex": ".*\\.spec\\.ts$",
     "transform": {
       "^.+\\.(t|j)s$": "ts-jest"
+    },
+    "transformIgnorePatterns": [
+      "/node_modules/(?!(uuid)/)"
+    ],
+    "moduleNameMapper": {
+      "^(\\.{1,2}/.*)\\.[mc]?js$": "$1"
     },
     "collectCoverageFrom": [
       "**/*.(t|j)s"

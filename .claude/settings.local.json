@@ -17,7 +17,8 @@
       "Bash(cat test/jest-e2e.json)",
       "mcp__filesystem__list_directory_with_sizes",
       "Bash(npm install *)",
-      "Bash(node -e \"require\\('resend'\\); console.log\\('resend ok'\\)\")"
+      "Bash(node -e \"require\\('resend'\\); console.log\\('resend ok'\\)\")",
+      "Bash(git stash *)"
     ]
   }
 }

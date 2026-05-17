@@ -30,7 +30,7 @@ trigger: always_on
 
 > **Rule:** If a skill file covers the task, read it FIRST — no exceptions.
 > **Architecture default:** when in doubt, use `ARQUITECTURE-NEST-CRUD`. Escalate to `ARQUITECTURE-NEST` only with an explicit, justified upgrade trigger.
-> **Total files:** 6 (this router + 4 skills + security baseline). No redundancy.
+> **Total files:** 7 (this router + 5 skills + security baseline). No redundancy.
 
 ---
 

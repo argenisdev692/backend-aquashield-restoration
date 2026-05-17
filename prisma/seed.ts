@@ -91,21 +91,21 @@ const ROLE_GRANTS: Readonly<Record<string, readonly string[] | "ALL">> = {
     "content:create", "content:read", "content:update", "content:delete", "content:publish",
     "appointments:create", "appointments:read", "appointments:update", "appointments:delete",
     "contacts:create", "contacts:read", "contacts:update", "contacts:delete",
-    "company:read", "company:update",
+    // company:* is intentionally excluded — super-admin only
   ],
   editor: [
     "users:read",
     "content:create", "content:read", "content:update",
     "appointments:create", "appointments:read", "appointments:update",
     "contacts:read",
-    "company:read",
+    // company:* is intentionally excluded — super-admin only
   ],
   viewer: [
     "users:read",
     "content:read",
     "appointments:read",
     "contacts:read",
-    "company:read",
+    // company:* is intentionally excluded — super-admin only
   ],
 };
 

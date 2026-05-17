@@ -42,6 +42,7 @@
 - `.claude/skills/BACKEND-NEST/SKILL.md` — NestJS 11 · TypeScript 5.x enterprise backend
 - `.claude/skills/ARQUITECTURE-NEST/SKILL.md` — Hexagonal / DDD for complex bounded contexts
 - `.claude/skills/ARQUITECTURE-NEST-CRUD/SKILL.md` — Service/Repository pattern for simple CRUD
+- `.claude/skills/BACKEND-NEST-PATTERNS/SKILL.md` — DRY service patterns (findOrFail, singleton guard, repository return types, storage side-effects)
 - `.claude/skills/OWASP/SKILL.md` — OWASP Security Baseline (2025/2023)
 
 ## Critical rules (always active)
@@ -89,6 +90,7 @@
 │   ├── BACKEND-NEST/SKILL.md           # NestJS 11 enterprise stack
 │   ├── ARQUITECTURE-NEST/SKILL.md      # Hexagonal / DDD
 │   ├── ARQUITECTURE-NEST-CRUD/SKILL.md # CRUD Service/Repository
+│   ├── BACKEND-NEST-PATTERNS/SKILL.md  # DRY helpers: findOrFail, singleton guard, storage side-effects
 │   └── OWASP/SKILL.md                  # security baseline
 ├── agents/                             # specialized sub-agents (empty for now)
 └── commands/                           # manual slash commands

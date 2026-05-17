@@ -50,6 +50,15 @@ export const EnvSchema = z.object({
 
   // ── API docs ───────────────────────────────────────────────
   SWAGGER_ENABLED: booleanFromString.default(true),
+
+  // ── Cloudflare R2 (object storage) ─────────────────────────
+  R2_ACCESS_KEY_ID: z.string().min(1),
+  R2_SECRET_ACCESS_KEY: z.string().min(1),
+  R2_DEFAULT_REGION: z.string().default('auto'),
+  R2_BUCKET_NAME: z.string().min(1),
+  R2_PUBLIC_BASE_URL: z.string().url(),
+  R2_ENDPOINT: z.string().url().optional(),
+  R2_USE_PATH_STYLE_ENDPOINT: booleanFromString.default(false),
 });
 
 export type EnvVars = z.infer<typeof EnvSchema>;
