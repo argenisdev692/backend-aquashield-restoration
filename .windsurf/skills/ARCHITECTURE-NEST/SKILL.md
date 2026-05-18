@@ -1,5 +1,5 @@
 ---
-description: Directory structure of each NestJS service — Hexagonal / DDD + CQRS (CommandBus/QueryBus). Use for complex bounded contexts with real business rules, events, workflows, or cross-context coordination. For simple CRUD modules, start with `.claude/skills/ARCHITECTURE-NEST-CRUD/SKILL.md`. For coding rules, naming, testing, logging, cache, and exports → see `.claude/skills/BACKEND-NEST/SKILL.md`.
+description: Directory structure of each NestJS service — Hexagonal / DDD + CQRS (CommandBus/QueryBus). Use for complex bounded contexts with real business rules, events, workflows, or cross-context coordination. For simple CRUD modules, start with `.windsurf/skills/ARCHITECTURE-NEST-CRUD/SKILL.md`. For coding rules, naming, testing, logging, cache, and exports → see `.windsurf/skills/BACKEND-NEST/SKILL.md`.
 globs: src/**
 ---
 
@@ -8,8 +8,8 @@ globs: src/**
 > **Authority**: SINGLE SOURCE OF TRUTH for all file placement and module structure.
 > **Pattern**: Hexagonal Architecture + DDD + CQRS — Commands/Queries dispatched via `@nestjs/cqrs` `CommandBus`/`QueryBus`, Port/Adapter, Domain Events via EventEmitter2.
 > **When to use this**: only when the module has complex business rules, domain events, ACL, or cross-context coordination.
-> **Default for small features**: use `.claude/skills/ARCHITECTURE-NEST-CRUD/SKILL.md` first; escalate here only when the simpler structure is no longer enough.
-> **For coding rules, naming conventions, testing strategy, logging, cache, exports → see `.claude/skills/BACKEND-NEST/SKILL.md`.**
+> **Default for small features**: use `.windsurf/skills/ARCHITECTURE-NEST-CRUD/SKILL.md` first; escalate here only when the simpler structure is no longer enough.
+> **For coding rules, naming conventions, testing strategy, logging, cache, exports → see `.windsurf/skills/BACKEND-NEST/SKILL.md`.**
 
 ---
 

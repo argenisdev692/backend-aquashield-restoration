@@ -1,0 +1,27 @@
+name: AI config sync
+
+# Fails if .windsurf/ has drifted from the canonical .claude/ tree.
+# Auto-fix locally with: npm run sync:ai
+
+on:
+  push:
+    paths:
+      - '.claude/**'
+      - '.windsurf/**'
+      - 'scripts/sync-claude-windsurf.mjs'
+  pull_request:
+    paths:
+      - '.claude/**'
+      - '.windsurf/**'
+      - 'scripts/sync-claude-windsurf.mjs'
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+      - name: Verify .windsurf mirrors .claude
+        run: node scripts/sync-claude-windsurf.mjs

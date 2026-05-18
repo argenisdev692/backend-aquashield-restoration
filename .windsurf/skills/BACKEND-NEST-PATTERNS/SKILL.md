@@ -7,7 +7,7 @@ globs: src/modules/**/*.service.ts, src/modules/**/*.repository.ts
 
 > **Authority**: Reusable coding patterns for NestJS CRUD services and repositories.
 > **Scope**: Any module using the Service/Repository (CRUD) layout.
-> **Complements**: `.claude/skills/ARCHITECTURE-NEST-CRUD/SKILL.md` (structure) and `.claude/skills/BACKEND-NEST/SKILL.md` (stack rules).
+> **Complements**: `.windsurf/skills/ARCHITECTURE-NEST-CRUD/SKILL.md` (structure) and `.windsurf/skills/BACKEND-NEST/SKILL.md` (stack rules).
 
 ---
 

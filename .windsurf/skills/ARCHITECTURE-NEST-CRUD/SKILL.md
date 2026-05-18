@@ -1,191 +1,249 @@
 ---
-description: Directory structure of each NestJS service — Simple CQRS (folder-per-feature). Recommended default for solo developers and small/medium features. Uses CommandBus/QueryBus with colocated command+handler per operation. For complex bounded contexts with domain events, ACL, or workflows → see `.claude/skills/ARCHITECTURE-NEST/SKILL.md`.
+description: Directory structure of each NestJS service — flat Service/Repository (CRUD). Recommended default for solo developers and small/medium features. NO CQRS bus, NO domain/application/infrastructure folders, NO domain events. For complex bounded contexts with domain events, ACL, state machines, or workflows → see `.windsurf/skills/ARCHITECTURE-NEST/SKILL.md`.
 globs: src/modules/**
 ---
 
-# ARCHITECTURE-NEST-CRUD — Simple CQRS Structure (2026)
+# ARCHITECTURE-NEST-CRUD — Flat Service/Repository Structure (2026)
 
 > **Authority**: SINGLE SOURCE OF TRUTH for simple module file placement.
-> **Pattern**: CQRS with folder-per-feature colocation. CommandBus/QueryBus dispatch. No domain events, no aggregate pattern.
-> **When to use this**: modules with no complex domain logic, no domain events, no sagas, no cross-context orchestration.
-> **Default for this repo**: start here unless the module has real business rules, workflows, or cross-context coordination.
-> **When to upgrade to `.claude/skills/ARCHITECTURE-NEST/SKILL.md`**: module grows domain events, needs ACL adapters, state machines, or cross-context coordination.
+> **Pattern**: Controller → Service → Repository. No CQRS bus, no Use Cases, no aggregate pattern, no domain events.
+> **When to use this**: lookups, configs, tags/categories/statuses, any module with ≤8 fields and no business rules beyond "validate + save".
+> **Default for this repo**: start here. Escalate to `.windsurf/skills/ARCHITECTURE-NEST/SKILL.md` ONLY when an explicit upgrade trigger is met.
+> **Coding patterns for the Service/Repository → see `.windsurf/skills/BACKEND-NEST-PATTERNS/SKILL.md`.**
+> **Stack syntax (Zod, Prisma, Swagger, logging, cache) → see `.windsurf/skills/BACKEND-NEST/SKILL.md`. Ignore its CQRS Command/Query handler sections — they apply to Hex/DDD modules only.**
 
 ---
 
 ## 🧭 Quick Decision Guide
 
-| Signal | Use this file | Use `ARCHITECTURE-NEST/SKILL.md` |
+| Signal | Use this file (flat CRUD) | Use `ARCHITECTURE-NEST/SKILL.md` (Hex/DDD) |
 |---|---|---|
 | Business rules | None / trivial validations | State machines, invariants, multi-step workflows |
 | Events | No | Yes (domain events with real listeners) |
 | Cross-context | No | Yes (ACL adapters) |
 | Value Objects | No | Yes |
-| Export (xlsx/pdf) | Optional (via shared/) | Yes (dedicated export command) |
-| Example | `users`, `categories`, `tags`, `statuses`, `contacts` | `projects`, `estimates`, `contractors` |
+| CQRS bus | No — direct Service call | Yes (`CommandBus`/`QueryBus`) |
+| Service method size | ≤ ~20 lines of logic | Logic exceeds ~20 lines → upgrade |
+| Export (xlsx/pdf) | Optional (inject `shared/export`) | Yes (dedicated export path) |
+| Example | `categories`, `tags`, `statuses`, `contacts`, `users` (CRUD) | `auth`, `projects`, `estimates` |
 
 ---
 
-## 📁 Simple CQRS Module Structure (folder-per-feature)
+## 📁 Flat CRUD Module Structure
 
 ```
-modules/{module}/
-├── {module}.module.ts              # CqrsModule import + Handlers + repository binding
-│
-├── __tests__/
-│   ├── commands/
-│   │   ├── create-{module}.handler.spec.ts
-│   │   ├── update-{module}.handler.spec.ts
-│   │   └── delete-{module}.handler.spec.ts
-│   └── queries/
-│       ├── get-{module}-by-id.handler.spec.ts
-│       └── get-{module}-list.handler.spec.ts
-│
-├── application/
-│   ├── commands/
-│   │   ├── create-{module}/
-│   │   │   ├── create-{module}.command.ts
-│   │   │   └── create-{module}.handler.ts
-│   │   ├── update-{module}/
-│   │   │   ├── update-{module}.command.ts
-│   │   │   └── update-{module}.handler.ts
-│   │   └── delete-{module}/
-│   │       ├── delete-{module}.command.ts
-│   │       └── delete-{module}.handler.ts
-│   ├── queries/
-│   │   ├── get-{module}-by-id/
-│   │   │   ├── get-{module}-by-id.query.ts
-│   │   │   └── get-{module}-by-id.handler.ts
-│   │   └── get-{module}-list/
-│   │       ├── get-{module}-list.query.ts
-│   │       └── get-{module}-list.handler.ts
-│   ├── dtos/
-│   │   ├── create-{module}.dto.ts             # Zod schema + z.infer<>
-│   │   └── update-{module}.dto.ts             # CreateSchema.partial()
-│   └── read-models/
-│       └── {module}.read-model.ts
-│
-├── domain/
-│   ├── entities/
-│   │   └── {module}.entity.ts
-│   ├── value-objects/
-│   ├── events/
-│   ├── exceptions/
-│   └── ports/
-│       └── {module}.repository.interface.ts   # I{Module}Repository
-│
-└── infrastructure/
-    ├── persistence/
-    │   ├── mappers/
-    │   │   └── {module}.mapper.ts
-    │   └── repositories/
-    │       └── prisma-{module}.repository.ts  # Implements I{Module}Repository
-    ├── api/
-    │   ├── controllers/
-    │   │   └── {module}.controller.ts         # REST: dispatches via CommandBus / QueryBus
-    │   └── presenters/
-    │       └── {module}.response.ts
-    ├── event-listeners/
-    └── gateways/
+src/modules/{module}/
+├── {module}.module.ts                 # Module wiring: controller + service + repository
+├── {module}.controller.ts             # HTTP only — guards, Swagger, ZodValidationPipe, calls Service
+├── {module}.service.ts                # Orchestration — findOrFail, optional IAuditPort, calls Repository
+├── {module}.repository.ts             # ONLY file importing PrismaService / generated Prisma types
+├── {module}.entity.ts                 # Plain TS interface — domain shape
+├── {module}.prisma                    # Prisma model — mirrored under prisma/schema/{module}.prisma
+├── {module}.gateway.ts                # OPTIONAL — Socket.io broadcast after a mutation
+├── dto/
+│   ├── create-{module}.dto.ts         # Zod v4 schema + z.infer<> type
+│   └── update-{module}.dto.ts         # CreateSchema.partial()
+└── __tests__/
+    └── {module}.service.spec.ts       # Unit — repository mocked, no real DB
 ```
 
-> **Same folder structure as full Hex/DDD (`ARCHITECTURE-NEST/SKILL.md`)** — the upgrade path simply populates the placeholder folders (events, event-listeners, value-objects) with real implementations. No structural refactoring needed.
+> **No `domain/`, no `application/`, no `infrastructure/` folders. No `*.command.ts`, no `*.handler.ts`, no `CommandBus`/`QueryBus`, no `*.domain-event.ts`.** Those belong to `.windsurf/skills/ARCHITECTURE-NEST/SKILL.md` and appear only after an upgrade trigger.
 
 ---
 
 ## 📄 File Responsibilities
 
-### `domain/entities/{module}.entity.ts`
-Plain TypeScript interface — shape of the domain object. No NestJS, no Prisma, no decorators. Always includes `id`, `createdAt`, `updatedAt`. Nullable fields typed as `T | null`, never `T | undefined`.
+### `{module}.entity.ts`
+Plain TypeScript interface — the shape of the domain object returned by the Service. No NestJS, no Prisma, no decorators. Always includes `id`, `createdAt`, `updatedAt`. Nullable fields typed as `T | null`, never `T | undefined`.
 
-### `application/dtos/create-{module}.dto.ts`
-Zod v4 schema exported as `Create{Module}Schema` + inferred type `Create{Module}Dto`. Import from `zod` (the main entry of `zod@^4` already exports v4). Always export both the schema and the type — the schema goes to the pipe, the type goes to the command constructor.
+### `dto/create-{module}.dto.ts`
+Zod v4 schema exported as `Create{Module}Schema` + inferred type `Create{Module}Dto`. Import `z` from `zod` and `createZodDto` from `nestjs-zod` (never `nestjs-zod/dto`). Export both the schema (for the pipe) and the type (for the service signature).
 
-### `application/dtos/update-{module}.dto.ts`
+### `dto/update-{module}.dto.ts`
 Always derived from `Create{Module}Schema.partial()`. Never redefine fields. Export `Update{Module}Schema` + `Update{Module}Dto`.
 
-### `domain/ports/{module}.repository.interface.ts`
-Defines `I{Module}Repository` — the contract that `infrastructure/persistence/repositories/` implements. Methods: `findById`, `findAll`, `create`, `update`, `delete`. Never imports Prisma types.
+### `{module}.repository.ts`
+The ONLY file that imports `PrismaService` / generated Prisma types. Returns **entity types**, never raw Prisma rows (map inline or with a small `private toEntity()`). Contract:
 
-### `domain/exceptions/{module}-domain.exception.ts`
-Domain-specific exceptions. Thrown in handlers when domain rules are violated.
+- `findById(id)` → `Promise<{Module} | null>` (null when row absent — never `undefined`)
+- `findAll(...)` → `Promise<{Module}[]>`
+- `create(dto)` → `Promise<{Module}>`
+- `update(id, dto)` → `Promise<{Module}>` (Prisma throws `P2025` if missing — never returns null; see PATTERNS #2)
+- `delete(id)` → `Promise<void>`
+- `existsAny()` → `Promise<boolean>` (only when a singleton guard is needed — PATTERNS #3)
 
----
+Never throws `HttpException`. UUID v7 comes from the DB default (`uuid_generate_v7()`).
 
-### `infrastructure/persistence/repositories/prisma-{module}.repository.ts`
-The only file that imports `PrismaService`. Implements `I{Module}Repository`. Returns entity types — never raw Prisma row types. `findById` returns `Entity | null`. `update` returns `Entity` (Prisma throws P2025 if not found). `delete` returns `void`. UUID v7 handled by DB default. Never throws `HttpException`.
+### `{module}.service.ts`
+Orchestration only. Injects the repository, `LoggerService`, `ClsService`, and optionally `IAuditPort` / `ExportService`. Applies the DRY patterns from `.windsurf/skills/BACKEND-NEST-PATTERNS/SKILL.md`:
 
-### `infrastructure/persistence/mappers/{module}.mapper.ts`
-Converts between Prisma row types and domain entities. Single source of truth for serialization/deserialization.
+- ONE `private async findOrFail(id)` — throws `NotFoundException` on null (PATTERN #1)
+- `existsAny()` + `ConflictException` for singleton entities (PATTERN #3)
+- Storage/file deletion wrapped in try-catch that logs but never rethrows (PATTERN #4)
+- Every public method has an explicit return type and logs INFO with `traceId` from CLS
+- If a method exceeds ~20 lines of business logic → that is an upgrade trigger
 
----
+### `{module}.controller.ts`
+HTTP layer only. `@UseGuards(JwtAuthGuard, CaslGuard)` at class level, `@CheckAbilities()` per route, `ZodValidationPipe` on POST/PATCH bodies, `ParseUUIDPipe` on id params, full Swagger decorators. Injects the **Service** directly — never the repository, never a bus. `DELETE` returns `204`. No business logic.
 
-### `application/commands/{verb}-{module}/{verb}-{module}.handler.ts`
-Write logic. Injects repository via Symbol token. Throws `NotFoundException` if entity not found. Decorated with `@CommandHandler(XxxCommand)`. If a handler exceeds ~20 lines of business logic, it's a signal to upgrade to full Hex/DDD.
-
-### `application/queries/get-{module}-xxx/get-{module}-xxx.handler.ts`
-Read logic. Injects repository. Decorated with `@QueryHandler(XxxQuery)`. Returns typed entity or list.
-
----
-
-### `infrastructure/api/controllers/{module}.controller.ts`
-HTTP layer only. Injects `CommandBus` + `QueryBus`. Applies `@UseGuards(JwtAuthGuard, CaslGuard)` at class level. Applies `ZodValidationPipe` per mutation route. Read routes need no pipe. `DELETE` returns `204`. Never imports repository. Never contains business logic.
-
-Every controller MUST carry full Swagger decorators:
+### `{module}.module.ts`
+Plain NestJS module — no `CqrsModule`.
 
 ```typescript
-import { CommandBus, QueryBus } from '@nestjs/cqrs';
-import { createZodDto } from 'nestjs-zod';
-import {
-  ApiTags, ApiBearerAuth,
-  ApiCreatedResponse, ApiOkResponse, ApiNoContentResponse,
-  ApiNotFoundResponse, ApiBadRequestResponse,
-  ApiParam,
-} from '@nestjs/swagger';
+@Module({
+  controllers: [{Module}Controller],
+  providers: [{Module}Service, {Module}Repository],
+})
+export class {Module}Module {}
+```
 
-@ApiTags('{module}s')
-@ApiBearerAuth()
-@Controller('{module}s')
-@UseGuards(JwtAuthGuard, CaslGuard)
-export class {Module}Controller {
+### `{module}.gateway.ts` (optional)
+Socket.io gateway for real-time broadcast after a mutation. Allowed in flat CRUD — does NOT force an upgrade.
+
+---
+
+## 🧩 Reference Implementation
+
+```typescript
+// {module}.entity.ts
+export interface Category {
+  id: string;
+  name: string;
+  slug: string;
+  createdAt: Date;
+  updatedAt: Date;
+}
+
+// dto/create-category.dto.ts
+import { z } from 'zod';
+import { createZodDto } from 'nestjs-zod';
+
+export const CreateCategorySchema = z.object({
+  name: z.string().min(2).max(120),
+  slug: z.string().min(2).max(140),
+});
+export class CreateCategoryDto extends createZodDto(CreateCategorySchema) {}
+
+// dto/update-category.dto.ts
+export const UpdateCategorySchema = CreateCategorySchema.partial();
+export class UpdateCategoryDto extends createZodDto(UpdateCategorySchema) {}
+
+// category.repository.ts
+@Injectable()
+export class CategoryRepository {
+  constructor(private readonly prisma: PrismaService) {}
+
+  async findById(id: string): Promise<Category | null> {
+    return this.prisma.category.findUnique({ where: { id } });
+  }
+
+  async findAll(): Promise<Category[]> {
+    return this.prisma.category.findMany({ orderBy: { createdAt: 'desc' } });
+  }
+
+  async create(data: CreateCategoryDto): Promise<Category> {
+    return this.prisma.category.create({ data });
+  }
+
+  async update(id: string, data: UpdateCategoryDto): Promise<Category> {
+    return this.prisma.category.update({ where: { id }, data });
+  }
+
+  async delete(id: string): Promise<void> {
+    await this.prisma.category.delete({ where: { id } });
+  }
+}
+
+// category.service.ts
+@Injectable()
+export class CategoryService {
   constructor(
-    private readonly commandBus: CommandBus,
-    private readonly queryBus: QueryBus,
+    private readonly repository: CategoryRepository,
+    private readonly logger: LoggerService,
+    private readonly cls: ClsService,
   ) {}
 
+  findAll(): Promise<Category[]> {
+    this.logger.info('CategoryService.findAll', { traceId: this.cls.get('traceId') });
+    return this.repository.findAll();
+  }
+
+  findById(id: string): Promise<Category> {
+    this.logger.info('CategoryService.findById', { traceId: this.cls.get('traceId'), id });
+    return this.findOrFail(id);
+  }
+
+  create(dto: CreateCategoryDto): Promise<Category> {
+    this.logger.info('CategoryService.create', { traceId: this.cls.get('traceId') });
+    return this.repository.create(dto);
+  }
+
+  async update(id: string, dto: UpdateCategoryDto): Promise<Category> {
+    this.logger.info('CategoryService.update', { traceId: this.cls.get('traceId'), id });
+    await this.findOrFail(id);
+    return this.repository.update(id, dto);
+  }
+
+  async delete(id: string): Promise<void> {
+    this.logger.info('CategoryService.delete', { traceId: this.cls.get('traceId'), id });
+    await this.findOrFail(id);
+    await this.repository.delete(id);
+  }
+
+  // ─── single source of truth ───────────────────────────────
+  private async findOrFail(id: string): Promise<Category> {
+    const result = await this.repository.findById(id);
+    if (!result) throw new NotFoundException('Category not found');
+    return result;
+  }
+}
+
+// category.controller.ts
+@ApiTags('categories')
+@ApiBearerAuth()
+@Controller('categories')
+@UseGuards(JwtAuthGuard, CaslGuard)
+export class CategoryController {
+  constructor(private readonly service: CategoryService) {}
+
   @Post()
-  @ApiCreatedResponse({ type: {Module}Response })
+  @ApiCreatedResponse({ type: CategoryResponse })
   @ApiBadRequestResponse({ description: 'Validation failed' })
-  async create(
-    @Body(new ZodValidationPipe(Create{Module}Schema)) dto: Create{Module}Dto,
-  ): Promise<{Module}Response> {
-    return this.commandBus.execute(new Create{Module}Command(dto));
+  @CheckAbilities({ action: Action.Create, subject: 'CONTENT' })
+  create(
+    @Body(new ZodValidationPipe(CreateCategorySchema)) dto: CreateCategoryDto,
+  ): Promise<Category> {
+    return this.service.create(dto);
   }
 
   @Get()
-  @ApiOkResponse({ type: [{Module}Response] })
-  findAll(): Promise<{Module}Response[]> {
-    return this.queryBus.execute(new Get{Module}ListQuery());
+  @ApiOkResponse({ type: [CategoryResponse] })
+  @CacheTTL(TTL_SECONDS.MEDIUM)
+  @CheckAbilities({ action: Action.Read, subject: 'CONTENT' })
+  findAll(): Promise<Category[]> {
+    return this.service.findAll();
   }
 
   @Get(':id')
-  @ApiOkResponse({ type: {Module}Response })
+  @ApiOkResponse({ type: CategoryResponse })
   @ApiNotFoundResponse()
   @ApiParam({ name: 'id', type: String, format: 'uuid' })
-  findOne(@Param('id', ParseUUIDPipe) id: string): Promise<{Module}Response> {
-    return this.queryBus.execute(new Get{Module}ByIdQuery(id));
+  @CacheTTL(TTL_SECONDS.MEDIUM)
+  @CheckAbilities({ action: Action.Read, subject: 'CONTENT' })
+  findOne(@Param('id', ParseUUIDPipe) id: string): Promise<Category> {
+    return this.service.findById(id);
   }
 
   @Patch(':id')
-  @ApiOkResponse({ type: {Module}Response })
+  @ApiOkResponse({ type: CategoryResponse })
   @ApiNotFoundResponse()
-  @ApiBadRequestResponse({ description: 'Validation failed' })
   @ApiParam({ name: 'id', type: String, format: 'uuid' })
+  @CheckAbilities({ action: Action.Update, subject: 'CONTENT' })
   update(
     @Param('id', ParseUUIDPipe) id: string,
-    @Body(new ZodValidationPipe(Update{Module}Schema)) dto: Update{Module}Dto,
-  ): Promise<{Module}Response> {
-    return this.commandBus.execute(new Update{Module}Command(id, dto));
+    @Body(new ZodValidationPipe(UpdateCategorySchema)) dto: UpdateCategoryDto,
+  ): Promise<Category> {
+    return this.service.update(id, dto);
   }
 
   @Delete(':id')
@@ -193,65 +251,33 @@ export class {Module}Controller {
   @ApiNotFoundResponse()
   @ApiParam({ name: 'id', type: String, format: 'uuid' })
   @HttpCode(204)
+  @CheckAbilities({ action: Action.Delete, subject: 'CONTENT' })
   remove(@Param('id', ParseUUIDPipe) id: string): Promise<void> {
-    return this.commandBus.execute(new Delete{Module}Command(id));
+    return this.service.delete(id);
   }
 }
 ```
 
-Response type must also use `createZodDto` so Swagger renders the output schema:
-
-```typescript
-// application/dtos/{module}.response.ts
-export const {Module}ResponseSchema = z.object({
-  id:        z.string().uuid(),
-  name:      z.string(),
-  createdAt: z.string().datetime(),
-  updatedAt: z.string().datetime(),
-});
-export class {Module}Response extends createZodDto({Module}ResponseSchema) {}
-```
+> Swagger response shape: declare a `CategoryResponse extends createZodDto(CategoryResponseSchema)` in `dto/` so the output schema renders. See `.windsurf/skills/BACKEND-NEST/SKILL.md` §1.
 
 ---
 
-### `{module}.module.ts`
-
-```typescript
-import { CqrsModule } from '@nestjs/cqrs';
-
-const CommandHandlers = [Create{Module}Handler, Update{Module}Handler, Delete{Module}Handler];
-const QueryHandlers = [Get{Module}ByIdHandler, Get{Module}ListHandler];
-
-@Module({
-  imports: [CqrsModule],
-  controllers: [{Module}Controller],
-  providers: [
-    ...CommandHandlers,
-    ...QueryHandlers,
-    { provide: {MODULE}_REPOSITORY, useClass: Prisma{Module}Repository },
-  ],
-})
-export class {Module}Module {}
-```
-
----
-
-## 🔄 Request Flow (Simple CQRS)
+## 🔄 Request Flow (flat CRUD)
 
 ```
 HTTP Request
   └─► JwtAuthGuard              (core/guards)
-  └─► CaslGuard                 (core/guards)
-  └─► ZodValidationPipe         (core/pipes) — POST/PATCH only
-  └─► Controller (injects CommandBus + QueryBus)
+  └─► CaslGuard                 (core/guards) — @CheckAbilities()
+  └─► ZodValidationPipe         (core/pipes)  — POST/PATCH only
+  └─► Controller (injects Service)
         │
-        ├─► [READ] queryBus.execute(new Get{Module}ByIdQuery(id))
-        │       └─► @QueryHandler → repository.findById()
-        │             └─► null → NotFoundException
+        ├─► [READ]  service.findById(id)
+        │       └─► repository.findById() → null → service throws NotFoundException
         │
-        └─► [WRITE] commandBus.execute(new Create{Module}Command(dto))
-                └─► @CommandHandler → repository.create()
-                      └─► Prisma → PostgreSQL
+        └─► [WRITE] service.create(dto) / update(id,dto) / delete(id)
+                └─► findOrFail() existence check (update/delete)
+                └─► repository → Prisma → PostgreSQL
+                └─► optional IAuditPort.log() on mutations (module opts in)
         └─► global-exception.filter maps exceptions → RFC 7807
 ```
 
@@ -260,60 +286,57 @@ HTTP Request
 ## 📐 Rules (NEVER break)
 
 ```
-✅ Repository     ← ONLY file that imports PrismaService / generated Prisma types
-✅ Handlers       ← write logic (CommandHandler) or read logic (QueryHandler)
-✅ Controller     ← dispatches via CommandBus/QueryBus only — never injects handlers
-✅ DTO            ← Zod schema + inferred type. No class-validator.
-✅ Entity         ← plain TypeScript interface in domain/. No ORM decorators.
-✅ Port           ← I{Module}Repository in domain/ports/. Implemented in infrastructure/
-✅ Null returns   ← repository returns null (not undefined) when row not found
-✅ NotFoundException thrown in CommandHandler/QueryHandler — not in repository
+✅ Repository  ← ONLY file that imports PrismaService / generated Prisma types
+✅ Service     ← orchestration; ONE findOrFail; throws NotFoundException; optional IAuditPort
+✅ Controller  ← injects Service directly; HTTP + Swagger + guards only
+✅ DTO         ← Zod v4 schema + inferred type. No class-validator.
+✅ Entity      ← plain TypeScript interface. No ORM decorators.
+✅ Null returns ← repository returns null (not undefined) when row not found
+✅ repository.update() returns Promise<Entity> — never Promise<Entity | null> (PATTERNS #2)
 
-❌ Controller calling Repository directly — always dispatch via Bus
-❌ Controller injecting Handlers directly — always via CommandBus/QueryBus
-❌ Business logic in Controller or Repository — belongs in Handler
-   (if it grows complex: upgrade to `ARCHITECTURE-NEST/SKILL.md`)
-❌ Zod schema defined inline in Controller — always in dtos/ file
-❌ any / unknown return types — always return typed entity
-❌ console.log / console.warn — always use LoggerService
-❌ Repository throwing HttpException — return null, let Handler throw
-❌ Repository returning undefined — always null (explicit type + JSON-safe)
-❌ Domain events in this layout — upgrade to full Hex/DDD if needed
-❌ @UsePipes per route if APP_PIPE global is already registered
+❌ CommandBus / QueryBus / @CommandHandler / @QueryHandler — Hex/DDD only
+❌ domain/ application/ infrastructure/ folders — Hex/DDD only
+❌ Domain events / @OnEvent / EventEmitter2 — upgrade to ARCHITECTURE-NEST first
+❌ Controller calling Repository directly — always through Service
+❌ Business logic in Controller or Repository — belongs in Service
+   (if a Service method exceeds ~20 lines → upgrade to ARCHITECTURE-NEST)
+❌ Zod schema defined inline in Controller — always in dto/ file
+❌ any / unknown return types — always return the typed entity
+❌ console.log / console.warn — always use LoggerService with traceId
+❌ Repository throwing HttpException — return null, let Service throw
+❌ Repeating `if (!x) throw new NotFoundException()` — extract findOrFail (PATTERNS #1)
 ```
 
 ---
 
-## 📦 Shared Infrastructure (consumed by all modules)
+## 📦 Shared Infrastructure (consumed by any flat CRUD module)
 
-> Cross-cutting concerns live in `src/shared/` and are injected into any handler — **regardless of whether the module is simple CQRS or full Hex/DDD**. You do NOT need to upgrade architecture to use them. See `.claude/skills/ARCHITECTURE-NEST/SKILL.md` for the full `shared/` tree.
+> Cross-cutting concerns live in `src/shared/` and are injected straight into the Service — using them does NOT force an upgrade. See `.windsurf/skills/ARCHITECTURE-NEST/SKILL.md` for the full `shared/` tree.
 
-| Concern | Folder | Inject in handler as | Use case |
+| Concern | Folder | Inject in Service as | Use case |
 |---|---|---|---|
 | Logger | `shared/logger` (or `nestjs-pino`) | `LoggerService` | Always — never `console.log` |
 | Request context | `shared/cls` (`nestjs-cls`) | `ClsService` | traceId / correlationId propagation |
-| Activity log | `shared/activity-log` | `IAuditPort` | Optional: manual call in write handlers |
-| Backup DB | `shared/backup` | (scheduler runs autonomously) | Cron-driven — no module integration needed |
-| Excel export | `shared/export` | `IExcelExporter` via `ExportService` | Inject in handler, call from a `GET /{module}/export?format=xlsx` route |
-| PDF export | `shared/export` | `IPdfExporter` (PDFKit adapter) | Same as Excel. PDFKit is the only PDF engine. |
-| Circuit breaker | `shared/external` (cockatiel) | via `@CircuitBreaker('name')` decorator | Wraps ANY outbound HTTP call |
+| Activity log | `shared/activity-log` | `IAuditPort` | Optional: manual call in mutation methods |
+| Excel/PDF export | `shared/export` | `ExportService` | Inject in Service, call from `GET /{module}/export?format=xlsx\|pdf` |
+| Circuit breaker | `shared/external` (cockatiel) | via `@CircuitBreaker('name')` | Wraps ANY outbound HTTP call |
 | AI clients | `shared/external/ai` | `IAiClient` | OpenAI / Anthropic — already CB-wrapped |
 | FastAPI client | `shared/external/fastapi` | `IFastapiClient` | Internal Python services — already CB-wrapped |
-| Queues (BullMQ) | `shared/messaging` | `@InjectQueue('name')` | Heavy/async work (AI batch, exports >10k rows, email blast) |
-| WebSockets | `shared/websockets` | `WsRoomsService` + `@WebSocketGateway()` on a `{module}.gateway.ts` | Real-time broadcasts after a mutation. |
+| Queues (BullMQ) | `shared/messaging` | `@InjectQueue('name')` | Heavy/async work |
+| WebSockets | `shared/websockets` | `WsRoomsService` + `@WebSocketGateway()` on `{module}.gateway.ts` | Real-time broadcast after a mutation |
 
-> **Rule:** A simple CQRS module stays simple when it consumes shared infra. It only upgrades to `.claude/skills/ARCHITECTURE-NEST/SKILL.md` when its **domain logic** outgrows "validate + save".
+> **Rule:** A flat CRUD module stays flat when it consumes shared infra. It upgrades only when its **domain logic** outgrows "validate + save".
 
 ---
 
 ## ⬆️ Upgrade Triggers — migrate to `ARCHITECTURE-NEST/SKILL.md` when
 
-- You need **domain events** (e.g. `user.created` triggers something elsewhere)
+- You need **domain events** with real listeners (e.g. `user.created` triggers something elsewhere)
 - You need **cross-context coordination** (ACL adapters)
 - Business rules grow beyond "validate + save" (state machines, approval flows, multi-step workflows)
-- Any handler exceeds ~20 lines of logic
+- Any Service method exceeds ~20 lines of business logic
 - The entity needs invariants enforced in one place (Value Objects, aggregate factories)
 
 > ❌ Do NOT upgrade just because you need: exports, WebSockets, AI calls, FastAPI integration, audit log, backup. Those are **shared/ infra**, not architecture decisions — see the table above.
 
-The repository, DTO, and command/query layers migrate as-is — no rewrite needed.
+The `{module}.repository.ts` and `dto/` layers migrate as-is — only the Service splits into Command/Query Handlers. Do NOT pre-emptively scaffold `domain/application/infrastructure` for modules that have not yet hit an upgrade trigger.

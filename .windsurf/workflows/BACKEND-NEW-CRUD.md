@@ -10,9 +10,9 @@ description: Scaffold a new NestJS simple CRUD module for small features using t
 2. Ask for the entity fields and whether the feature is truly simple.
 3. Ask whether the module needs only CRUD or also exports, events, or cross-context coordination.
 4. Read the required guidance in this order:
-   1. `.claude/skills/OWASP/SKILL.md`
-   2. `.claude/skills/BACKEND-NEST/SKILL.md`
-   3. `.claude/skills/ARCHITECTURE-NEST-CRUD/SKILL.md`
+   1. `.windsurf/skills/OWASP/SKILL.md`
+   2. `.windsurf/skills/BACKEND-NEST/SKILL.md`
+   3. `.windsurf/skills/ARCHITECTURE-NEST-CRUD/SKILL.md`
 
 
 ## PHASE 2 — SELECT THE LIGHTWEIGHT STRUCTURE

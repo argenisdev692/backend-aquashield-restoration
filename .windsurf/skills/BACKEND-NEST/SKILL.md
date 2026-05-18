@@ -2,8 +2,8 @@
 
 > **Authority**: SINGLE SOURCE OF TRUTH for all NestJS/TypeScript rules, patterns, naming, testing, logging, cache, and exports.
 > **Pattern**: Hexagonal Architecture + DDD + CQRS — CommandBus/QueryBus dispatch (`@nestjs/cqrs`), Port/Adapter, Domain Events via EventEmitter2.
-> **For directory trees and bounded context structure → see `.claude/skills/ARCHITECTURE-NEST/SKILL.md`.**
-> **Security baseline → see `.claude/skills/OWASP/SKILL.md` and apply it to every endpoint, use case, adapter, and external integration.**
+> **For directory trees and bounded context structure → see `.windsurf/skills/ARCHITECTURE-NEST/SKILL.md`.**
+> **Security baseline → see `.windsurf/skills/OWASP/SKILL.md` and apply it to every endpoint, use case, adapter, and external integration.**
 > **Stack**: NestJS 11.1.x · Prisma 7.x (`prisma-client` generator + `@prisma/adapter-pg`) · Zod 4.x · nestjs-cls 6.x · cockatiel 3.x · BullMQ 5.x · @nestjs/event-emitter 3.x · @nestjs/cqrs 11.x
 
 ---
@@ -823,7 +823,7 @@ GET /projects/export?format=xlsx
 
 ## §8 — Security (OWASP Top 10:2025 / OWASP API Security Top 10:2023)
 
-> **Mandatory baseline**: follow `.claude/skills/OWASP/SKILL.md` for all security design and implementation decisions.
+> **Mandatory baseline**: follow `.windsurf/skills/OWASP/SKILL.md` for all security design and implementation decisions.
 
 | Category                  | Mitigation                                                                                                          |
 | ------------------------- | ------------------------------------------------------------------------------------------------------------------- |

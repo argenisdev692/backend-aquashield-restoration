@@ -10,9 +10,9 @@ description: Scaffold a new NestJS backend or complex bounded context with Hexag
 2. Ask whether the feature needs REST only or REST + WebSocket.
 3. Ask whether the module has real business rules, audit needs, domain events, or cross-context coordination.
 4. Read the required guidance in this order:
-   1. `.claude/skills/OWASP/SKILL.md`
-   2. `.claude/skills/BACKEND-NEST/SKILL.md`
-   3. `.claude/skills/ARCHITECTURE-NEST/SKILL.md`
+   1. `.windsurf/skills/OWASP/SKILL.md`
+   2. `.windsurf/skills/BACKEND-NEST/SKILL.md`
+   3. `.windsurf/skills/ARCHITECTURE-NEST/SKILL.md`
 
 ## PHASE 2 — SELECT ARCHITECTURE
 
