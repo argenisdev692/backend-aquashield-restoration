@@ -22,7 +22,10 @@ import type { IAuditPort } from '../../../../shared/activity-log/audit.port';
 import { AUDIT_PORT } from '../../../../shared/activity-log/audit.port';
 import type { ITransactionManager } from '../../../../shared/database/transaction-manager.port';
 import { TRANSACTION_MANAGER } from '../../../../shared/database/transaction-manager.port';
-import { AuthTokenIssuer, type IssuedTokens } from '../services/auth-token-issuer.service';
+import {
+  AuthTokenIssuer,
+  type IssuedTokens,
+} from '../services/auth-token-issuer.service';
 import { PasswordChangedEvent } from '../../domain/events/auth-events';
 import type { ChangeExpiredPasswordInput } from '../dtos/change-expired-password.dto';
 
@@ -66,12 +69,18 @@ export class ChangeExpiredPasswordUseCase {
       dto.passwordChangeToken,
     );
     if (!userId) {
-      throw new UnauthorizedException('Invalid or expired password change token');
+      throw new UnauthorizedException(
+        'Invalid or expired password change token',
+      );
     }
 
     const user = await this.userRepo.findById(userId);
-    if (!user || !user.mustChangePassword && !(user.passwordExpiresAt && user.passwordExpiresAt <= new Date())) {
-      throw new UnauthorizedException('Password change is not required for this account');
+    const passwordExpired =
+      user?.passwordExpiresAt != null && user.passwordExpiresAt <= new Date();
+    if (!user || (!user.mustChangePassword && !passwordExpired)) {
+      throw new UnauthorizedException(
+        'Password change is not required for this account',
+      );
     }
 
     const recentHashes = await this.historyRepo.getRecent(
@@ -104,7 +113,10 @@ export class ChangeExpiredPasswordUseCase {
       return this.tokenIssuer.issue(user);
     });
 
-    this.eventEmitter.emit('auth.password_changed', new PasswordChangedEvent(userId));
+    this.eventEmitter.emit(
+      'auth.password_changed',
+      new PasswordChangedEvent(userId),
+    );
 
     await this.audit.log({
       action: 'auth.password_changed',

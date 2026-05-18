@@ -48,6 +48,9 @@ import { GoogleAuthAdapter } from './infrastructure/adapters/google-auth.adapter
 // ─── Event Listeners ──────────────────────────────────────────────────────────
 import { AuthEventListener } from './infrastructure/event-listeners/auth-event.listener';
 
+// ─── Guards ───────────────────────────────────────────────────────────────────
+import { FreshPasswordGuard } from './infrastructure/api/guards/fresh-password.guard';
+
 // ─── Domain Symbols ───────────────────────────────────────────────────────────
 import { AUTH_SESSION_REPOSITORY } from './domain/repositories/auth-session.repository.interface';
 import { OTP_REPOSITORY } from './domain/repositories/otp.repository.interface';
@@ -59,8 +62,8 @@ import { TOTP_PORT } from './domain/ports/outbound/totp.port';
 import { PASSWORD_HASHER_PORT } from './domain/ports/outbound/password-hasher.port';
 import { TOKEN_SERVICE_PORT } from './domain/ports/outbound/token-service.port';
 import { GOOGLE_AUTH_PORT } from './domain/ports/outbound/google-auth.port';
-import { AUDIT_PORT } from '../../shared/activity-log/audit.port';
-import { ActivityLogService } from '../../shared/activity-log/activity-log.service';
+// AUDIT_PORT is provided globally by ActivityLogModule (@Global) — do not
+// re-bind it here.
 
 @Module({
   imports: [
@@ -103,6 +106,7 @@ import { ActivityLogService } from '../../shared/activity-log/activity-log.servi
     // ─── Services ────────────────────────────────────────────────────────────
     AuthTokenIssuer,
     AuthEventListener,
+    FreshPasswordGuard,
 
     // ─── Repositories (concrete classes + symbol bindings) ───────────────────
     PrismaAuthSessionRepository,
@@ -110,11 +114,20 @@ import { ActivityLogService } from '../../shared/activity-log/activity-log.servi
     PrismaUserAuthRepository,
     PrismaPasswordResetRepository,
     PrismaPasswordHistoryRepository,
-    { provide: AUTH_SESSION_REPOSITORY, useExisting: PrismaAuthSessionRepository },
+    {
+      provide: AUTH_SESSION_REPOSITORY,
+      useExisting: PrismaAuthSessionRepository,
+    },
     { provide: OTP_REPOSITORY, useExisting: PrismaOtpRepository },
     { provide: USER_AUTH_REPOSITORY, useExisting: PrismaUserAuthRepository },
-    { provide: PASSWORD_RESET_REPOSITORY, useExisting: PrismaPasswordResetRepository },
-    { provide: PASSWORD_HISTORY_REPOSITORY, useExisting: PrismaPasswordHistoryRepository },
+    {
+      provide: PASSWORD_RESET_REPOSITORY,
+      useExisting: PrismaPasswordResetRepository,
+    },
+    {
+      provide: PASSWORD_HISTORY_REPOSITORY,
+      useExisting: PrismaPasswordHistoryRepository,
+    },
 
     // ─── Adapters (concrete classes + symbol bindings) ───────────────────────
     ResendEmailAdapter,
@@ -127,7 +140,6 @@ import { ActivityLogService } from '../../shared/activity-log/activity-log.servi
     { provide: PASSWORD_HASHER_PORT, useExisting: BcryptPasswordHasherAdapter },
     { provide: TOKEN_SERVICE_PORT, useExisting: JwtTokenAdapter },
     { provide: GOOGLE_AUTH_PORT, useExisting: GoogleAuthAdapter },
-    { provide: AUDIT_PORT, useExisting: ActivityLogService },
   ],
   exports: [
     LoginUseCase,

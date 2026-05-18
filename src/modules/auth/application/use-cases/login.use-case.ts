@@ -2,7 +2,8 @@ import { Inject, Injectable, UnauthorizedException } from '@nestjs/common';
 import { EventEmitter2 } from '@nestjs/event-emitter';
 import { ClsService } from 'nestjs-cls';
 import { LoggerService } from '../../../../logger/logger.service';
-import { CacheService } from '../../../../shared/cache/cache.service';
+import type { ICachePort } from '../../../../shared/cache/cache.port';
+import { CACHE_PORT } from '../../../../shared/cache/cache.port';
 import type { IUserAuthRepository } from '../../domain/repositories/user-auth.repository.interface';
 import { USER_AUTH_REPOSITORY } from '../../domain/repositories/user-auth.repository.interface';
 import type { IOtpRepository } from '../../domain/repositories/otp.repository.interface';
@@ -49,7 +50,8 @@ export class LoginUseCase {
     private readonly tokenService: ITokenServicePort,
     @Inject(AUDIT_PORT)
     private readonly audit: IAuditPort,
-    private readonly cache: CacheService,
+    @Inject(CACHE_PORT)
+    private readonly cache: ICachePort,
     private readonly eventEmitter: EventEmitter2,
     private readonly logger: LoggerService,
     private readonly cls: ClsService,
@@ -66,7 +68,10 @@ export class LoginUseCase {
       throw new UnauthorizedException('Invalid credentials');
     }
 
-    const valid = await this.passwordHasher.compare(dto.password, user.password);
+    const valid = await this.passwordHasher.compare(
+      dto.password,
+      user.password,
+    );
     if (!valid) {
       await this.handleFailedLogin(user.id, dto.email, traceId);
       throw new UnauthorizedException('Invalid credentials');

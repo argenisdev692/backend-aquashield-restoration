@@ -2,7 +2,8 @@ import { Inject, Injectable, HttpException, HttpStatus } from '@nestjs/common';
 import { EventEmitter2 } from '@nestjs/event-emitter';
 import { ClsService } from 'nestjs-cls';
 import { LoggerService } from '../../../../logger/logger.service';
-import { CacheService } from '../../../../shared/cache/cache.service';
+import type { ICachePort } from '../../../../shared/cache/cache.port';
+import { CACHE_PORT } from '../../../../shared/cache/cache.port';
 import type { IUserAuthRepository } from '../../domain/repositories/user-auth.repository.interface';
 import { USER_AUTH_REPOSITORY } from '../../domain/repositories/user-auth.repository.interface';
 import type { IPasswordResetRepository } from '../../domain/repositories/password-reset.repository.interface';
@@ -47,7 +48,8 @@ export class RequestPasswordResetUseCase {
     private readonly emailPort: IEmailPort,
     @Inject(AUDIT_PORT)
     private readonly audit: IAuditPort,
-    private readonly cache: CacheService,
+    @Inject(CACHE_PORT)
+    private readonly cache: ICachePort,
     private readonly eventEmitter: EventEmitter2,
     private readonly logger: LoggerService,
     private readonly cls: ClsService,
@@ -67,14 +69,20 @@ export class RequestPasswordResetUseCase {
 
     // Prevent email enumeration: always return the same shape.
     if (!user) {
-      this.logger.info('Password reset — email not found (silent)', { traceId });
+      this.logger.info('Password reset — email not found (silent)', {
+        traceId,
+      });
       return { resetToken: ResetToken.generate().raw, message: SHARED_MESSAGE };
     }
 
     await this.resetRepo.invalidateAllForUser(user.id);
 
     const otp = OtpCode.generate6(OTP_TTL_MINUTES);
-    await this.otpRepo.save({ userId: user.id, code: otp, type: 'password_reset' });
+    await this.otpRepo.save({
+      userId: user.id,
+      code: otp,
+      type: 'password_reset',
+    });
 
     const token = ResetToken.generate();
     const expiresAt = new Date(Date.now() + RESET_TOKEN_TTL_MS);
@@ -98,12 +106,18 @@ export class RequestPasswordResetUseCase {
     return { resetToken: token.raw, message: SHARED_MESSAGE };
   }
 
-  private async enforceRateLimit(email: string, traceId: string): Promise<void> {
+  private async enforceRateLimit(
+    email: string,
+    traceId: string,
+  ): Promise<void> {
     const key = `auth:reset-rate:${email}`;
     const current = (await this.cache.get<number>(key)) ?? 0;
 
     if (current >= RESET_RATE_LIMIT) {
-      this.logger.warn('Password reset rate limit exceeded', { traceId, email });
+      this.logger.warn('Password reset rate limit exceeded', {
+        traceId,
+        email,
+      });
       throw new HttpException(
         'Too many password reset requests. Please try again later.',
         HttpStatus.TOO_MANY_REQUESTS,

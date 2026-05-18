@@ -38,6 +38,11 @@ export const EnvSchema = z.object({
   JWT_REFRESH_SECRET: z.string().min(32),
   JWT_REFRESH_EXPIRES_IN: z.string().default('7d'),
   BCRYPT_SALT_ROUNDS: z.coerce.number().int().min(10).max(15).default(12),
+  // Password lifetime in days. 0 disables expiry. Coerced because env
+  // values are strings — the use cases compare it numerically.
+  PASSWORD_EXPIRES_DAYS: z.coerce.number().int().min(0).max(3650).default(90),
+  // Google OAuth — optional; Google sign-in is disabled when unset.
+  GOOGLE_CLIENT_ID: z.string().min(1).optional(),
 
   // ── Observability ──────────────────────────────────────────
   LOG_LEVEL: z

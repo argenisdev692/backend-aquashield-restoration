@@ -7,6 +7,7 @@ import {
   Query,
   HttpCode,
   UseGuards,
+  ParseUUIDPipe,
 } from '@nestjs/common';
 import {
   ApiTags,
@@ -24,11 +25,9 @@ import {
 import { Throttle } from '@nestjs/throttler';
 import { ZodValidationPipe } from 'nestjs-zod';
 import { JwtAuthGuard } from '../../../../../core/guards/jwt-auth.guard';
-import { CaslGuard } from '../../../../../core/guards/casl.guard';
-import { CheckAbilities } from '../../../../../core/decorators/check-abilities.decorator';
-import { Action } from '../../../../../core/access/actions.enum';
 import { CurrentUser } from '../../../../../core/decorators/current-user.decorator';
 import type { AuthenticatedUser } from '../../../../../core/access/actions.enum';
+import { FreshPasswordGuard } from '../guards/fresh-password.guard';
 
 import { LoginUseCase } from '../../../application/use-cases/login.use-case';
 import { LogoutUseCase } from '../../../application/use-cases/logout.use-case';
@@ -59,7 +58,10 @@ import {
   RefreshTokenDto,
   RefreshTokenSchema,
 } from '../../../application/dtos/refresh-token.dto';
-import { RegisterDto, RegisterSchema } from '../../../application/dtos/register.dto';
+import {
+  RegisterDto,
+  RegisterSchema,
+} from '../../../application/dtos/register.dto';
 import {
   UpdateProfileDto,
   UpdateProfileSchema,
@@ -118,8 +120,6 @@ import {
   VerifyOtpResponse,
 } from '../presenters/auth.response';
 
-const TTL_SECONDS_SHORT = 30;
-
 /**
  * Auth controller — covers all authentication, registration, email-verification,
  * password-reset, 2FA, profile and Google-auth endpoints.
@@ -171,11 +171,14 @@ export class AuthController {
   }
 
   @Post('change-expired-password')
-  @HttpCode(200)
   @Throttle({ default: { limit: 5, ttl: 60_000 } })
-  @ApiOkResponse({ type: TokenResponse })
-  @ApiBadRequestResponse({ description: 'Validation failed or password reuse detected' })
-  @ApiUnauthorizedResponse({ description: 'Invalid or expired password change token' })
+  @ApiCreatedResponse({ type: TokenResponse })
+  @ApiBadRequestResponse({
+    description: 'Validation failed or password reuse detected',
+  })
+  @ApiUnauthorizedResponse({
+    description: 'Invalid or expired password change token',
+  })
   async changeExpiredPassword(
     @Body(new ZodValidationPipe(ChangeExpiredPasswordSchema))
     dto: ChangeExpiredPasswordDto,
@@ -185,7 +188,7 @@ export class AuthController {
 
   @Post('logout')
   @HttpCode(204)
-  @UseGuards(JwtAuthGuard, CaslGuard)
+  @UseGuards(JwtAuthGuard)
   @ApiBearerAuth()
   @ApiNoContentResponse()
   @ApiUnauthorizedResponse({ description: 'Authentication required' })
@@ -198,7 +201,7 @@ export class AuthController {
 
   @Post('logout-all')
   @HttpCode(204)
-  @UseGuards(JwtAuthGuard, CaslGuard)
+  @UseGuards(JwtAuthGuard)
   @ApiBearerAuth()
   @ApiNoContentResponse()
   @ApiUnauthorizedResponse({ description: 'Authentication required' })
@@ -233,7 +236,7 @@ export class AuthController {
   // ─── Profile ───────────────────────────────────────────────────────────────
 
   @Get('me')
-  @UseGuards(JwtAuthGuard, CaslGuard)
+  @UseGuards(JwtAuthGuard)
   @ApiBearerAuth()
   @ApiOkResponse({ type: MeResponse })
   @ApiUnauthorizedResponse({ description: 'Authentication required' })
@@ -268,7 +271,7 @@ export class AuthController {
 
   @Post('update-profile')
   @HttpCode(200)
-  @UseGuards(JwtAuthGuard, CaslGuard)
+  @UseGuards(JwtAuthGuard)
   @ApiBearerAuth()
   @ApiOkResponse({ type: MessageResponse })
   @ApiBadRequestResponse({ description: 'Validation failed' })
@@ -307,7 +310,11 @@ export class AuthController {
 
   @Get('reset-password/:token')
   @ApiOkResponse({ type: ResetTokenValidationResponse })
-  @ApiParam({ name: 'token', type: String, description: 'Raw reset token from email link' })
+  @ApiParam({
+    name: 'token',
+    type: String,
+    description: 'Raw reset token from email link',
+  })
   async validateResetToken(
     @Param('token') token: string,
   ): Promise<ResetTokenValidationResponse> {
@@ -330,7 +337,7 @@ export class AuthController {
   // ─── Email Verification ────────────────────────────────────────────────────
 
   @Get('email/verify')
-  @UseGuards(JwtAuthGuard, CaslGuard)
+  @UseGuards(JwtAuthGuard)
   @ApiBearerAuth()
   @ApiOkResponse({ type: EmailVerificationStatusResponse })
   @ApiUnauthorizedResponse({ description: 'Authentication required' })
@@ -347,10 +354,19 @@ export class AuthController {
   @Get('email/verify/:id/:hash')
   @ApiOkResponse({ type: MessageResponse })
   @ApiBadRequestResponse({ description: 'Invalid verification link' })
-  @ApiParam({ name: 'id', type: String, description: 'User UUID' })
-  @ApiParam({ name: 'hash', type: String, description: 'HMAC-SHA256 verification hash' })
+  @ApiParam({
+    name: 'id',
+    type: String,
+    format: 'uuid',
+    description: 'User UUID',
+  })
+  @ApiParam({
+    name: 'hash',
+    type: String,
+    description: 'HMAC-SHA256 verification hash',
+  })
   async verifyEmail(
-    @Param('id') id: string,
+    @Param('id', ParseUUIDPipe) id: string,
     @Param('hash') hash: string,
   ): Promise<MessageResponse> {
     await this.verifyEmailUseCase.execute(id, hash);
@@ -360,7 +376,7 @@ export class AuthController {
   @Post('email/verification-notification')
   @HttpCode(200)
   @Throttle({ default: { limit: 3, ttl: 60_000 } })
-  @UseGuards(JwtAuthGuard, CaslGuard)
+  @UseGuards(JwtAuthGuard)
   @ApiBearerAuth()
   @ApiOkResponse({ type: MessageResponse })
   @ApiBadRequestResponse({ description: 'Email already verified' })
@@ -375,7 +391,7 @@ export class AuthController {
   // ─── Password Confirmation ─────────────────────────────────────────────────
 
   @Get('user/confirm-password')
-  @UseGuards(JwtAuthGuard, CaslGuard)
+  @UseGuards(JwtAuthGuard)
   @ApiBearerAuth()
   @ApiOkResponse({ type: PasswordConfirmationStatusResponse })
   @ApiUnauthorizedResponse({ description: 'Authentication required' })
@@ -394,7 +410,7 @@ export class AuthController {
   @Post('user/confirm-password')
   @HttpCode(200)
   @Throttle({ default: { limit: 5, ttl: 60_000 } })
-  @UseGuards(JwtAuthGuard, CaslGuard)
+  @UseGuards(JwtAuthGuard)
   @ApiBearerAuth()
   @ApiOkResponse({ type: MessageResponse })
   @ApiBadRequestResponse({ description: 'Validation failed' })
@@ -412,9 +428,9 @@ export class AuthController {
   @Get('two-factor-challenge')
   @ApiOkResponse({ type: TwoFactorChallengeInfoResponse })
   @ApiQuery({ name: 'email', required: true, type: String })
-  async twoFactorChallengeInfo(
+  twoFactorChallengeInfo(
     @Query('email') email: string,
-  ): Promise<TwoFactorChallengeInfoResponse> {
+  ): TwoFactorChallengeInfoResponse {
     return {
       email,
       challengeType: 'otp',
@@ -451,12 +467,11 @@ export class AuthController {
   // ─── 2FA Management ───────────────────────────────────────────────────────
 
   @Post('2fa/enable')
-  @UseGuards(JwtAuthGuard, CaslGuard)
-  @CheckAbilities({ action: Action.Update, subject: 'USER' })
+  @UseGuards(JwtAuthGuard, FreshPasswordGuard)
   @ApiBearerAuth()
   @ApiCreatedResponse({ type: TwoFactorSetupResponse })
   @ApiUnauthorizedResponse({ description: 'Authentication required' })
-  @ApiForbiddenResponse({ description: 'Insufficient permissions' })
+  @ApiForbiddenResponse({ description: 'Password confirmation required' })
   async enable2fa(
     @CurrentUser() user: AuthenticatedUser,
   ): Promise<TwoFactorSetupResponse> {
@@ -464,13 +479,12 @@ export class AuthController {
   }
 
   @Post('2fa/confirm')
-  @UseGuards(JwtAuthGuard, CaslGuard)
-  @CheckAbilities({ action: Action.Update, subject: 'USER' })
+  @UseGuards(JwtAuthGuard, FreshPasswordGuard)
   @ApiBearerAuth()
   @ApiCreatedResponse({ type: MessageResponse })
   @ApiBadRequestResponse({ description: 'Invalid TOTP code' })
   @ApiUnauthorizedResponse({ description: 'Authentication required' })
-  @ApiForbiddenResponse({ description: 'Insufficient permissions' })
+  @ApiForbiddenResponse({ description: 'Password confirmation required' })
   async confirm2fa(
     @CurrentUser() user: AuthenticatedUser,
     @Body(new ZodValidationPipe(Confirm2faSchema)) dto: Confirm2faDto,
@@ -481,12 +495,11 @@ export class AuthController {
 
   @Post('2fa/disable')
   @HttpCode(204)
-  @UseGuards(JwtAuthGuard, CaslGuard)
-  @CheckAbilities({ action: Action.Update, subject: 'USER' })
+  @UseGuards(JwtAuthGuard, FreshPasswordGuard)
   @ApiBearerAuth()
   @ApiNoContentResponse()
   @ApiUnauthorizedResponse({ description: 'Authentication required' })
-  @ApiForbiddenResponse({ description: 'Insufficient permissions' })
+  @ApiForbiddenResponse({ description: 'Password confirmation required' })
   async disable2fa(@CurrentUser() user: AuthenticatedUser): Promise<void> {
     await this.disable2faUseCase.execute(user.id);
   }
