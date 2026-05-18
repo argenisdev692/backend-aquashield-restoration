@@ -12,6 +12,8 @@ import { GetUsersListUseCase } from './application/use-cases/get-users-list.use-
 import { UpdateUserUseCase } from './application/use-cases/update-user.use-case';
 import { DeleteUserUseCase } from './application/use-cases/delete-user.use-case';
 import { ExportUsersUseCase } from './application/use-cases/export-users.use-case';
+import { CheckEmailExistsUseCase } from './application/use-cases/check-email-exists.use-case';
+import { CheckUsernameExistsUseCase } from './application/use-cases/check-username-exists.use-case';
 
 import { PrismaUserRepository } from './infrastructure/persistence/repositories/prisma-user.repository';
 import { PrismaPasswordSetupRepository } from './infrastructure/persistence/repositories/prisma-password-setup.repository';
@@ -39,6 +41,8 @@ import { ActivityLogService } from '../../shared/activity-log/activity-log.servi
     UpdateUserUseCase,
     DeleteUserUseCase,
     ExportUsersUseCase,
+    CheckEmailExistsUseCase,
+    CheckUsernameExistsUseCase,
 
     PrismaUserRepository,
     PrismaPasswordSetupRepository,

@@ -35,6 +35,8 @@ function build() {
     create: jest.fn(),
     save: jest.fn(),
     softDelete: jest.fn(),
+    existsByEmail: jest.fn(),
+    existsByUsername: jest.fn(),
   };
 
   const useCase = new GetUsersListUseCase(

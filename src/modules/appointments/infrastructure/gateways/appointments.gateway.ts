@@ -1,0 +1,116 @@
+import {
+  WebSocketGateway,
+  WebSocketServer,
+  SubscribeMessage,
+  OnGatewayConnection,
+  OnGatewayDisconnect,
+  MessageBody,
+  ConnectedSocket,
+} from '@nestjs/websockets';
+import { Server, Socket } from 'socket.io';
+import type { DefaultEventsMap } from 'socket.io';
+import { UseGuards } from '@nestjs/common';
+import { JwtAuthGuard } from '../../../../core/guards/jwt-auth.guard';
+import { WsJwtMiddleware } from '../../../../shared/websockets/ws-jwt.middleware';
+
+interface AppointmentSocketData {
+  userId?: string;
+  email?: string;
+}
+
+type AppointmentSocket = Socket<
+  DefaultEventsMap,
+  DefaultEventsMap,
+  DefaultEventsMap,
+  AppointmentSocketData
+>;
+
+function wsCorsOrigin(): boolean | string[] {
+  const raw = process.env.CORS_ORIGINS ?? '*';
+  if (raw.trim() === '*') return true;
+  return raw
+    .split(',')
+    .map((o) => o.trim())
+    .filter(Boolean);
+}
+
+@WebSocketGateway({
+  cors: {
+    origin: wsCorsOrigin(),
+  },
+  namespace: '/appointments',
+})
+@UseGuards(JwtAuthGuard)
+export class AppointmentsGateway
+  implements OnGatewayConnection, OnGatewayDisconnect
+{
+  @WebSocketServer()
+  server!: Server;
+
+  constructor(private readonly wsJwtMiddleware: WsJwtMiddleware) {}
+
+  async handleConnection(client: AppointmentSocket): Promise<void> {
+    await new Promise<void>((resolve) => {
+      void this.wsJwtMiddleware.useWS(client, (err?: Error) => {
+        if (err) {
+          client.disconnect();
+        } else {
+          const userId = client.data.userId;
+          if (userId) void client.join(`user:${userId}`);
+          resolve();
+        }
+      });
+    });
+  }
+
+  handleDisconnect(): void {
+    // no-op — socket.io cleans up rooms automatically
+  }
+
+  @SubscribeMessage('join-appointments')
+  handleJoinAppointments(
+    @ConnectedSocket() client: Socket,
+    @MessageBody() data: { userId: string },
+  ) {
+    void client.join(`appointments:${data.userId}`);
+    client.emit('joined-appointments', { userId: data.userId });
+  }
+
+  @SubscribeMessage('leave-appointments')
+  handleLeaveAppointments(
+    @ConnectedSocket() client: Socket,
+    @MessageBody() data: { userId: string },
+  ) {
+    void client.leave(`appointments:${data.userId}`);
+    client.emit('left-appointments', { userId: data.userId });
+  }
+
+  // Methods for event listeners to call
+  broadcastAppointmentCreated(appointmentId: string) {
+    this.server.emit('appointment:created', { appointmentId });
+  }
+
+  broadcastAppointmentUpdated(appointmentId: string) {
+    this.server.emit('appointment:updated', { appointmentId });
+  }
+
+  broadcastAppointmentDeleted(appointmentId: string) {
+    this.server.emit('appointment:deleted', { appointmentId });
+  }
+
+  broadcastStatusChanged(
+    appointmentId: string,
+    oldStatus: string | null,
+    newStatus: string,
+  ) {
+    this.server.emit('appointment:status_changed', {
+      appointmentId,
+      oldStatus,
+      newStatus,
+    });
+  }
+
+  broadcastToUser(userId: string, event: string, data: unknown) {
+    this.server.to(`user:${userId}`).emit(event, data);
+  }
+}

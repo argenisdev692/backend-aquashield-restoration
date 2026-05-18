@@ -38,6 +38,8 @@ function build(overrides: { existing?: User | null } = {}) {
     create: jest.fn().mockResolvedValue(CREATED_USER),
     save: jest.fn(),
     softDelete: jest.fn(),
+    existsByEmail: jest.fn(),
+    existsByUsername: jest.fn(),
   };
   const setupRepo = {
     save: jest.fn().mockResolvedValue(undefined),

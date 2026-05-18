@@ -37,6 +37,8 @@ function build(overrides: { found?: User | null; emailTaken?: User | null } = {}
     create: jest.fn(),
     save: jest.fn().mockResolvedValue(undefined),
     softDelete: jest.fn(),
+    existsByEmail: jest.fn(),
+    existsByUsername: jest.fn(),
   };
   const audit = { log: jest.fn().mockResolvedValue(undefined) };
   const cache = {

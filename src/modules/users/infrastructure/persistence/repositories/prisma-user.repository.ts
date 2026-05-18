@@ -82,4 +82,26 @@ export class PrismaUserRepository implements IUserRepository {
       data: { deletedAt: new Date() },
     });
   }
+
+  async existsByEmail(email: string, excludeId?: string): Promise<boolean> {
+    const count = await this.prisma.user.count({
+      where: {
+        email: email.toLowerCase(),
+        deletedAt: null,
+        ...(excludeId ? { id: { not: excludeId } } : {}),
+      },
+    });
+    return count > 0;
+  }
+
+  async existsByUsername(username: string, excludeId?: string): Promise<boolean> {
+    const count = await this.prisma.user.count({
+      where: {
+        username: username.toLowerCase(),
+        deletedAt: null,
+        ...(excludeId ? { id: { not: excludeId } } : {}),
+      },
+    });
+    return count > 0;
+  }
 }

@@ -34,6 +34,8 @@ function build(found: User | null = EXISTING) {
     create: jest.fn(),
     save: jest.fn(),
     softDelete: jest.fn().mockResolvedValue(undefined),
+    existsByEmail: jest.fn(),
+    existsByUsername: jest.fn(),
   };
   const audit = { log: jest.fn().mockResolvedValue(undefined) };
   const cache = {

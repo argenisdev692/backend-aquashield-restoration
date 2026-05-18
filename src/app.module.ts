@@ -23,6 +23,7 @@ import { AuthModule } from './modules/auth/auth.module';
 import { CompanyDataModule } from './modules/companydata/companydata.module';
 import { BlogCategoryModule } from './modules/blog-category/blog-category.module';
 import { UsersModule } from './modules/users/users.module';
+import { AppointmentsModule } from './modules/appointments/appointments.module';
 
 @Module({
   imports: [
@@ -66,6 +67,7 @@ import { UsersModule } from './modules/users/users.module';
     CompanyDataModule,
     BlogCategoryModule,
     UsersModule,
+    AppointmentsModule,
   ],
   controllers: [AppController],
   providers: [AppService, { provide: APP_GUARD, useClass: ThrottlerGuard }],

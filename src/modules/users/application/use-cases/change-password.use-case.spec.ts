@@ -23,6 +23,8 @@ function build(overrides: { tokenRow?: unknown; user?: unknown } = {}) {
     create: jest.fn(),
     save: jest.fn().mockResolvedValue(undefined),
     softDelete: jest.fn(),
+    existsByEmail: jest.fn(),
+    existsByUsername: jest.fn(),
   };
   const setupRepo = {
     save: jest.fn(),

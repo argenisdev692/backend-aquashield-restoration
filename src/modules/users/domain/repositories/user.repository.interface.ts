@@ -36,6 +36,8 @@ export interface IUserRepository {
   create(user: User): Promise<User>;
   save(user: User): Promise<void>;
   softDelete(id: string): Promise<void>;
+  existsByEmail(email: string, excludeId?: string): Promise<boolean>;
+  existsByUsername(username: string, excludeId?: string): Promise<boolean>;
 }
 
 export const USER_REPOSITORY = Symbol('IUserRepository');

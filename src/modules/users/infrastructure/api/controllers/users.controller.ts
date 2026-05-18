@@ -13,6 +13,7 @@ import {
   ParseUUIDPipe,
   StreamableFile,
   Res,
+  BadRequestException,
 } from '@nestjs/common';
 import {
   ApiTags,
@@ -26,6 +27,7 @@ import {
   ApiForbiddenResponse,
   ApiConflictResponse,
   ApiParam,
+  ApiQuery,
 } from '@nestjs/swagger';
 import { Throttle } from '@nestjs/throttler';
 import { ZodValidationPipe } from 'nestjs-zod';
@@ -49,6 +51,8 @@ import { GetUsersListUseCase } from '../../../application/use-cases/get-users-li
 import { UpdateUserUseCase } from '../../../application/use-cases/update-user.use-case';
 import { DeleteUserUseCase } from '../../../application/use-cases/delete-user.use-case';
 import { ExportUsersUseCase } from '../../../application/use-cases/export-users.use-case';
+import { CheckEmailExistsUseCase } from '../../../application/use-cases/check-email-exists.use-case';
+import { CheckUsernameExistsUseCase } from '../../../application/use-cases/check-username-exists.use-case';
 
 import {
   CreateUserDto,
@@ -95,6 +99,8 @@ export class UsersController {
     private readonly updateUserUC: UpdateUserUseCase,
     private readonly deleteUserUC: DeleteUserUseCase,
     private readonly exportUsersUC: ExportUsersUseCase,
+    private readonly checkEmailExistsUC: CheckEmailExistsUseCase,
+    private readonly checkUsernameExistsUC: CheckUsernameExistsUseCase,
   ) {}
 
   @Post()
@@ -229,6 +235,42 @@ export class UsersController {
       'Content-Disposition': `attachment; filename="users.${fmt}"`,
     });
     return new StreamableFile(buffer);
+  }
+
+  @Get('check/email')
+  @UseGuards(JwtAuthGuard)
+  @ApiBearerAuth()
+  @Throttle({ default: { limit: 20, ttl: 60_000 } })
+  @CacheTTL(TTL_SECONDS.SHORT)
+  @ApiOkResponse({ schema: { type: 'object', properties: { exists: { type: 'boolean' } } } })
+  @ApiQuery({ name: 'value', required: true, type: String })
+  @ApiQuery({ name: 'excludeId', required: false, type: String, format: 'uuid' })
+  @ApiUnauthorizedResponse()
+  async checkEmail(
+    @Query('value') value: string,
+    @Query('excludeId') excludeId?: string,
+  ): Promise<{ exists: boolean }> {
+    if (!value || value.trim().length === 0) throw new BadRequestException('value is required');
+    const exists = await this.checkEmailExistsUC.execute(value.trim(), excludeId);
+    return { exists };
+  }
+
+  @Get('check/username')
+  @UseGuards(JwtAuthGuard)
+  @ApiBearerAuth()
+  @Throttle({ default: { limit: 20, ttl: 60_000 } })
+  @CacheTTL(TTL_SECONDS.SHORT)
+  @ApiOkResponse({ schema: { type: 'object', properties: { exists: { type: 'boolean' } } } })
+  @ApiQuery({ name: 'value', required: true, type: String })
+  @ApiQuery({ name: 'excludeId', required: false, type: String, format: 'uuid' })
+  @ApiUnauthorizedResponse()
+  async checkUsername(
+    @Query('value') value: string,
+    @Query('excludeId') excludeId?: string,
+  ): Promise<{ exists: boolean }> {
+    if (!value || value.trim().length === 0) throw new BadRequestException('value is required');
+    const exists = await this.checkUsernameExistsUC.execute(value.trim(), excludeId);
+    return { exists };
   }
 
   @Get(':id')

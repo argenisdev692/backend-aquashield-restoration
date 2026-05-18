@@ -32,4 +32,14 @@ export default tseslint.config(
       "prettier/prettier": ["error", { endOfLine: "auto" }],
     },
   },
+  {
+    // Test files: relax type-aware rules that conflict with idiomatic
+    // Jest mocking (partial mocks cast via `as`, bare mock fn references
+    // passed to `expect(...)` matchers).
+    files: ['**/*.spec.ts', '**/*.e2e-spec.ts', '**/__tests__/**/*.ts'],
+    rules: {
+      '@typescript-eslint/no-unsafe-assignment': 'off',
+      '@typescript-eslint/unbound-method': 'off',
+    },
+  },
 );

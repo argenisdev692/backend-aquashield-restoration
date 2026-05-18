@@ -13,9 +13,12 @@ import {
   UseInterceptors,
   UploadedFile,
   BadRequestException,
+  NotFoundException,
 } from '@nestjs/common';
 import { FileInterceptor } from '@nestjs/platform-express';
 import { ZodValidationPipe } from 'nestjs-zod';
+import { CacheTTL } from '@nestjs/cache-manager';
+import { TTL_SECONDS } from '../../shared/cache/cache-ttl.constants';
 import {
   ApiTags,
   ApiBearerAuth,
@@ -38,7 +41,6 @@ import { CreateCompanyDataSchema } from './dto/create-companydata.dto';
 import type { CreateCompanyDataDto } from './dto/create-companydata.dto';
 import { UpdateCompanyDataSchema } from './dto/update-companydata.dto';
 import type { UpdateCompanyDataDto } from './dto/update-companydata.dto';
-import type { CompanyData } from './companydata.entity';
 import { CompanyDataResponse } from './companydata.entity';
 
 @ApiTags('company-data')
@@ -51,11 +53,14 @@ export class CompanyDataController {
   @Get('me')
   @ApiOkResponse({ type: CompanyDataResponse })
   @ApiNotFoundResponse({ description: 'Company data not found' })
+  @CacheTTL(TTL_SECONDS.LONG)
   @CheckAbilities({ action: Action.Read, subject: 'COMPANY' })
   async getMyCompanyData(
     @Req() req: { user: { id: string } },
-  ): Promise<CompanyData | null> {
-    return this.service.findByUserId(req.user.id);
+  ): Promise<CompanyDataResponse> {
+    const result = await this.service.findByUserId(req.user.id);
+    if (!result) throw new NotFoundException('Company data not found');
+    return result;
   }
 
   @Post()
@@ -74,6 +79,7 @@ export class CompanyDataController {
   @ApiOkResponse({ type: CompanyDataResponse })
   @ApiNotFoundResponse()
   @ApiParam({ name: 'id', type: String, format: 'uuid' })
+  @CacheTTL(TTL_SECONDS.LONG)
   @CheckAbilities({ action: Action.Read, subject: 'COMPANY' })
   async findOne(
     @Param('id', ParseUUIDPipe) id: string,
@@ -117,14 +123,22 @@ export class CompanyDataController {
     },
   })
   @ApiParam({ name: 'id', type: String, format: 'uuid' })
-  @UseInterceptors(FileInterceptor('file'))
+  @UseInterceptors(
+    FileInterceptor('file', {
+      limits: { fileSize: 2 * 1024 * 1024 },
+      fileFilter: (_req, file: Express.Multer.File, cb) => {
+        const allowed = ['image/png', 'image/jpeg', 'image/webp'];
+        cb(null, allowed.includes(file.mimetype));
+      },
+    }),
+  )
   @CheckAbilities({ action: Action.Update, subject: 'COMPANY' })
   async uploadSignature(
     @Param('id', ParseUUIDPipe) id: string,
     @UploadedFile() file: Express.Multer.File,
   ): Promise<CompanyDataResponse> {
     if (!file) {
-      throw new BadRequestException('No file provided');
+      throw new BadRequestException('No file provided or invalid file type. Allowed: png, jpeg, webp (max 2 MB)');
     }
     return this.service.uploadSignature(id, {
       buffer: file.buffer,

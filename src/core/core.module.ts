@@ -11,6 +11,7 @@ import { GlobalExceptionFilter } from './filters/global-exception.filter';
 import { CaslGuard } from './guards/casl.guard';
 import { JwtAuthGuard } from './guards/jwt-auth.guard';
 import { JwtStrategy } from './guards/jwt.strategy';
+import { SpamFilterGuard } from './guards/spam-filter.guard';
 import { AuditInterceptor } from './interceptors/audit.interceptor';
 import { CacheTtlInterceptor } from './interceptors/cache-ttl.interceptor';
 import { LoggingInterceptor } from './interceptors/logging.interceptor';
@@ -34,12 +35,13 @@ import { LoggingInterceptor } from './interceptors/logging.interceptor';
     JwtStrategy,
     JwtAuthGuard,
     CaslGuard,
+    SpamFilterGuard,
     { provide: APP_FILTER, useClass: GlobalExceptionFilter },
     { provide: APP_PIPE, useClass: ZodValidationPipe },
     { provide: APP_INTERCEPTOR, useClass: LoggingInterceptor },
     { provide: APP_INTERCEPTOR, useClass: CacheTtlInterceptor },
     { provide: APP_INTERCEPTOR, useClass: AuditInterceptor },
   ],
-  exports: [CaslAbilityFactory, JwtAuthGuard, CaslGuard, PassportModule],
+  exports: [CaslAbilityFactory, JwtAuthGuard, CaslGuard, SpamFilterGuard, PassportModule],
 })
 export class CoreModule {}
