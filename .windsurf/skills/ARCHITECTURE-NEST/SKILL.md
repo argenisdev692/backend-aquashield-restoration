@@ -1,14 +1,14 @@
 ---
-description: Directory structure of each NestJS service — Hexagonal / DDD (UseCase pattern). Use for complex bounded contexts with real business rules, events, workflows, or cross-context coordination. For simple CRUD modules, start with `.claude/skills/ARQUITECTURE-NEST-CRUD/SKILL.md`. For coding rules, naming, testing, logging, cache, and exports → see `.claude/skills/BACKEND-NEST/SKILL.md`.
+description: Directory structure of each NestJS service — Hexagonal / DDD + CQRS (CommandBus/QueryBus). Use for complex bounded contexts with real business rules, events, workflows, or cross-context coordination. For simple CRUD modules, start with `.claude/skills/ARCHITECTURE-NEST-CRUD/SKILL.md`. For coding rules, naming, testing, logging, cache, and exports → see `.claude/skills/BACKEND-NEST/SKILL.md`.
 globs: src/**
 ---
 
-# ARQUITECTURE-NEST — Directory Structure (2026)
+# ARCHITECTURE-NEST — Directory Structure (2026)
 
 > **Authority**: SINGLE SOURCE OF TRUTH for all file placement and module structure.
-> **Pattern**: Hexagonal Architecture + DDD — Use Case services, Port/Adapter, Domain Events via EventEmitter2.
+> **Pattern**: Hexagonal Architecture + DDD + CQRS — Commands/Queries dispatched via `@nestjs/cqrs` `CommandBus`/`QueryBus`, Port/Adapter, Domain Events via EventEmitter2.
 > **When to use this**: only when the module has complex business rules, domain events, ACL, or cross-context coordination.
-> **Default for small features**: use `.claude/skills/ARQUITECTURE-NEST-CRUD/SKILL.md` first; escalate here only when the simpler structure is no longer enough.
+> **Default for small features**: use `.claude/skills/ARCHITECTURE-NEST-CRUD/SKILL.md` first; escalate here only when the simpler structure is no longer enough.
 > **For coding rules, naming conventions, testing strategy, logging, cache, exports → see `.claude/skills/BACKEND-NEST/SKILL.md`.**
 
 ---
@@ -146,18 +146,23 @@ src/
 
 > Every new bounded context follows this exact structure.
 > Replace `{Module}` / `{module}` with the actual name (e.g. `projects`, `estimates`, `contractors`).
+> **CQRS**: Write operations use `CommandBus` → `@CommandHandler`. Read operations use `QueryBus` → `@QueryHandler`.
 
 ```
 modules/{module}/
-├── {module}.module.ts              # Providers + port Symbol bindings
+├── {module}.module.ts              # CqrsModule import + Handlers + port Symbol bindings
 │
 ├── __tests__/
 │   ├── domain/
-│   │   └── {module}.aggregate.spec.ts    # Pure unit — zero NestJS/Prisma
+│   │   └── {module}.aggregate.spec.ts          # Pure unit — zero NestJS/Prisma
 │   └── application/
-│       ├── create-{module}.use-case.spec.ts
-│       ├── update-{module}.use-case.spec.ts
-│       └── export-{module}.use-case.spec.ts
+│       ├── commands/
+│       │   ├── create-{module}.handler.spec.ts
+│       │   ├── update-{module}.handler.spec.ts
+│       │   └── delete-{module}.handler.spec.ts
+│       └── queries/
+│           ├── get-{module}-by-id.handler.spec.ts
+│           └── get-{module}-list.handler.spec.ts
 │
 ├── domain/                         # 🔵 ZERO NestJS / infra dependencies
 │   ├── entities/
@@ -167,27 +172,38 @@ modules/{module}/
 │   ├── exceptions/
 │   │   └── {module}-domain.exception.ts
 │   ├── events/
-│   │   └── {module}-created.domain-event.ts  # Plain TS class — no @nestjs/cqrs
-│   ├── repositories/
-│   │   └── {module}.repository.interface.ts  # I{Module}Repository (outbound port)
+│   │   └── {module}-created.domain-event.ts  # Plain TS class — no @nestjs/cqrs IEvent
 │   └── ports/
-│       └── outbound/
-│           ├── audit.port.interface.ts        # IAuditPort (re-used from shared)
-│           └── notification.port.interface.ts # INotificationPort (if needed)
+│       ├── {module}.repository.interface.ts  # I{Module}Repository (outbound port)
+│       ├── audit.port.interface.ts           # IAuditPort (re-used from shared)
+│       └── notification.port.interface.ts    # INotificationPort (if needed)
 │
 ├── application/                    # 🟡 Orchestration only — no infra imports
-│   ├── use-cases/
-│   │   ├── create-{module}.use-case.ts
-│   │   ├── update-{module}.use-case.ts
-│   │   ├── delete-{module}.use-case.ts
-│   │   ├── get-{module}-by-id.use-case.ts
-│   │   ├── get-{module}-list.use-case.ts
-│   │   └── export-{module}.use-case.ts       # @SkipCache() on controller + IAuditPort.log()
-│   ├── read-models/
-│   │   └── {module}.read-model.ts            # Fields with @ExportColumn where applicable
-│   └── dtos/
-│       ├── create-{module}.dto.ts            # Zod schema + z.infer<>
-│       └── update-{module}.dto.ts
+│   ├── commands/
+│   │   ├── impl/                             # Command payload classes (plain TS)
+│   │   │   ├── create-{module}.command.ts
+│   │   │   ├── update-{module}.command.ts
+│   │   │   ├── delete-{module}.command.ts
+│   │   │   └── export-{module}.command.ts
+│   │   └── handlers/                         # @CommandHandler — write logic lives here
+│   │       ├── create-{module}.handler.ts
+│   │       ├── update-{module}.handler.ts
+│   │       ├── delete-{module}.handler.ts
+│   │       └── export-{module}.handler.ts    # IAuditPort.log() + @SkipCache() on controller
+│   │
+│   ├── queries/
+│   │   ├── impl/                             # Query payload classes (plain TS)
+│   │   │   ├── get-{module}-by-id.query.ts
+│   │   │   └── get-{module}-list.query.ts
+│   │   └── handlers/                         # @QueryHandler — read logic lives here
+│   │       ├── get-{module}-by-id.handler.ts
+│   │       └── get-{module}-list.handler.ts
+│   │
+│   ├── dtos/
+│   │   ├── create-{module}.dto.ts            # Zod schema + z.infer<>
+│   │   └── update-{module}.dto.ts
+│   └── read-models/
+│       └── {module}.read-model.ts            # Fields with @ExportColumn where applicable
 │
 └── infrastructure/                 # 🔴 NestJS + infra imports allowed here ONLY
     ├── persistence/
@@ -199,7 +215,7 @@ modules/{module}/
     │
     ├── api/
     │   ├── controllers/
-    │   │   └── {module}.controller.ts        # REST: injects UseCases directly, no bus
+    │   │   └── {module}.controller.ts        # REST: dispatches via CommandBus / QueryBus
     │   └── presenters/
     │       ├── {module}.response.ts
     │       └── {module}-list.response.ts
@@ -228,15 +244,19 @@ modules/{module}/
 
 ```
 modules/users/
-├── users.module.ts
+├── users.module.ts                            # imports CqrsModule, registers handlers
 ├── __tests__/
 │   ├── domain/
 │   │   ├── user.aggregate.spec.ts
 │   │   └── email.value-object.spec.ts
 │   └── application/
-│       ├── create-user.use-case.spec.ts
-│       ├── suspend-user.use-case.spec.ts
-│       └── export-users.use-case.spec.ts
+│       ├── commands/
+│       │   ├── create-user.handler.spec.ts
+│       │   ├── suspend-user.handler.spec.ts
+│       │   └── export-users.handler.spec.ts
+│       └── queries/
+│           ├── get-user-by-id.handler.spec.ts
+│           └── get-users-list.handler.spec.ts
 │
 ├── domain/
 │   ├── entities/
@@ -249,30 +269,43 @@ modules/users/
 │   │   ├── user-created.domain-event.ts
 │   │   ├── user-suspended.domain-event.ts
 │   │   └── password-changed.domain-event.ts
-│   ├── repositories/
-│   │   └── user.repository.interface.ts       # IUserRepository
 │   ├── services/
 │   │   └── password-hasher.service.ts
 │   └── ports/
-│       └── outbound/
-│           ├── email.service.interface.ts      # IEmailService
-│           └── audit.port.interface.ts         # IAuditPort
+│       ├── user.repository.interface.ts       # IUserRepository
+│       ├── email.service.interface.ts         # IEmailService
+│       └── audit.port.interface.ts            # IAuditPort
 │
 ├── application/
-│   ├── use-cases/
-│   │   ├── create-user.use-case.ts            # logs 'users.created'
-│   │   ├── update-user.use-case.ts            # logs 'users.updated'
-│   │   ├── delete-user.use-case.ts            # soft delete, logs 'users.deleted'
-│   │   ├── suspend-user.use-case.ts           # logs 'users.suspended'
-│   │   ├── change-password.use-case.ts        # logs 'users.password_changed'
-│   │   ├── get-user-by-id.use-case.ts
-│   │   ├── get-users-list.use-case.ts
-│   │   └── export-users.use-case.ts           # logs 'users.export'
-│   ├── read-models/
-│   │   └── user.read-model.ts
-│   └── dtos/
-│       ├── create-user.dto.ts
-│       └── update-user.dto.ts
+│   ├── commands/
+│   │   ├── impl/
+│   │   │   ├── create-user.command.ts
+│   │   │   ├── update-user.command.ts
+│   │   │   ├── delete-user.command.ts
+│   │   │   ├── suspend-user.command.ts
+│   │   │   ├── change-password.command.ts
+│   │   │   └── export-users.command.ts
+│   │   └── handlers/
+│   │       ├── create-user.handler.ts         # logs 'users.created'
+│   │       ├── update-user.handler.ts         # logs 'users.updated'
+│   │       ├── delete-user.handler.ts         # soft delete, logs 'users.deleted'
+│   │       ├── suspend-user.handler.ts        # logs 'users.suspended'
+│   │       ├── change-password.handler.ts     # logs 'users.password_changed'
+│   │       └── export-users.handler.ts        # logs 'users.export'
+│   │
+│   ├── queries/
+│   │   ├── impl/
+│   │   │   ├── get-user-by-id.query.ts
+│   │   │   └── get-users-list.query.ts
+│   │   └── handlers/
+│   │       ├── get-user-by-id.handler.ts
+│   │       └── get-users-list.handler.ts
+│   │
+│   ├── dtos/
+│   │   ├── create-user.dto.ts
+│   │   └── update-user.dto.ts
+│   └── read-models/
+│       └── user.read-model.ts
 │
 └── infrastructure/
     ├── persistence/
@@ -283,7 +316,7 @@ modules/users/
     │       └── prisma-user.repository.ts
     ├── api/
     │   ├── controllers/
-    │   │   └── users.controller.ts            # CRUD + GET /users/export?format=xlsx|pdf
+    │   │   └── users.controller.ts            # CommandBus/QueryBus + GET /users/export
     │   └── presenters/
     │       ├── user.response.ts
     │       └── user-list.response.ts
@@ -305,15 +338,18 @@ modules/users/
 
 ```
 modules/auth/
-├── auth.module.ts
+├── auth.module.ts                             # imports CqrsModule, registers handlers
 ├── __tests__/
 │   ├── domain/
 │   │   ├── otp.aggregate.spec.ts
 │   │   └── auth-session.aggregate.spec.ts
 │   └── application/
-│       ├── login.use-case.spec.ts
-│       ├── verify-otp.use-case.spec.ts
-│       └── refresh-token.use-case.spec.ts
+│       ├── commands/
+│       │   ├── login.handler.spec.ts
+│       │   ├── verify-otp.handler.spec.ts
+│       │   └── refresh-token.handler.spec.ts
+│       └── queries/
+│           └── get-active-sessions.handler.spec.ts
 │
 ├── domain/
 │   ├── entities/
@@ -331,42 +367,59 @@ modules/auth/
 │   │   ├── otp-verified.domain-event.ts
 │   │   ├── password-reset.domain-event.ts
 │   │   └── two-fa-enabled.domain-event.ts
-│   ├── repositories/
-│   │   ├── auth-session.repository.interface.ts
-│   │   └── otp.repository.interface.ts
 │   ├── services/
 │   │   ├── token-generator.service.ts
 │   │   ├── otp-generator.service.ts
 │   │   └── password-reset-token.service.ts
 │   └── ports/
-│       └── outbound/
-│           ├── audit.port.interface.ts
-│           ├── notification.port.interface.ts
-│           └── user-lookup.port.interface.ts  # ACL to users context
+│       ├── auth-session.repository.interface.ts
+│       ├── otp.repository.interface.ts
+│       ├── audit.port.interface.ts
+│       ├── notification.port.interface.ts
+│       └── user-lookup.port.interface.ts      # ACL to users context
 │
 ├── application/
-│   ├── use-cases/
-│   │   ├── login.use-case.ts                  # logs 'auth.login'
-│   │   ├── logout.use-case.ts                 # logs 'auth.logout'
-│   │   ├── logout-all-sessions.use-case.ts    # logs 'auth.logout_all'
-│   │   ├── refresh-token.use-case.ts          # logs 'auth.token_refreshed'
-│   │   ├── request-otp.use-case.ts            # logs 'auth.otp_requested'
-│   │   ├── verify-otp.use-case.ts             # logs 'auth.otp_verified' or 'auth.otp_failed'
-│   │   ├── request-password-reset.use-case.ts # always HTTP 200 — no email enumeration
-│   │   ├── reset-password.use-case.ts         # logs 'auth.password_reset'
-│   │   ├── enable-2fa.use-case.ts             # logs 'auth.2fa_initiated'
-│   │   ├── confirm-2fa.use-case.ts            # logs 'auth.2fa_enabled'
-│   │   ├── disable-2fa.use-case.ts            # logs 'auth.2fa_disabled'
-│   │   └── get-active-sessions.use-case.ts
-│   ├── read-models/
-│   │   └── auth-session.read-model.ts
-│   └── dtos/
-│       ├── login.dto.ts
-│       ├── request-otp.dto.ts
-│       ├── verify-otp.dto.ts
-│       ├── request-password-reset.dto.ts
-│       ├── reset-password.dto.ts
-│       └── verify-reset-token.dto.ts
+│   ├── commands/
+│   │   ├── impl/
+│   │   │   ├── login.command.ts
+│   │   │   ├── logout.command.ts
+│   │   │   ├── logout-all-sessions.command.ts
+│   │   │   ├── refresh-token.command.ts
+│   │   │   ├── request-otp.command.ts
+│   │   │   ├── verify-otp.command.ts
+│   │   │   ├── request-password-reset.command.ts
+│   │   │   ├── reset-password.command.ts
+│   │   │   ├── enable-2fa.command.ts
+│   │   │   ├── confirm-2fa.command.ts
+│   │   │   └── disable-2fa.command.ts
+│   │   └── handlers/
+│   │       ├── login.handler.ts               # logs 'auth.login'
+│   │       ├── logout.handler.ts              # logs 'auth.logout'
+│   │       ├── logout-all-sessions.handler.ts # logs 'auth.logout_all'
+│   │       ├── refresh-token.handler.ts       # logs 'auth.token_refreshed'
+│   │       ├── request-otp.handler.ts         # logs 'auth.otp_requested'
+│   │       ├── verify-otp.handler.ts          # logs 'auth.otp_verified' or 'auth.otp_failed'
+│   │       ├── request-password-reset.handler.ts # always HTTP 200 — no email enumeration
+│   │       ├── reset-password.handler.ts      # logs 'auth.password_reset'
+│   │       ├── enable-2fa.handler.ts          # logs 'auth.2fa_initiated'
+│   │       ├── confirm-2fa.handler.ts         # logs 'auth.2fa_enabled'
+│   │       └── disable-2fa.handler.ts         # logs 'auth.2fa_disabled'
+│   │
+│   ├── queries/
+│   │   ├── impl/
+│   │   │   └── get-active-sessions.query.ts
+│   │   └── handlers/
+│   │       └── get-active-sessions.handler.ts
+│   │
+│   ├── dtos/
+│   │   ├── login.dto.ts
+│   │   ├── request-otp.dto.ts
+│   │   ├── verify-otp.dto.ts
+│   │   ├── request-password-reset.dto.ts
+│   │   ├── reset-password.dto.ts
+│   │   └── verify-reset-token.dto.ts
+│   └── read-models/
+│       └── auth-session.read-model.ts
 │
 └── infrastructure/
     ├── persistence/
@@ -382,7 +435,7 @@ modules/auth/
     │       └── prisma-otp.repository.ts
     ├── api/
     │   ├── controllers/
-    │   │   └── auth.controller.ts
+    │   │   └── auth.controller.ts             # CommandBus/QueryBus dispatch
     │   └── presenters/
     │       ├── login.response.ts
     │       └── session-list.response.ts
@@ -400,13 +453,15 @@ modules/auth/
 
 ```
 modules/profile/
-├── profile.module.ts
+├── profile.module.ts                          # imports CqrsModule, registers handlers
 ├── __tests__/
 │   └── application/
-│       ├── get-profile.use-case.spec.ts
-│       ├── update-profile.use-case.spec.ts
-│       ├── change-password.use-case.spec.ts
-│       └── upload-avatar.use-case.spec.ts
+│       ├── commands/
+│       │   ├── update-profile.handler.spec.ts
+│       │   ├── change-password.handler.spec.ts
+│       │   └── upload-avatar.handler.spec.ts
+│       └── queries/
+│           └── get-profile-by-user-id.handler.spec.ts
 │
 ├── domain/
 │   ├── entities/
@@ -421,27 +476,37 @@ modules/profile/
 │   │   ├── profile-updated.domain-event.ts
 │   │   ├── password-changed.domain-event.ts
 │   │   └── avatar-uploaded.domain-event.ts
-│   ├── repositories/
-│   │   └── profile.repository.interface.ts
 │   └── ports/
-│       └── outbound/
-│           ├── audit.port.interface.ts
-│           ├── avatar-storage.port.interface.ts
-│           └── password-verifier.port.interface.ts  # ACL to users context
+│       ├── profile.repository.interface.ts
+│       ├── audit.port.interface.ts
+│       ├── avatar-storage.port.interface.ts
+│       └── password-verifier.port.interface.ts    # ACL to users context
 │
 ├── application/
-│   ├── use-cases/
-│   │   ├── get-profile-by-user-id.use-case.ts
-│   │   ├── update-profile.use-case.ts             # logs 'profile.updated'
-│   │   ├── change-password.use-case.ts            # logs 'profile.password_changed'
-│   │   ├── upload-avatar.use-case.ts              # logs 'profile.avatar_uploaded'
-│   │   └── delete-avatar.use-case.ts              # logs 'profile.avatar_deleted'
-│   ├── read-models/
-│   │   └── profile.read-model.ts
-│   └── dtos/
-│       ├── update-profile.dto.ts
-│       ├── change-password.dto.ts
-│       └── upload-avatar.dto.ts
+│   ├── commands/
+│   │   ├── impl/
+│   │   │   ├── update-profile.command.ts
+│   │   │   ├── change-password.command.ts
+│   │   │   ├── upload-avatar.command.ts
+│   │   │   └── delete-avatar.command.ts
+│   │   └── handlers/
+│   │       ├── update-profile.handler.ts          # logs 'profile.updated'
+│   │       ├── change-password.handler.ts         # logs 'profile.password_changed'
+│   │       ├── upload-avatar.handler.ts           # logs 'profile.avatar_uploaded'
+│   │       └── delete-avatar.handler.ts           # logs 'profile.avatar_deleted'
+│   │
+│   ├── queries/
+│   │   ├── impl/
+│   │   │   └── get-profile-by-user-id.query.ts
+│   │   └── handlers/
+│   │       └── get-profile-by-user-id.handler.ts
+│   │
+│   ├── dtos/
+│   │   ├── update-profile.dto.ts
+│   │   ├── change-password.dto.ts
+│   │   └── upload-avatar.dto.ts
+│   └── read-models/
+│       └── profile.read-model.ts
 │
 └── infrastructure/
     ├── persistence/
@@ -453,7 +518,7 @@ modules/profile/
     │       └── prisma-profile.repository.ts
     ├── api/
     │   ├── controllers/
-    │   │   └── profile.controller.ts          # GET /profile/me, PATCH, POST avatar, DELETE avatar
+    │   │   └── profile.controller.ts          # CommandBus/QueryBus dispatch
     │   └── presenters/
     │       └── profile.response.ts
     ├── storage/
@@ -464,7 +529,7 @@ modules/profile/
 
 ---
 
-## 🔄 Full Request Flow
+## 🔄 Full Request Flow (CQRS)
 
 ```
 HTTP / WebSocket Request
@@ -472,23 +537,25 @@ HTTP / WebSocket Request
   └─► Zod Validation Pipe
   └─► Audit Interceptor (POST/PATCH/PUT/DELETE — skipped with @SkipAudit)
   └─► Cache TTL Interceptor (GET only — skipped with @SkipCache)
-        └─► Controller
+        └─► Controller (injects CommandBus + QueryBus)
               │
-              ├─► [READ] GetXxxByIdUseCase.execute(id)
-              │       └─► Cache HIT  → returns cached response immediately
-              │       └─► Cache MISS → Prisma query → ReadModel
-              │               └─► Stores result in Redis with TTL
+              ├─► [READ] queryBus.execute(new GetXxxByIdQuery(id))
+              │       └─► @QueryHandler(GetXxxByIdQuery) → GetXxxByIdHandler.execute()
+              │             └─► Cache HIT  → returns cached response immediately
+              │             └─► Cache MISS → Repository → ReadModel
+              │                     └─► Stores result in Redis with TTL
               │
-              └─► [WRITE] CreateXxxUseCase.execute(dto)
-                      ├─► Domain Aggregate — pure business logic
-                      │     └─► aggregate.create() / .approve() / .complete() etc.
-                      ├─► Repository.save(aggregate)              ← DB TX
-                      ├─► IAuditPort.log(...)                     ← business audit
-                      ├─► CacheManager.del(affected keys)         ← cache invalidation
-                      └─► EventEmitter2.emit('xxx.created', new XxxCreatedEvent())
-                              └─► @OnEvent() listeners in infrastructure/event-listeners/
-                                    └─► XxxGateway → WS emit to room
-                                    └─► BullMQ processor (async side effects)
+              └─► [WRITE] commandBus.execute(new CreateXxxCommand(dto))
+                      └─► @CommandHandler(CreateXxxCommand) → CreateXxxHandler.execute()
+                            ├─► Domain Aggregate — pure business logic
+                            │     └─► aggregate.create() / .approve() / .complete() etc.
+                            ├─► Repository.save(aggregate)              ← DB TX
+                            ├─► IAuditPort.log(...)                     ← business audit
+                            ├─► CacheManager.del(affected keys)         ← cache invalidation
+                            └─► EventEmitter2.emit('xxx.created', new XxxCreatedEvent())
+                                    └─► @OnEvent() listeners in infrastructure/event-listeners/
+                                          └─► XxxGateway → WS emit to room
+                                          └─► BullMQ processor (async side effects)
 ```
 
 ---
@@ -498,18 +565,23 @@ HTTP / WebSocket Request
 ```
 domain/         ← ZERO imports from NestJS, Prisma, HTTP, Redis, ExcelJS, PDFKit
                 ← Pure TypeScript only
-                ← Domain events are plain TS classes — no @nestjs/cqrs or EventEmitter2
+                ← Domain events are plain TS classes — no @nestjs/cqrs IEvent or EventEmitter2
 
 application/    ← Only imports from domain/
                 ← NEVER imports infrastructure/ directly
                 ← Injects ports via Symbol tokens only
-                ← NEVER imports @nestjs/common (except @Injectable)
-                ← Uses EventEmitter2 injected from NestJS to publish domain events
+                ← Command Handlers: @CommandHandler decorator + ICommandHandler<T> interface
+                ← Query Handlers:   @QueryHandler decorator + IQueryHandler<T> interface
+                ← Commands/Queries in impl/ are plain TS classes (no NestJS deps)
+                ← Uses EventEmitter2 (injected) to publish domain events AFTER repo.save()
+                ← Allowed imports from @nestjs/cqrs: CommandHandler, ICommandHandler,
+                    QueryHandler, IQueryHandler — NOTHING else (no EventBus, no AggregateRoot)
 
 infrastructure/ ← Implements all interfaces defined in domain/
                 ← Only layer allowed to import Prisma (PrismaService / generated client),
                 ←   Redis, HTTP, S3, ExcelJS, PDFKit
                 ← Registers all @Inject(SYMBOL) → ConcreteClass bindings in the module
+                ← Controller dispatches via CommandBus / QueryBus — never injects handlers directly
                 ← @OnEvent() listeners live here
 
 core/           ← Imported by AppModule — applies globally
@@ -518,10 +590,22 @@ core/           ← Imported by AppModule — applies globally
 shared/         ← Importable by any module
                 ← NEVER imports from modules/ (prevents circular dependencies)
 
+CQRS Rules:
+  ✅ Every Hex/DDD module imports CqrsModule and registers handlers as providers
+  ✅ Commands are classes in application/commands/impl/ — carry only the data needed
+  ✅ Queries are classes in application/queries/impl/ — carry filters/IDs
+  ✅ CommandHandlers live in application/commands/handlers/ — decorated @CommandHandler(XxxCommand)
+  ✅ QueryHandlers live in application/queries/handlers/ — decorated @QueryHandler(XxxQuery)
+  ✅ Controller injects CommandBus + QueryBus (from @nestjs/cqrs) — dispatches, never calls handlers
+  ✅ Domain events still use EventEmitter2 (@nestjs/event-emitter) — NOT @nestjs/cqrs EventBus
+  ✅ CqrsModule.forRoot() registered ONCE in AppModule (or root-level import)
+
 Anti-patterns:
-  ⚠️ @nestjs/cqrs as the default pattern — prefer application/use-cases/. The package is installed for future opt-in only;
-     introducing CommandBus / QueryBus / EventBus requires an explicit, documented decision per bounded context.
-  ❌ IAuditPort called inside read UseCases (get-*/export-* excluded from audit)
+  ❌ Controller injecting handlers directly — ALWAYS use CommandBus/QueryBus
+  ❌ Using @nestjs/cqrs EventBus for domain events — use EventEmitter2 + @OnEvent()
+  ❌ Using @nestjs/cqrs AggregateRoot base class — domain stays pure TS
+  ❌ Command/Query classes importing NestJS or infra — they are plain TS payloads
+  ❌ IAuditPort called inside QueryHandlers (reads never audit — except export)
   ❌ CRUD list endpoint without matching /export?format=xlsx|pdf
   ❌ Export implemented for xlsx but not pdf (or vice versa)
   ❌ @ExportColumn on password, token, secret, or any sensitive field
@@ -529,9 +613,9 @@ Anti-patterns:
   ❌ Magic number TTL values — always use TTL_SECONDS constants
   ❌ CacheManager.reset() in production
   ❌ Export endpoint serving cached data — @SkipCache() is mandatory
-  ❌ Business logic in Controller — belongs in Aggregate or UseCase
+  ❌ Business logic in Controller — belongs in Aggregate or CommandHandler
   ❌ Domain Events emitted before Repository.save() — always after
-  ❌ Domain Events emitted from Aggregate — UseCases own the publish step
+  ❌ Domain Events emitted from Aggregate — CommandHandler owns the publish step
   ❌ Circuit Breaker wrapping domain or DB calls — external infra only
   ❌ WebSocket Gateway importing from another bounded context directly
   ❌ Backup service calling Prisma repositories — use pg_dump directly

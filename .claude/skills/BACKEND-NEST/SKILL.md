@@ -1,10 +1,10 @@
 # BACKEND-NEST.md — NestJS 11 · TypeScript 5.x · Enterprise Backend (2026)
 
 > **Authority**: SINGLE SOURCE OF TRUTH for all NestJS/TypeScript rules, patterns, naming, testing, logging, cache, and exports.
-> **Pattern**: Hexagonal Architecture + DDD — Use Case services, Port/Adapter, Domain Events via EventEmitter2.
-> **For directory trees and bounded context structure → see `.claude/skills/ARQUITECTURE-NEST/SKILL.md`.**
+> **Pattern**: Hexagonal Architecture + DDD + CQRS — CommandBus/QueryBus dispatch (`@nestjs/cqrs`), Port/Adapter, Domain Events via EventEmitter2.
+> **For directory trees and bounded context structure → see `.claude/skills/ARCHITECTURE-NEST/SKILL.md`.**
 > **Security baseline → see `.claude/skills/OWASP/SKILL.md` and apply it to every endpoint, use case, adapter, and external integration.**
-> **Stack**: NestJS 11.1.x · Prisma 7.x (`prisma-client` generator + `@prisma/adapter-pg`) · Zod 4.x · nestjs-cls 6.x · cockatiel 3.x · BullMQ 5.x · @nestjs/event-emitter 3.x
+> **Stack**: NestJS 11.1.x · Prisma 7.x (`prisma-client` generator + `@prisma/adapter-pg`) · Zod 4.x · nestjs-cls 6.x · cockatiel 3.x · BullMQ 5.x · @nestjs/event-emitter 3.x · @nestjs/cqrs 11.x
 
 ---
 
@@ -20,7 +20,7 @@
 - `@nestjs/config 4.0` — minor breaking changes.
 - `@nestjs/bullmq` — native BullMQ v5 support (Redis Streams, job priorities, rate limits).
 - Socket.io v4 + `@socket.io/redis-adapter` v8 for multi-instance pub/sub.
-- `@nestjs/cqrs` is installed but NOT used by default — the project replaces it with Use Case services + `@nestjs/event-emitter`. Only adopt CQRS later if a bounded context explicitly needs `CommandBus`/`QueryBus`/`EventBus` semantics that the Use Case pattern cannot model.
+- `@nestjs/cqrs` v11 — **adopted for ALL Hex/DDD modules**. Controllers dispatch via `CommandBus`/`QueryBus`. Command/Query Handlers replace the old Use Case `@Injectable()` pattern. Domain Events still use `EventEmitter2` (not CQRS `EventBus`). CRUD modules do NOT use CQRS.
 
 ---
 
@@ -37,14 +37,35 @@
 
 ## §1 — TypeScript Patterns (Required)
 
-### Use Case Services
+### CQRS — Command & Query Handlers (Hex/DDD modules)
 
-Every write or read operation lives in a dedicated `@Injectable()` class with a single `execute()` method.
+Every write operation is a **Command** dispatched via `CommandBus`. Every read operation is a **Query** dispatched via `QueryBus`. Handlers implement `ICommandHandler<T>` or `IQueryHandler<T>` from `@nestjs/cqrs`.
+
+#### Command (payload class — plain TS, no NestJS deps)
 
 ```typescript
-// application/use-cases/create-project.use-case.ts
-@Injectable()
-export class CreateProjectUseCase {
+// application/commands/impl/create-project.command.ts
+export class CreateProjectCommand {
+  constructor(
+    public readonly clientId: string,
+    public readonly address: string,
+    public readonly roofType: string,
+    public readonly estimatedArea: number,
+    public readonly actorId: string,
+  ) {}
+}
+```
+
+#### Command Handler (write logic — replaces write Use Case)
+
+```typescript
+// application/commands/handlers/create-project.handler.ts
+import { CommandHandler, ICommandHandler } from '@nestjs/cqrs';
+import { Inject } from '@nestjs/common';
+import { EventEmitter2 } from '@nestjs/event-emitter';
+
+@CommandHandler(CreateProjectCommand)
+export class CreateProjectHandler implements ICommandHandler<CreateProjectCommand> {
   constructor(
     @Inject(PROJECT_REPOSITORY) private readonly repo: IProjectRepository,
     @Inject(AUDIT_PORT) private readonly audit: IAuditPort,
@@ -53,67 +74,83 @@ export class CreateProjectUseCase {
     private readonly eventEmitter: EventEmitter2,
   ) {}
 
-  async execute(dto: CreateProjectDto): Promise<string> {
+  async execute(command: CreateProjectCommand): Promise<string> {
     const traceId = this.cls.get<string>('traceId');
-    this.logger.info('CreateProjectUseCase start', { traceId });
+    this.logger.info('CreateProjectHandler start', { traceId });
 
-    const project = Project.create(dto);
+    const project = Project.create(command);
     await this.repo.save(project);
 
     await this.audit.log({
       action: 'projects.created',
-      actorId: dto.actorId,
+      actorId: command.actorId,
       resourceId: project.id.value,
       traceId,
     });
 
     this.eventEmitter.emit('project.created', new ProjectCreatedEvent(project.id.value));
-    this.logger.info('CreateProjectUseCase end', { traceId, projectId: project.id.value });
+    this.logger.info('CreateProjectHandler end', { traceId, projectId: project.id.value });
 
     return project.id.value;
   }
 }
 ```
 
-### Read Use Cases
+#### Query (payload class — plain TS)
 
 ```typescript
-// application/use-cases/get-project-by-id.use-case.ts
-@Injectable()
-export class GetProjectByIdUseCase {
+// application/queries/impl/get-project-by-id.query.ts
+export class GetProjectByIdQuery {
+  constructor(public readonly projectId: string) {}
+}
+```
+
+#### Query Handler (read logic — replaces read Use Case)
+
+```typescript
+// application/queries/handlers/get-project-by-id.handler.ts
+import { QueryHandler, IQueryHandler } from '@nestjs/cqrs';
+import { Inject } from '@nestjs/common';
+
+@QueryHandler(GetProjectByIdQuery)
+export class GetProjectByIdHandler implements IQueryHandler<GetProjectByIdQuery> {
   constructor(
     @Inject(PROJECT_REPOSITORY) private readonly repo: IProjectRepository,
     private readonly logger: LoggerService,
     private readonly cls: ClsService,
   ) {}
 
-  async execute(id: string): Promise<ProjectReadModel | null> {
+  async execute(query: GetProjectByIdQuery): Promise<ProjectReadModel | null> {
     const traceId = this.cls.get<string>('traceId');
-    this.logger.info('GetProjectByIdUseCase', { traceId, projectId: id });
-    return this.repo.findById(id);
+    this.logger.info('GetProjectByIdHandler', { traceId, projectId: query.projectId });
+    return this.repo.findById(query.projectId);
   }
 }
 ```
 
-### Controller — Injects Use Cases Directly
+### Controller — Dispatches via CommandBus / QueryBus
 
 ```typescript
 // infrastructure/api/controllers/projects.controller.ts
+import { CommandBus, QueryBus } from '@nestjs/cqrs';
+
 @Controller('projects')
 @UseGuards(JwtAuthGuard, CaslGuard)
 export class ProjectsController {
   constructor(
-    private readonly createProject: CreateProjectUseCase,
-    private readonly getProjectById: GetProjectByIdUseCase,
-    private readonly getProjectsList: GetProjectsListUseCase,
+    private readonly commandBus: CommandBus,
+    private readonly queryBus: QueryBus,
   ) {}
 
   @Post()
   @CheckAbilities({ action: Action.Create, subject: 'PROJECT' })
   async create(
     @Body(new ZodValidationPipe(CreateProjectSchema)) dto: CreateProjectDto,
+    @CurrentUser() user: UserJwtPayload,
   ): Promise<ProjectResponse> {
-    const id = await this.createProject.execute(dto);
+    const id = await this.commandBus.execute(
+      new CreateProjectCommand(dto.clientId, dto.address, dto.roofType, dto.estimatedArea, user.id),
+    );
     return { id };
   }
 
@@ -121,7 +158,7 @@ export class ProjectsController {
   @CacheTTL(TTL_SECONDS.SHORT)
   @CheckAbilities({ action: Action.Read, subject: 'PROJECT' })
   async findOne(@Param('id', ParseUUIDPipe) id: string): Promise<ProjectResponse> {
-    const project = await this.getProjectById.execute(id);
+    const project = await this.queryBus.execute(new GetProjectByIdQuery(id));
     if (!project) throw new NotFoundException();
     return ProjectPresenter.toResponse(project);
   }
@@ -383,19 +420,31 @@ async execute(dto: CreateProjectDto, traceId: string): Promise<string>
 
 ---
 
-## §2 — Use Case Pattern Rules
+## §2 — CQRS Handler Rules (Hex/DDD modules)
 
-### Write Use Cases
+### Command Handlers (write logic)
 
 - Returns `void` or a scalar ID (`string`). NEVER returns a full entity or read model from write operations.
 - MUST call `IAuditPort.log()` for EVERY state mutation.
 - MUST log INFO at START and END of `execute()`.
 - Domain Events published AFTER the repository save succeeds.
 - Cache invalidation happens AFTER the repository save.
+- Decorated with `@CommandHandler(XxxCommand)` and implements `ICommandHandler<XxxCommand>`.
 
 ```typescript
-@Injectable()
-export class ApproveProjectUseCase {
+// application/commands/impl/approve-project.command.ts
+export class ApproveProjectCommand {
+  constructor(
+    public readonly projectId: string,
+    public readonly actorId: string,
+  ) {}
+}
+
+// application/commands/handlers/approve-project.handler.ts
+import { CommandHandler, ICommandHandler } from '@nestjs/cqrs';
+
+@CommandHandler(ApproveProjectCommand)
+export class ApproveProjectHandler implements ICommandHandler<ApproveProjectCommand> {
   constructor(
     @Inject(PROJECT_REPOSITORY) private readonly repo: IProjectRepository,
     @Inject(AUDIT_PORT) private readonly audit: IAuditPort,
@@ -405,50 +454,59 @@ export class ApproveProjectUseCase {
     private readonly cacheManager: CacheManager,
   ) {}
 
-  async execute(projectId: string, actorId: string): Promise<void> {
+  async execute(command: ApproveProjectCommand): Promise<void> {
     const traceId = this.cls.get<string>('traceId');
-    this.logger.info('ApproveProjectUseCase start', { traceId });
+    this.logger.info('ApproveProjectHandler start', { traceId });
 
-    const project = await this.repo.findById(projectId);
-    if (!project) throw new ProjectNotFoundException(projectId);
+    const project = await this.repo.findById(command.projectId);
+    if (!project) throw new ProjectNotFoundException(command.projectId);
 
     project.approve();
     await this.repo.save(project);
 
     await this.audit.log({
       action: 'projects.approved',
-      actorId,
-      resourceId: projectId,
+      actorId: command.actorId,
+      resourceId: command.projectId,
       traceId,
     });
 
-    await this.cacheManager.del(`projects-service:project:${projectId}`);
-    this.eventEmitter.emit('project.approved', new ProjectApprovedEvent(projectId));
+    await this.cacheManager.del(`projects-service:project:${command.projectId}`);
+    this.eventEmitter.emit('project.approved', new ProjectApprovedEvent(command.projectId));
 
-    this.logger.info('ApproveProjectUseCase end', { traceId });
+    this.logger.info('ApproveProjectHandler end', { traceId });
   }
 }
 ```
 
-### Read Use Cases
+### Query Handlers (read logic)
 
 - Returns a typed read model. NEVER calls `IAuditPort.log()`.
 - Uses direct Prisma queries (via the repository) for performance — no aggregate reconstruction.
 - MUST log INFO at START only.
+- Decorated with `@QueryHandler(XxxQuery)` and implements `IQueryHandler<XxxQuery>`.
 
 ```typescript
-@Injectable()
-export class GetProjectsListUseCase {
+// application/queries/impl/get-projects-list.query.ts
+export class GetProjectsListQuery {
+  constructor(public readonly filters: ProjectFilters) {}
+}
+
+// application/queries/handlers/get-projects-list.handler.ts
+import { QueryHandler, IQueryHandler } from '@nestjs/cqrs';
+
+@QueryHandler(GetProjectsListQuery)
+export class GetProjectsListHandler implements IQueryHandler<GetProjectsListQuery> {
   constructor(
     @Inject(PROJECT_REPOSITORY) private readonly repo: IProjectRepository,
     private readonly logger: LoggerService,
     private readonly cls: ClsService,
   ) {}
 
-  async execute(filters: ProjectFilters): Promise<PaginatedResult<ProjectReadModel>> {
+  async execute(query: GetProjectsListQuery): Promise<PaginatedResult<ProjectReadModel>> {
     const traceId = this.cls.get<string>('traceId');
-    this.logger.info('GetProjectsListUseCase', { traceId });
-    return this.repo.findAll(filters);
+    this.logger.info('GetProjectsListHandler', { traceId });
+    return this.repo.findAll(query.filters);
   }
 }
 ```
@@ -456,9 +514,10 @@ export class GetProjectsListUseCase {
 ### Event Listeners — Side Effects
 
 - Live in `infrastructure/event-listeners/`.
-- Decorated with `@OnEvent('domain.event-name')`.
+- Decorated with `@OnEvent('domain.event-name')` from `@nestjs/event-emitter`.
 - Handle side effects: notifications, emails, WebSocket broadcasts, BullMQ jobs.
 - Must be idempotent — safe to retry.
+- Do NOT use `@nestjs/cqrs` `EventBus` — always `EventEmitter2`.
 
 ---
 
@@ -506,17 +565,27 @@ export class PrismaProjectRepository implements IProjectRepository {
 }
 ```
 
-### Module binding
+### Module binding (CQRS)
 
 ```typescript
+import { CqrsModule } from '@nestjs/cqrs';
+
+const CommandHandlers = [
+  CreateProjectHandler,
+  ApproveProjectHandler,
+  ExportProjectsHandler,
+];
+const QueryHandlers = [
+  GetProjectByIdHandler,
+  GetProjectsListHandler,
+];
+
 @Module({
-  imports: [EventEmitterModule],
+  imports: [CqrsModule, EventEmitterModule],
+  controllers: [ProjectsController],
   providers: [
-    CreateProjectUseCase,
-    GetProjectByIdUseCase,
-    GetProjectsListUseCase,
-    ApproveProjectUseCase,
-    ExportProjectsUseCase,
+    ...CommandHandlers,
+    ...QueryHandlers,
     ProjectCreatedListener,
     { provide: PROJECT_REPOSITORY, useClass: PrismaProjectRepository },
     { provide: AUDIT_PORT, useClass: ActivityLogAuditAdapter },
@@ -524,6 +593,8 @@ export class PrismaProjectRepository implements IProjectRepository {
 })
 export class ProjectsModule {}
 ```
+
+> **Note**: `CqrsModule.forRoot()` must be registered once in `AppModule`. Feature modules import `CqrsModule` (without `.forRoot()`).
 
 ### Transactional Adapter (`@nestjs-cls/transactional-adapter-prisma`)
 
@@ -804,9 +875,11 @@ GET /projects/export?format=xlsx
 | Event Listener       | `*.listener.ts`                         | `project-created.listener.ts`               |
 | Repository interface | `I` prefix + `.repository.interface.ts` | `project.repository.interface.ts`           |
 | Repository impl      | `prisma-*.repository.ts`                | `prisma-project.repository.ts`              |
-| Write UseCase        | `{verb}-{module}.use-case.ts`           | `create-project.use-case.ts`                |
-| Read UseCase         | `get-{module}-{qualifier}.use-case.ts`  | `get-project-by-id.use-case.ts`             |
-| Export UseCase       | `export-{module}.use-case.ts`           | `export-projects.use-case.ts`               |
+| Command (payload)    | `{verb}-{module}.command.ts`            | `commands/impl/create-project.command.ts`   |
+| Command Handler      | `{verb}-{module}.handler.ts`            | `commands/handlers/create-project.handler.ts` |
+| Query (payload)      | `get-{module}-{qualifier}.query.ts`     | `queries/impl/get-project-by-id.query.ts`   |
+| Query Handler        | `get-{module}-{qualifier}.handler.ts`   | `queries/handlers/get-project-by-id.handler.ts` |
+| Export Command       | `export-{module}.command.ts`            | `commands/impl/export-projects.command.ts`  |
 | Read Model           | `*.read-model.ts`                       | `project.read-model.ts`                     |
 | Input DTO            | `*.dto.ts`                              | `create-project.dto.ts`                     |
 | Presenter            | `*.response.ts`                         | `project.response.ts`                       |
@@ -825,6 +898,7 @@ GET /projects/export?format=xlsx
 | Purpose         | Package                                                                      | Version       |
 | --------------- | ---------------------------------------------------------------------------- | ------------- |
 | Framework       | `@nestjs/core`, `@nestjs/common`                                             | ^11.1.14      |
+| CQRS            | `@nestjs/cqrs`                                                               | ^11.0.3       |
 | Events          | `@nestjs/event-emitter`                                                      | ^3.x          |
 | ORM             | `prisma@^7`, `@prisma/client@^7`, `@prisma/adapter-pg@^7`, `pg`              | ^7.6.x        |
 | Validation      | `zod@^4`, `nestjs-zod@^5`                                                    | 4.3.6 / 5.1.1 |
@@ -847,7 +921,7 @@ GET /projects/export?format=xlsx
 | Security        | `helmet`, `csrf-csrf`, `sanitize-html`, `hpp`                                | latest        |
 | Throttling      | `@nestjs/throttler`                                                          | ^6.5.x        |
 
-> ⚠️ `@nestjs/cqrs` — installed but NOT the default pattern. Use Case services + `@nestjs/event-emitter` are the SoT. Only adopt CQRS later for a bounded context that explicitly needs CommandBus/QueryBus/EventBus and where a Use Case + EventEmitter2 cannot model the requirement.
+> ✅ `@nestjs/cqrs` v11 — **adopted for ALL Hex/DDD modules**. `CommandBus`/`QueryBus` dispatch in controllers. `EventEmitter2` remains for domain events. CRUD modules do NOT use CQRS — they keep the Service/Repository pattern.
 
 ---
 
@@ -859,8 +933,8 @@ GET /projects/export?format=xlsx
 | `createZodDto` import error in v5          | Use `from 'nestjs-zod'` — the `/dto` subpath was removed in nestjs-zod v5                  |
 | POST returns 201 but Swagger docs say 200  | Use `@ApiCreatedResponse()` instead of `@ApiOkResponse()` on POST handlers                 |
 | DELETE route not showing 204 in Swagger    | Use `@ApiNoContentResponse()` and `@HttpCode(204)` — not `@ApiOkResponse()`                |
-| UseCase dependency `undefined` at runtime  | Ensure UseCase is in `providers[]` of its module                                           |
-| `EventEmitter2` not injected in UseCase    | Import `EventEmitterModule.forRoot()` in `AppModule`, inject `EventEmitter2` in use case   |
+| Handler dependency `undefined` at runtime  | Ensure Handler is in `providers[]` of its module and `CqrsModule` is imported              |
+| `EventEmitter2` not injected in Handler   | Import `EventEmitterModule.forRoot()` in `AppModule`, inject `EventEmitter2` in handler    |
 | `@OnEvent()` listener not triggered        | Ensure listener class is in `providers[]` and module is imported                           |
 | Prisma client import error                 | Import from `./generated/prisma/client` (the generator's `output` path) — NOT from `@prisma/client` in Prisma 7 |
 | `ClsService.get()` returns `undefined`     | Ensure `ClsModule.forRoot({ middleware: { mount: true } })` in `AppModule`                 |
@@ -886,16 +960,16 @@ GET /projects/export?format=xlsx
 | Expose output schema in Swagger  | Response class extends `createZodDto(ResponseSchema)` — not plain interface (§1)     |
 | Input validation                 | Zod v4 schema + `ZodValidationPipe` (§1)                                              |
 | Validate env vars at bootstrap   | Zod v4 schema in `shared/config/env.config.ts`                                        |
-| Mutate state                     | Write UseCase + `IAuditPort.log()` (§2, §4)                                           |
-| Read data                        | Read UseCase + direct Prisma (via repository) + `@CacheTTL()` on controller GET (§2, §6) |
+| Mutate state                     | Command + CommandHandler + `IAuditPort.log()` (§2, §4)                               |
+| Read data                        | Query + QueryHandler + direct Prisma (via repository) + `@CacheTTL()` on controller GET (§2, §6) |
 | Cross-cutting request context    | `nestjs-cls` `ClsService` (§1)                                                        |
 | Transactional DB operation       | `@nestjs-cls/transactional` `@Transactional()` with the Prisma adapter, OR `prisma.$transaction()` for interactive multi-step transactions (§3) |
 | External service failure         | `cockatiel` CircuitBreaker + retry (§8)                                               |
-| Async side effect after mutation | `@OnEvent()` listener or BullMQ processor (§2)                                        |
+| Async side effect after mutation | `@OnEvent()` listener (EventEmitter2) or BullMQ processor (§2)                        |
 | Domain invariant violation       | Domain exception from `domain/exceptions/` (§1)                                       |
 | Type-safe domain object          | Value Object with private constructor + static `create()` (§1)                        |
 | First/last array element         | `array.at(0)` / `array.at(-1)` — never `[0]` on possibly undefined                    |
-| Export from any list endpoint    | `ExportUseCase` + `@SkipCache()` + audit (§7)                                         |
+| Export from any list endpoint    | `ExportXxxCommand` + `@SkipCache()` + audit (§7)                                      |
 | GET caching                      | `@CacheTTL(TTL_SECONDS.X)` on controller GET method (§6)                              |
 | Restrict route to resource owner | `@CheckAbilities((ability) => ability.can(Action.Read, subject))` + `CaslGuard` (§14) |
 | Allow only SUPER_ADMIN to delete | `@CheckAbilities((ability) => ability.can(Action.Delete, 'User'))`                    |
@@ -1076,12 +1150,17 @@ export class UsersController {
 ### Module Configuration
 
 ```typescript
+import { CqrsModule } from '@nestjs/cqrs';
+
+const CommandHandlers = [CreateYourHandler, UpdateYourHandler, DeleteYourHandler];
+const QueryHandlers = [GetYourByIdHandler, GetYourListHandler];
+
 @Module({
-  imports: [EventEmitterModule],
+  imports: [CqrsModule, EventEmitterModule],
   controllers: [YourController],
   providers: [
-    YourWriteUseCase,
-    YourReadUseCase,
+    ...CommandHandlers,
+    ...QueryHandlers,
     YourEventListener,
     CaslAbilityFactory,
     CaslGuard,

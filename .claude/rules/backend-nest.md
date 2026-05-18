@@ -9,8 +9,8 @@ trigger: always_on
 - **TypeScript:** `strict: true` enforced on ALL `.ts` files. No `any`. No `@ts-ignore`. No `as unknown as X`.
 - **NestJS CLI:** Use `npx nest` — NEVER bare `nest` globally unless confirmed installed.
 - **Single Source of Truth:** Follow `.claude/skills/BACKEND-NEST/SKILL.md` §0–§4 for ALL TypeScript/NestJS syntax decisions.
-- **Architecture (default):** Follow `.claude/skills/ARQUITECTURE-NEST-CRUD/SKILL.md` for ALL new modules unless an explicit upgrade trigger is met.
-- **Architecture (upgrade):** Follow `.claude/skills/ARQUITECTURE-NEST/SKILL.md` ONLY for modules that meet upgrade triggers (domain events, cross-context ACL, state machines, invariants beyond "validate + save").
+- **Architecture (default):** Follow `.claude/skills/ARCHITECTURE-NEST-CRUD/SKILL.md` for ALL new modules unless an explicit upgrade trigger is met.
+- **Architecture (upgrade):** Follow `.claude/skills/ARCHITECTURE-NEST/SKILL.md` ONLY for modules that meet upgrade triggers (domain events, cross-context ACL, state machines, invariants beyond "validate + save").
 - **Security baseline:** Follow `.claude/skills/OWASP/SKILL.md` for all backend/API security decisions.
 - **Claude Code 2026:** MCP servers are enabled by default in settings.json. Use MCP tools when available.
 - **Investigate:** Run web search immediately before responding on any version-sensitive topic.
@@ -22,14 +22,14 @@ trigger: always_on
 | Task type                                       | Required reading                                         |
 | ----------------------------------------------- | -------------------------------------------------------- |
 | NestJS / TypeScript / Backend / Business logic  | `.claude/skills/BACKEND-NEST/SKILL.md`                   |
-| New module (default — CRUD / lookups / configs) | `.claude/skills/ARQUITECTURE-NEST-CRUD/SKILL.md`         |
-| New module (only if upgrade trigger is met)     | `.claude/skills/ARQUITECTURE-NEST/SKILL.md`              |
+| New module (default — CRUD / lookups / configs) | `.claude/skills/ARCHITECTURE-NEST-CRUD/SKILL.md`         |
+| New module (only if upgrade trigger is met)     | `.claude/skills/ARCHITECTURE-NEST/SKILL.md`              |
 | Writing or reviewing a CRUD service/repository  | `.claude/skills/BACKEND-NEST-PATTERNS/SKILL.md`          |
 | Security baseline / OWASP rules                 | `.claude/skills/OWASP/SKILL.md`                          |
 | Audit agent / code review                       | `.claude/commands/BACKEND-AUDIT-NEST.md`                 |
 
 > **Rule:** If a skill file covers the task, read it FIRST — no exceptions.
-> **Architecture default:** when in doubt, use `ARQUITECTURE-NEST-CRUD`. Escalate to `ARQUITECTURE-NEST` only with an explicit, justified upgrade trigger.
+> **Architecture default:** when in doubt, use `ARCHITECTURE-NEST-CRUD`. Escalate to `ARCHITECTURE-NEST` only with an explicit, justified upgrade trigger.
 > **Total files:** 6 (this router + 4 skills + security baseline). No redundancy.
 
 ---
@@ -55,7 +55,7 @@ trigger: always_on
 
 ## CRUD layout (DEFAULT)
 
-- Follow `.claude/skills/ARQUITECTURE-NEST-CRUD/SKILL.md` strictly.
+- Follow `.claude/skills/ARCHITECTURE-NEST-CRUD/SKILL.md` strictly.
 - Use for: lookups, configs, tags/categories/statuses, any module with ≤8 fields and no business rules beyond "validate + save".
 - Files: `{module}.module.ts`, `{module}.controller.ts`, `{module}.service.ts`, `{module}.repository.ts`, `{module}.entity.ts`, `dto/`, optional `{module}.gateway.ts`. No `domain/`, no `application/`, no `infrastructure/` folders.
 - Repository is the ONLY file that imports `PrismaService` / generated Prisma types. Service throws `NotFoundException` on `null`. Controller only handles HTTP concerns.
@@ -63,7 +63,7 @@ trigger: always_on
 
 ## Hex/DDD layout (UPGRADE ONLY)
 
-- Follow `.claude/skills/ARQUITECTURE-NEST/SKILL.md` strictly.
+- Follow `.claude/skills/ARCHITECTURE-NEST/SKILL.md` strictly.
 - Use ONLY when at least one upgrade trigger is met: domain events with real listeners, cross-context coordination via ACL, state machines / multi-step workflows, invariants that must live in one place (Value Objects, aggregate factories), or any service method exceeding ~20 lines of business logic.
 - Layout: `domain/`, `application/`, `infrastructure/`.
 - `domain/` imports NOTHING from NestJS, Prisma, or any infrastructure package.

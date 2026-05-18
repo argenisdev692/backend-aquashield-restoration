@@ -12,7 +12,7 @@ description: Scaffold a new NestJS simple CRUD module for small features using t
 4. Read the required guidance in this order:
    1. `.claude/skills/OWASP/SKILL.md`
    2. `.claude/skills/BACKEND-NEST/SKILL.md`
-   3. `.claude/skills/ARQUITECTURE-NEST-CRUD/SKILL.md`
+   3. `.claude/skills/ARCHITECTURE-NEST-CRUD/SKILL.md`
 
 
 ## PHASE 2 — SELECT THE LIGHTWEIGHT STRUCTURE

@@ -36,7 +36,7 @@ For each item mark ✅ PASS, ❌ FAIL (with `file:line` and brief description), 
 - [ ] All UseCases registered in `providers[]` of their module
 - [ ] `@nestjs/cqrs` is installed but NOT imported in any module by default — if a Use Case imports `CommandBus`/`QueryBus`/`EventBus`, the PR must include an explicit justification per bounded context
 
-**Architecture (`.claude/skills/ARQUITECTURE-NEST/SKILL.md`)**
+**Architecture (`.claude/skills/ARCHITECTURE-NEST/SKILL.md`)**
 
 - [ ] Module lives in `src/modules/{name}/` with `domain/`, `application/`, `infrastructure/`
 - [ ] `domain/` has ZERO imports from NestJS, Prisma (`@prisma/client` or generated client), or any `infrastructure/` file

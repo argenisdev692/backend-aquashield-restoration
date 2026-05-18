@@ -12,7 +12,7 @@ description: Scaffold a new NestJS backend or complex bounded context with Hexag
 4. Read the required guidance in this order:
    1. `.claude/skills/OWASP/SKILL.md`
    2. `.claude/skills/BACKEND-NEST/SKILL.md`
-   3. `.claude/skills/ARQUITECTURE-NEST/SKILL.md`
+   3. `.claude/skills/ARCHITECTURE-NEST/SKILL.md`
 
 ## PHASE 2 — SELECT ARCHITECTURE
 
