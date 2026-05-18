@@ -4,6 +4,17 @@ description: Audits a NestJS 11 / TypeScript module against architecture, securi
 
 # BACKEND AUDIT AGENT — NestJS 11 + TypeScript 5.x
 
+## PHASE 0 — DETECT ARCHITECTURE (decide which checklist applies)
+
+Before auditing, classify the module into exactly ONE layout and audit it ONLY against that layout's rules:
+
+- **Flat CRUD (simple)** — files are `{module}.module/controller/service/repository/entity.ts` + `dto/`, NO `domain/ application/ infrastructure/` folders, NO `CommandBus`/`QueryBus`. → Audit against `.windsurf/skills/ARCHITECTURE-NEST-CRUD/SKILL.md` + `.windsurf/skills/BACKEND-NEST-PATTERNS/SKILL.md`. Skip every section tagged **[FULL Hex/DDD ONLY]**.
+- **Hex/DDD (full)** — module has `domain/ application/ infrastructure/` and dispatches via `CommandBus`/`QueryBus`. → Audit against `.windsurf/skills/ARCHITECTURE-NEST/SKILL.md`. Apply the **[FULL Hex/DDD ONLY]** sections; skip **[FLAT CRUD ONLY]**.
+
+State the detected layout at the top of the report. A module that mixes both layouts is an automatic ❌ FAIL (`backend-nest.md` forbids mixing styles in one module). Sections tagged **[ALL]** apply to every module regardless of layout.
+
+---
+
 ## PHASE 1 — AUDIT (produce checklist)
 
 Before starting the audit, you MUST:
@@ -26,7 +37,7 @@ For each item mark ✅ PASS, ❌ FAIL (with `file:line` and brief description), 
 - [ ] Every public method has an explicit return type annotation
 - [ ] No `as any` or `as unknown as X` casts without justification comment
 
-**Use Case Structure (BACKEND-NEST.md §2)**
+**Use Case / CQRS Handler Structure — [FULL Hex/DDD ONLY] (BACKEND-NEST.md §2)**
 
 - [ ] Every write operation lives in a dedicated UseCase class in `application/use-cases/`
 - [ ] Every read operation lives in a dedicated UseCase class in `application/use-cases/`
@@ -36,7 +47,7 @@ For each item mark ✅ PASS, ❌ FAIL (with `file:line` and brief description), 
 - [ ] All UseCases registered in `providers[]` of their module
 - [ ] `@nestjs/cqrs` is installed but NOT imported in any module by default — if a Use Case imports `CommandBus`/`QueryBus`/`EventBus`, the PR must include an explicit justification per bounded context
 
-**Architecture (`.windsurf/skills/ARCHITECTURE-NEST/SKILL.md`)**
+**Architecture — Hexagonal layering — [FULL Hex/DDD ONLY] (`.windsurf/skills/ARCHITECTURE-NEST/SKILL.md`)**
 
 - [ ] Module lives in `src/modules/{name}/` with `domain/`, `application/`, `infrastructure/`
 - [ ] `domain/` has ZERO imports from NestJS, Prisma (`@prisma/client` or generated client), or any `infrastructure/` file
@@ -48,6 +59,44 @@ For each item mark ✅ PASS, ❌ FAIL (with `file:line` and brief description), 
 - [ ] Module binds `Symbol → implementation` in `providers[]`
 - [ ] Domain events are plain TS classes in `domain/events/` — no framework dependency
 - [ ] Event listeners live in `infrastructure/event-listeners/` with `@OnEvent()`
+
+**Flat CRUD Architecture — [FLAT CRUD ONLY] (`.windsurf/skills/ARCHITECTURE-NEST-CRUD/SKILL.md` + `BACKEND-NEST-PATTERNS`)**
+
+- [ ] Files limited to `{module}.module/controller/service/repository/entity.ts` + `dto/` (optional `{module}.gateway.ts`)
+- [ ] NO `domain/ application/ infrastructure/` folders, NO `*.command.ts` / `*.handler.ts`
+- [ ] NO `CommandBus` / `QueryBus` / `@CommandHandler` / `@QueryHandler` / `CqrsModule`
+- [ ] NO domain events / `@OnEvent` / `EventEmitter2` (those require an upgrade)
+- [ ] Controller injects the **Service** directly — never the repository, never a bus
+- [ ] Repository is the ONLY file importing `PrismaService` / generated Prisma types
+- [ ] Repository returns entity types (never raw Prisma rows); `findById` returns `Entity | null` (never `undefined`); `update` returns `Promise<Entity>` (never nullable — Prisma throws `P2025`)
+- [ ] `{module}.entity.ts` is a plain TS interface — no behavior, no decorators, nullable as `T | null`
+- [ ] Service has exactly ONE `findOrFail()` helper — no duplicated `if (!x) throw NotFoundException` (PATTERNS #1)
+- [ ] Singleton entities guarded with `existsAny()` + `ConflictException` — not a raw DB unique error (PATTERNS #3)
+- [ ] Storage/file deletion wrapped in try-catch that logs but never rethrows (PATTERNS #4)
+- [ ] No Service method exceeds ~20 lines of business logic (else flag as upgrade trigger to Hex/DDD)
+- [ ] Service does NOT catch `P2025` to fake `NotFoundException` — uses `findOrFail` pre-check (PATTERNS)
+
+**DDD / Hexagonal / CQRS conventions — [FULL Hex/DDD ONLY] (`ARCHITECTURE-NEST` + BACKEND-NEST.md §1–§3)**
+
+- [ ] `domain/entities/{module}.aggregate.ts` is a rich aggregate (private state, static `create()`, behavior, invariants) — NOT an anemic data interface
+- [ ] Invariants live in the Aggregate / Value Objects — VOs use private constructor + static `create()` with validation
+- [ ] No business logic leaked into Controller, Handler, or Repository — it belongs in the Aggregate/VO
+- [ ] Hexagonal dependency rule holds: `domain/` → nothing; `application/` → only `domain/` + ports; `infrastructure/` → implements ports
+- [ ] Ports are `I`-prefixed interfaces in `domain/ports/`, bound via Symbol tokens in the module
+- [ ] CQRS: writes are `@CommandHandler`, reads are `@QueryHandler`; Controller dispatches via `CommandBus`/`QueryBus` and never injects handlers
+- [ ] Command/Query payload classes are plain TS (no NestJS/infra imports)
+- [ ] Domain events are plain TS classes, emitted via `EventEmitter2` AFTER `repo.save()` — never `@nestjs/cqrs` `EventBus`, never before save
+- [ ] Mapper is the ONLY Aggregate ↔ Prisma-row ↔ ReadModel contact point
+- [ ] `entity ↔ aggregate` mapping respected: no plain `{module}.entity.ts` in a Hex/DDD module (use the aggregate + read-model + mapper + presenter split)
+
+**Code Quality — DRY / KISS / Clean Code — [ALL]**
+
+- [ ] DRY: no copy-pasted blocks (validation, null-checks, mapping) that should be a shared helper/constant
+- [ ] DRY: repeated literals/messages extracted to constants — not hardcoded across files
+- [ ] KISS: simplest layout that satisfies the rules — flag any Hex/DDD ceremony on a module with no invariants/events/workflows (over-engineering ❌), and any business logic crammed into a flat CRUD Service that has outgrown it (under-engineering ❌)
+- [ ] KISS / YAGNI: no speculative abstractions, unused ports, or empty placeholder layers added "for later"
+- [ ] Clean Code: descriptive names over comments; every public method has an explicit return type; functions do one thing; no dead code or commented-out blocks
+- [ ] Clean Code: no contradictory guidance followed — module matches exactly ONE skill (CRUD or Hex/DDD), never a mix
 
 **Validation & APIs (BACKEND-NEST.md §1)**
 

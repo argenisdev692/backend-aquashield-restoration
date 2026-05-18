@@ -35,6 +35,12 @@ export class BlogCategoryRepository {
     return row ? this.mapToEntity(row) : null;
   }
 
+  /** Finds a row regardless of soft-delete state — required to restore tombstoned rows. */
+  async findByIdWithDeleted(id: string): Promise<BlogCategory | null> {
+    const row = await this.prisma.blogCategory.findUnique({ where: { id } });
+    return row ? this.mapToEntity(row) : null;
+  }
+
   async create(data: {
     name?: string | null;
     description?: string | null;
@@ -60,12 +66,11 @@ export class BlogCategoryRepository {
     return this.mapToEntity(row);
   }
 
-  async softDelete(id: string): Promise<BlogCategory> {
-    const row = await this.prisma.blogCategory.update({
+  async softDelete(id: string): Promise<void> {
+    await this.prisma.blogCategory.update({
       where: { id },
       data: { deletedAt: new Date() },
     });
-    return this.mapToEntity(row);
   }
 
   async restore(id: string): Promise<BlogCategory> {

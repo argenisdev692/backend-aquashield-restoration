@@ -238,6 +238,22 @@ modules/{module}/
 
 ---
 
+## 🧠 `aggregate.ts` ↔ `entity.ts` mapping (read this)
+
+`domain/entities/{module}.aggregate.ts` is the **rich-domain counterpart** of the flat-CRUD `{module}.entity.ts` (see `.windsurf/skills/ARCHITECTURE-NEST-CRUD/SKILL.md`). It is **not** a plain data interface: it is a class with private state, a static factory `create()`, behavior methods, and invariants enforced together with `domain/value-objects/*.vo.ts`. The data-shape concerns that CRUD packs into one `entity.ts` are split here across four files:
+
+| Concern | Flat CRUD (simple) | This layout (Hex/DDD full) |
+|---|---|---|
+| Domain object | `{module}.entity.ts` (interface) | `domain/entities/{module}.aggregate.ts` (class + invariants) |
+| Invariants / rules | in the Service | in the Aggregate + `value-objects/*.vo.ts` |
+| Read shape | same entity | `application/read-models/{module}.read-model.ts` |
+| DB ↔ domain | inline in repository | `infrastructure/persistence/mappers/{module}.mapper.ts` |
+| HTTP response | `dto/{module}.response.ts` | `infrastructure/api/presenters/{module}.response.ts` |
+
+Same concept, two names by tier — the rename is **deliberate**, not a simplification: `entity.ts` signals "anemic data, logic in Service"; `aggregate.ts` signals "rich domain, logic inside". An aggregate with no invariants is an anemic-domain-model anti-pattern — if a module has none, it belongs in the flat CRUD layout, not here.
+
+---
+
 ## 🧩 Bounded Context: users/
 
 > CRUD for user entities. Does NOT own login, OTP, reset password, or profile update.

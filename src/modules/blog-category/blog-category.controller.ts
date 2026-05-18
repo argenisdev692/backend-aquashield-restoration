@@ -9,7 +9,6 @@ import {
   UseGuards,
   ParseUUIDPipe,
   HttpCode,
-  Req,
 } from '@nestjs/common';
 import { ZodValidationPipe } from 'nestjs-zod';
 import { CacheTTL } from '@nestjs/cache-manager';
@@ -26,7 +25,9 @@ import {
 import { JwtAuthGuard } from '../../core/guards/jwt-auth.guard';
 import { CaslGuard } from '../../core/guards/casl.guard';
 import { CheckAbilities } from '../../core/decorators/check-abilities.decorator';
+import { CurrentUser } from '../../core/decorators/current-user.decorator';
 import { Action } from '../../core/access/actions.enum';
+import type { AuthenticatedUser } from '../../core/access/actions.enum';
 import { SkipCache } from '../../core/decorators/skip-cache.decorator';
 import { TTL_SECONDS } from '../../shared/cache/cache-ttl.constants';
 import { BlogCategoryService } from './blog-category.service';
@@ -34,7 +35,7 @@ import { CreateBlogCategorySchema } from './dto/create-blog-category.dto';
 import type { CreateBlogCategoryDto } from './dto/create-blog-category.dto';
 import { UpdateBlogCategorySchema } from './dto/update-blog-category.dto';
 import type { UpdateBlogCategoryDto } from './dto/update-blog-category.dto';
-import { BlogCategoryResponse } from './blog-category.entity';
+import { BlogCategoryResponse } from './dto/blog-category.response';
 
 @ApiTags('blog-categories')
 @ApiBearerAuth()
@@ -48,10 +49,10 @@ export class BlogCategoryController {
   @ApiBadRequestResponse({ description: 'Validation failed' })
   @CheckAbilities({ action: Action.Create, subject: 'BLOG_CATEGORY' })
   async create(
-    @Req() req: { user: { id: string } },
+    @CurrentUser() user: AuthenticatedUser,
     @Body(new ZodValidationPipe(CreateBlogCategorySchema)) dto: CreateBlogCategoryDto,
   ): Promise<BlogCategoryResponse> {
-    return this.service.create(req.user.id, dto);
+    return this.service.create(user.id, dto);
   }
 
   @Get()

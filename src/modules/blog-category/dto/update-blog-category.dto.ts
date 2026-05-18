@@ -1,6 +1,6 @@
-import { z } from 'zod';
+import { createZodDto } from 'nestjs-zod';
 import { CreateBlogCategorySchema } from './create-blog-category.dto';
 
 export const UpdateBlogCategorySchema = CreateBlogCategorySchema.partial();
 
-export type UpdateBlogCategoryDto = z.infer<typeof UpdateBlogCategorySchema>;
+export class UpdateBlogCategoryDto extends createZodDto(UpdateBlogCategorySchema) {}

@@ -51,13 +51,19 @@ export class BlogCategoryService {
   async restore(id: string): Promise<BlogCategory> {
     const traceId = this.cls.get<string>('traceId');
     this.logger.info('BlogCategoryService.restore', { traceId, id });
-    const existing = await this.repository.findById(id);
-    if (!existing) throw new NotFoundException('Blog category not found');
+    await this.findOrFailWithDeleted(id);
     return this.repository.restore(id);
   }
 
   private async findOrFail(id: string): Promise<BlogCategory> {
     const result = await this.repository.findById(id);
+    if (!result) throw new NotFoundException('Blog category not found');
+    return result;
+  }
+
+  /** Existence check that also sees soft-deleted rows — used by restore. */
+  private async findOrFailWithDeleted(id: string): Promise<BlogCategory> {
+    const result = await this.repository.findByIdWithDeleted(id);
     if (!result) throw new NotFoundException('Blog category not found');
     return result;
   }

@@ -56,6 +56,8 @@ src/modules/{module}/
 ### `{module}.entity.ts`
 Plain TypeScript interface — the shape of the domain object returned by the Service. No NestJS, no Prisma, no decorators. Always includes `id`, `createdAt`, `updatedAt`. Nullable fields typed as `T | null`, never `T | undefined`.
 
+> **`entity.ts` ↔ `aggregate.ts` mapping (read this).** This file is the flat-CRUD counterpart of the full architecture's `domain/entities/{module}.aggregate.ts` (see `.claude/skills/ARCHITECTURE-NEST/SKILL.md`). It is intentionally an **anemic data shape**: a CRUD module has no domain invariants, so business rules live in the Service, not here. Do **NOT** add behavior, factory `create()`, or invariants to this interface — the moment you need them, that is an upgrade trigger: the `entity.ts` becomes a rich `{module}.aggregate.ts` and the module moves to the Hex/DDD layout. One concept, two names by tier: `entity.ts` = "just data, logic in Service"; `aggregate.ts` = "rich domain, logic inside".
+
 ### `dto/create-{module}.dto.ts`
 Zod v4 schema exported as `Create{Module}Schema` + inferred type `Create{Module}Dto`. Import `z` from `zod` and `createZodDto` from `nestjs-zod` (never `nestjs-zod/dto`). Export both the schema (for the pipe) and the type (for the service signature).
 
