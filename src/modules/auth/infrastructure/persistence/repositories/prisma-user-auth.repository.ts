@@ -134,6 +134,30 @@ export class PrismaUserAuthRepository implements IUserAuthRepository {
     });
   }
 
+  async updatePasswordWithStatus(
+    userId: string,
+    hashedPassword: string,
+    passwordChangedAt: Date,
+    passwordExpiresAt: Date | null,
+  ): Promise<void> {
+    await this.prisma.user.update({
+      where: { id: userId },
+      data: {
+        password: hashedPassword,
+        passwordChangedAt,
+        passwordExpiresAt,
+        mustChangePassword: false,
+      },
+    });
+  }
+
+  async setMustChangePassword(userId: string, value: boolean): Promise<void> {
+    await this.prisma.user.update({
+      where: { id: userId },
+      data: { mustChangePassword: value },
+    });
+  }
+
   async setEmailVerified(userId: string): Promise<void> {
     await this.prisma.user.update({
       where: { id: userId },
@@ -195,6 +219,8 @@ export class PrismaUserAuthRepository implements IUserAuthRepository {
       totpEnabled: boolean;
       googleId: string | null;
       emailVerifiedAt: Date | null;
+      mustChangePassword: boolean;
+      passwordExpiresAt: Date | null;
       roles: Array<{ roleId: string }>;
     },
   ): UserAuthRow {
@@ -206,6 +232,8 @@ export class PrismaUserAuthRepository implements IUserAuthRepository {
       totpEnabled: row.totpEnabled,
       googleId: row.googleId,
       emailVerifiedAt: row.emailVerifiedAt,
+      mustChangePassword: row.mustChangePassword,
+      passwordExpiresAt: row.passwordExpiresAt,
       roleIds: row.roles.map((r) => r.roleId),
     };
   }

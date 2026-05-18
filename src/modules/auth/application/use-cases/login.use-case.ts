@@ -11,6 +11,8 @@ import type { IEmailPort } from '../../domain/ports/outbound/email.port';
 import { EMAIL_PORT } from '../../domain/ports/outbound/email.port';
 import type { IPasswordHasherPort } from '../../domain/ports/outbound/password-hasher.port';
 import { PASSWORD_HASHER_PORT } from '../../domain/ports/outbound/password-hasher.port';
+import type { ITokenServicePort } from '../../domain/ports/outbound/token-service.port';
+import { TOKEN_SERVICE_PORT } from '../../domain/ports/outbound/token-service.port';
 import { OtpCode } from '../../domain/value-objects/otp-code.vo';
 import { OtpRequestedEvent } from '../../domain/events/auth-events';
 import type { IAuditPort } from '../../../../shared/activity-log/audit.port';
@@ -20,6 +22,8 @@ import type { LoginInput } from '../dtos/login.dto';
 export interface LoginResult {
   requiresOtp: boolean;
   requiresTotp: boolean;
+  requiresPasswordChange?: boolean;
+  passwordChangeToken?: string;
   accessToken?: string;
   refreshToken?: string;
   expiresIn?: number;
@@ -41,6 +45,8 @@ export class LoginUseCase {
     private readonly emailPort: IEmailPort,
     @Inject(PASSWORD_HASHER_PORT)
     private readonly passwordHasher: IPasswordHasherPort,
+    @Inject(TOKEN_SERVICE_PORT)
+    private readonly tokenService: ITokenServicePort,
     @Inject(AUDIT_PORT)
     private readonly audit: IAuditPort,
     private readonly cache: CacheService,
@@ -68,6 +74,34 @@ export class LoginUseCase {
 
     // Clear the failure counter on a successful credential check.
     await this.cache.del(this.failedLoginKey(dto.email));
+
+    // Check whether the password is expired or the user must change it.
+    const passwordExpired =
+      user.passwordExpiresAt !== null && user.passwordExpiresAt <= new Date();
+    if (user.mustChangePassword || passwordExpired) {
+      const passwordChangeToken =
+        await this.tokenService.signPasswordChangeToken(user.id);
+
+      await this.audit.log({
+        action: 'auth.password_change_required',
+        resourceType: 'USER',
+        resourceId: user.id,
+        metadata: { reason: user.mustChangePassword ? 'forced' : 'expired' },
+      });
+
+      this.logger.warn('Login blocked — password change required', {
+        traceId,
+        userId: user.id,
+        reason: user.mustChangePassword ? 'forced' : 'expired',
+      });
+
+      return {
+        requiresOtp: false,
+        requiresTotp: false,
+        requiresPasswordChange: true,
+        passwordChangeToken,
+      };
+    }
 
     const otp = OtpCode.generate(5);
     await this.otpRepo.save({ userId: user.id, code: otp, type: 'login' });

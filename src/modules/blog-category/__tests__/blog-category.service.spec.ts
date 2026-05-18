@@ -34,11 +34,30 @@ const makeRepo = (overrides: Record<string, jest.Mock> = {}) => ({
   ...overrides,
 });
 
-type Repo = ReturnType<typeof makeRepo>;
+const makeStorage = (overrides: Record<string, jest.Mock> = {}) => ({
+  upload: jest.fn().mockResolvedValue(undefined),
+  delete: jest.fn().mockResolvedValue(undefined),
+  publicUrl: jest.fn((key: string) => `https://cdn.example.com/${key}`),
+  keyFromUrl: jest.fn((url: string) => {
+    const prefix = 'https://cdn.example.com/';
+    if (!url.startsWith(prefix)) {
+      throw new Error(`URL does not belong to this storage bucket: ${url}`);
+    }
+    return url.slice(prefix.length);
+  }),
+  ...overrides,
+});
 
-const makeService = (repo: Repo): BlogCategoryService =>
+type Repo = ReturnType<typeof makeRepo>;
+type Storage = ReturnType<typeof makeStorage>;
+
+const makeService = (
+  repo: Repo,
+  storage: Storage = makeStorage(),
+): BlogCategoryService =>
   new BlogCategoryService(
     repo as never,
+    storage as never,
     logger as never,
     cls as never,
   );
@@ -96,5 +115,102 @@ describe('BlogCategoryService', () => {
       makeService(repo).restore('missing'),
     ).rejects.toBeInstanceOf(NotFoundException);
     expect(repo.restore).not.toHaveBeenCalled();
+  });
+
+  describe('uploadImage', () => {
+    it('uploads the file to R2 and stores its public URL', async () => {
+      const repo = makeRepo();
+      const storage = makeStorage();
+
+      await makeService(repo, storage).uploadImage(baseEntity.id, {
+        buffer: Buffer.from('img'),
+        mimeType: 'image/png',
+      });
+
+      expect(storage.upload).toHaveBeenCalledWith(
+        expect.stringMatching(/^blog-category-images\/.+\.png$/),
+        expect.any(Buffer),
+        'image/png',
+      );
+      expect(repo.update).toHaveBeenCalledWith(
+        baseEntity.id,
+        expect.objectContaining({
+          image: expect.stringContaining('blog-category-images/'),
+        }),
+      );
+    });
+
+    it('removes the previous image before uploading the new one', async () => {
+      const oldUrl = 'https://cdn.example.com/blog-category-images/old.png';
+      const repo = makeRepo({
+        findById: jest.fn().mockResolvedValue({ ...baseEntity, image: oldUrl }),
+      });
+      const storage = makeStorage();
+
+      await makeService(repo, storage).uploadImage(baseEntity.id, {
+        buffer: Buffer.from('img'),
+        mimeType: 'image/webp',
+      });
+
+      expect(storage.delete).toHaveBeenCalledWith('blog-category-images/old.png');
+      expect(storage.upload).toHaveBeenCalled();
+    });
+
+    it('does not throw when old-image cleanup fails (logs instead)', async () => {
+      const oldUrl = 'https://cdn.example.com/blog-category-images/old.png';
+      const repo = makeRepo({
+        findById: jest.fn().mockResolvedValue({ ...baseEntity, image: oldUrl }),
+      });
+      const storage = makeStorage({
+        delete: jest.fn().mockRejectedValue(new Error('R2 unavailable')),
+      });
+
+      await expect(
+        makeService(repo, storage).uploadImage(baseEntity.id, {
+          buffer: Buffer.from('img'),
+          mimeType: 'image/png',
+        }),
+      ).resolves.toBeDefined();
+      expect(logger.error).toHaveBeenCalled();
+      expect(storage.upload).toHaveBeenCalled();
+    });
+
+    it('throws NotFoundException when the category does not exist', async () => {
+      const repo = makeRepo({ findById: jest.fn().mockResolvedValue(null) });
+      const storage = makeStorage();
+
+      await expect(
+        makeService(repo, storage).uploadImage('missing', {
+          buffer: Buffer.from('img'),
+          mimeType: 'image/png',
+        }),
+      ).rejects.toBeInstanceOf(NotFoundException);
+      expect(storage.upload).not.toHaveBeenCalled();
+    });
+  });
+
+  describe('deleteImage', () => {
+    it('removes the R2 object and clears the image column', async () => {
+      const url = 'https://cdn.example.com/blog-category-images/sig.png';
+      const repo = makeRepo({
+        findById: jest.fn().mockResolvedValue({ ...baseEntity, image: url }),
+      });
+      const storage = makeStorage();
+
+      await makeService(repo, storage).deleteImage(baseEntity.id);
+
+      expect(storage.delete).toHaveBeenCalledWith('blog-category-images/sig.png');
+      expect(repo.update).toHaveBeenCalledWith(baseEntity.id, { image: null });
+    });
+
+    it('throws NotFoundException when the category does not exist', async () => {
+      const repo = makeRepo({ findById: jest.fn().mockResolvedValue(null) });
+      const storage = makeStorage();
+
+      await expect(
+        makeService(repo, storage).deleteImage('missing'),
+      ).rejects.toBeInstanceOf(NotFoundException);
+      expect(storage.delete).not.toHaveBeenCalled();
+    });
   });
 });

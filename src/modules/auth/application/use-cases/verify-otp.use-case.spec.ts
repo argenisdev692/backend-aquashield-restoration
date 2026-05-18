@@ -19,6 +19,8 @@ const baseUser = {
   roleIds: ['r1'],
   googleId: null as string | null,
   emailVerifiedAt: null as Date | null,
+  mustChangePassword: false,
+  passwordExpiresAt: null as Date | null,
 };
 
 function build(opts: {
@@ -37,6 +39,8 @@ function build(opts: {
     enableTotp: jest.fn(),
     disableTotp: jest.fn(),
     updatePassword: jest.fn(),
+    updatePasswordWithStatus: jest.fn(),
+    setMustChangePassword: jest.fn(),
     setEmailVerified: jest.fn(),
     setPasswordConfirmed: jest.fn(),
     getPasswordConfirmedAt: jest.fn(),

@@ -10,6 +10,8 @@ import { ClsService } from 'nestjs-cls';
 import { LoggerService } from '../../../../logger/logger.service';
 import type { IUserAuthRepository } from '../../domain/repositories/user-auth.repository.interface';
 import { USER_AUTH_REPOSITORY } from '../../domain/repositories/user-auth.repository.interface';
+import type { IPasswordHistoryRepository } from '../../domain/repositories/password-history.repository.interface';
+import { PASSWORD_HISTORY_REPOSITORY } from '../../domain/repositories/password-history.repository.interface';
 import type { IPasswordHasherPort } from '../../domain/ports/outbound/password-hasher.port';
 import { PASSWORD_HASHER_PORT } from '../../domain/ports/outbound/password-hasher.port';
 import type { IEmailPort } from '../../domain/ports/outbound/email.port';
@@ -30,6 +32,8 @@ export class RegisterUseCase {
   constructor(
     @Inject(USER_AUTH_REPOSITORY)
     private readonly userRepo: IUserAuthRepository,
+    @Inject(PASSWORD_HISTORY_REPOSITORY)
+    private readonly historyRepo: IPasswordHistoryRepository,
     @Inject(PASSWORD_HASHER_PORT)
     private readonly passwordHasher: IPasswordHasherPort,
     @Inject(EMAIL_PORT)
@@ -61,6 +65,8 @@ export class RegisterUseCase {
       hashedPassword,
       termsAndConditions: dto.termsAndConditions,
     });
+
+    await this.historyRepo.addEntry(user.id, hashedPassword);
 
     const verificationLink = this.buildVerificationLink(user.id, dto.email);
     await this.emailPort.sendVerificationLink({

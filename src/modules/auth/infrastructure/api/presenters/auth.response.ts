@@ -4,6 +4,8 @@ import { createZodDto } from 'nestjs-zod';
 export const LoginResponseSchema = z.object({
   requiresOtp: z.boolean(),
   requiresTotp: z.boolean(),
+  requiresPasswordChange: z.boolean().optional(),
+  passwordChangeToken: z.string().optional(),
   accessToken: z.string().optional(),
   refreshToken: z.string().optional(),
   expiresIn: z.number().optional(),

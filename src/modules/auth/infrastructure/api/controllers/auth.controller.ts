@@ -51,6 +51,7 @@ import { Confirm2faUseCase } from '../../../application/use-cases/confirm-2fa.us
 import { Disable2faUseCase } from '../../../application/use-cases/disable-2fa.use-case';
 import { VerifyOtpUseCase } from '../../../application/use-cases/verify-otp.use-case';
 import { VerifyTotpUseCase } from '../../../application/use-cases/verify-totp.use-case';
+import { ChangeExpiredPasswordUseCase } from '../../../application/use-cases/change-expired-password.use-case';
 
 import { LoginDto, LoginSchema } from '../../../application/dtos/login.dto';
 import { LogoutDto, LogoutSchema } from '../../../application/dtos/logout.dto';
@@ -95,6 +96,10 @@ import {
   VerifyTotpDto,
   VerifyTotpSchema,
 } from '../../../application/dtos/verify-totp.dto';
+import {
+  ChangeExpiredPasswordDto,
+  ChangeExpiredPasswordSchema,
+} from '../../../application/dtos/change-expired-password.dto';
 
 import {
   LoginResponse,
@@ -149,6 +154,7 @@ export class AuthController {
     private readonly enable2faUseCase: Enable2faUseCase,
     private readonly confirm2faUseCase: Confirm2faUseCase,
     private readonly disable2faUseCase: Disable2faUseCase,
+    private readonly changeExpiredPasswordUseCase: ChangeExpiredPasswordUseCase,
   ) {}
 
   // ─── Authentication ────────────────────────────────────────────────────────
@@ -162,6 +168,19 @@ export class AuthController {
     @Body(new ZodValidationPipe(LoginSchema)) dto: LoginDto,
   ): Promise<LoginResponse> {
     return this.loginUseCase.execute(dto);
+  }
+
+  @Post('change-expired-password')
+  @HttpCode(200)
+  @Throttle({ default: { limit: 5, ttl: 60_000 } })
+  @ApiOkResponse({ type: TokenResponse })
+  @ApiBadRequestResponse({ description: 'Validation failed or password reuse detected' })
+  @ApiUnauthorizedResponse({ description: 'Invalid or expired password change token' })
+  async changeExpiredPassword(
+    @Body(new ZodValidationPipe(ChangeExpiredPasswordSchema))
+    dto: ChangeExpiredPasswordDto,
+  ): Promise<TokenResponse> {
+    return this.changeExpiredPasswordUseCase.execute(dto);
   }
 
   @Post('logout')

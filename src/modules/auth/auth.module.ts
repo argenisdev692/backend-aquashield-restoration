@@ -26,6 +26,7 @@ import { VerifyTotpUseCase } from './application/use-cases/verify-totp.use-case'
 import { Enable2faUseCase } from './application/use-cases/enable-2fa.use-case';
 import { Confirm2faUseCase } from './application/use-cases/confirm-2fa.use-case';
 import { Disable2faUseCase } from './application/use-cases/disable-2fa.use-case';
+import { ChangeExpiredPasswordUseCase } from './application/use-cases/change-expired-password.use-case';
 
 // ─── Application Services ─────────────────────────────────────────────────────
 import { AuthTokenIssuer } from './application/services/auth-token-issuer.service';
@@ -35,6 +36,7 @@ import { PrismaAuthSessionRepository } from './infrastructure/persistence/reposi
 import { PrismaOtpRepository } from './infrastructure/persistence/repositories/prisma-otp.repository';
 import { PrismaUserAuthRepository } from './infrastructure/persistence/repositories/prisma-user-auth.repository';
 import { PrismaPasswordResetRepository } from './infrastructure/persistence/repositories/prisma-password-reset.repository';
+import { PrismaPasswordHistoryRepository } from './infrastructure/persistence/repositories/prisma-password-history.repository';
 
 // ─── Infrastructure Adapters ──────────────────────────────────────────────────
 import { ResendEmailAdapter } from './infrastructure/adapters/resend-email.adapter';
@@ -51,6 +53,7 @@ import { AUTH_SESSION_REPOSITORY } from './domain/repositories/auth-session.repo
 import { OTP_REPOSITORY } from './domain/repositories/otp.repository.interface';
 import { USER_AUTH_REPOSITORY } from './domain/repositories/user-auth.repository.interface';
 import { PASSWORD_RESET_REPOSITORY } from './domain/repositories/password-reset.repository.interface';
+import { PASSWORD_HISTORY_REPOSITORY } from './domain/repositories/password-history.repository.interface';
 import { EMAIL_PORT } from './domain/ports/outbound/email.port';
 import { TOTP_PORT } from './domain/ports/outbound/totp.port';
 import { PASSWORD_HASHER_PORT } from './domain/ports/outbound/password-hasher.port';
@@ -95,6 +98,7 @@ import { ActivityLogService } from '../../shared/activity-log/activity-log.servi
     Enable2faUseCase,
     Confirm2faUseCase,
     Disable2faUseCase,
+    ChangeExpiredPasswordUseCase,
 
     // ─── Services ────────────────────────────────────────────────────────────
     AuthTokenIssuer,
@@ -105,10 +109,12 @@ import { ActivityLogService } from '../../shared/activity-log/activity-log.servi
     PrismaOtpRepository,
     PrismaUserAuthRepository,
     PrismaPasswordResetRepository,
+    PrismaPasswordHistoryRepository,
     { provide: AUTH_SESSION_REPOSITORY, useExisting: PrismaAuthSessionRepository },
     { provide: OTP_REPOSITORY, useExisting: PrismaOtpRepository },
     { provide: USER_AUTH_REPOSITORY, useExisting: PrismaUserAuthRepository },
     { provide: PASSWORD_RESET_REPOSITORY, useExisting: PrismaPasswordResetRepository },
+    { provide: PASSWORD_HISTORY_REPOSITORY, useExisting: PrismaPasswordHistoryRepository },
 
     // ─── Adapters (concrete classes + symbol bindings) ───────────────────────
     ResendEmailAdapter,

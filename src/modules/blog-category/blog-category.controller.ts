@@ -9,7 +9,11 @@ import {
   UseGuards,
   ParseUUIDPipe,
   HttpCode,
+  UseInterceptors,
+  UploadedFile,
+  BadRequestException,
 } from '@nestjs/common';
+import { FileInterceptor } from '@nestjs/platform-express';
 import { ZodValidationPipe } from 'nestjs-zod';
 import { CacheTTL } from '@nestjs/cache-manager';
 import {
@@ -20,6 +24,8 @@ import {
   ApiNoContentResponse,
   ApiNotFoundResponse,
   ApiBadRequestResponse,
+  ApiConsumes,
+  ApiBody,
   ApiParam,
 } from '@nestjs/swagger';
 import { JwtAuthGuard } from '../../core/guards/jwt-auth.guard';
@@ -108,5 +114,54 @@ export class BlogCategoryController {
     @Param('id', ParseUUIDPipe) id: string,
   ): Promise<BlogCategoryResponse> {
     return this.service.restore(id);
+  }
+
+  @Post(':id/image')
+  @ApiOkResponse({ type: BlogCategoryResponse })
+  @ApiNotFoundResponse()
+  @ApiBadRequestResponse({ description: 'Invalid file' })
+  @ApiConsumes('multipart/form-data')
+  @ApiBody({
+    schema: {
+      type: 'object',
+      properties: { file: { type: 'string', format: 'binary' } },
+      required: ['file'],
+    },
+  })
+  @ApiParam({ name: 'id', type: String, format: 'uuid' })
+  @UseInterceptors(
+    FileInterceptor('file', {
+      limits: { fileSize: 2 * 1024 * 1024 },
+      fileFilter: (_req, file: Express.Multer.File, cb) => {
+        const allowed = ['image/png', 'image/jpeg', 'image/webp'];
+        cb(null, allowed.includes(file.mimetype));
+      },
+    }),
+  )
+  @CheckAbilities({ action: Action.Update, subject: 'BLOG_CATEGORY' })
+  async uploadImage(
+    @Param('id', ParseUUIDPipe) id: string,
+    @UploadedFile() file: Express.Multer.File,
+  ): Promise<BlogCategoryResponse> {
+    if (!file) {
+      throw new BadRequestException(
+        'No file provided or invalid file type. Allowed: png, jpeg, webp (max 2 MB)',
+      );
+    }
+    return this.service.uploadImage(id, {
+      buffer: file.buffer,
+      mimeType: file.mimetype,
+    });
+  }
+
+  @Delete(':id/image')
+  @ApiOkResponse({ type: BlogCategoryResponse })
+  @ApiNotFoundResponse()
+  @ApiParam({ name: 'id', type: String, format: 'uuid' })
+  @CheckAbilities({ action: Action.Update, subject: 'BLOG_CATEGORY' })
+  async deleteImage(
+    @Param('id', ParseUUIDPipe) id: string,
+  ): Promise<BlogCategoryResponse> {
+    return this.service.deleteImage(id);
   }
 }

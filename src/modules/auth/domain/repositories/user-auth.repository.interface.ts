@@ -7,6 +7,8 @@ export interface UserAuthRow {
   roleIds: string[];
   googleId: string | null;
   emailVerifiedAt: Date | null;
+  mustChangePassword: boolean;
+  passwordExpiresAt: Date | null;
 }
 
 export interface CreateUserData {
@@ -67,6 +69,13 @@ export interface IUserAuthRepository {
   enableTotp(userId: string): Promise<void>;
   disableTotp(userId: string): Promise<void>;
   updatePassword(userId: string, hashedPassword: string): Promise<void>;
+  updatePasswordWithStatus(
+    userId: string,
+    hashedPassword: string,
+    passwordChangedAt: Date,
+    passwordExpiresAt: Date | null,
+  ): Promise<void>;
+  setMustChangePassword(userId: string, value: boolean): Promise<void>;
   setEmailVerified(userId: string): Promise<void>;
   setPasswordConfirmed(userId: string): Promise<void>;
   getPasswordConfirmedAt(userId: string): Promise<Date | null>;

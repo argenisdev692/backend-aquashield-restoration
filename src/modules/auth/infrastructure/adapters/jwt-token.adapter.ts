@@ -50,6 +50,30 @@ export class JwtTokenAdapter implements ITokenServicePort {
     return this.toSeconds(refreshExpiresIn) * 1000;
   }
 
+  async signPasswordChangeToken(userId: string): Promise<string> {
+    return this.jwtService.signAsync(
+      { scope: 'password_change' },
+      {
+        expiresIn: 900, // 15 minutes
+        subject: userId,
+        algorithm: 'HS256',
+      },
+    );
+  }
+
+  async verifyPasswordChangeToken(token: string): Promise<string | null> {
+    try {
+      const payload = await this.jwtService.verifyAsync<{
+        sub: string;
+        scope: string;
+      }>(token, { algorithms: ['HS256'] });
+      if (payload.scope !== 'password_change') return null;
+      return payload.sub;
+    } catch {
+      return null;
+    }
+  }
+
   private toSeconds(value: string): number {
     const match = /^(\d+)(s|m|h|d)$/.exec(value);
     if (!match) return 900; // default 15m

@@ -19,6 +19,8 @@ const user = {
   roleIds: ['r1'],
   googleId: null,
   emailVerifiedAt: null,
+  mustChangePassword: false,
+  passwordExpiresAt: null,
 };
 
 function build(overrides: {
@@ -40,6 +42,8 @@ function build(overrides: {
     enableTotp: jest.fn(),
     disableTotp: jest.fn(),
     updatePassword: jest.fn(),
+    updatePasswordWithStatus: jest.fn(),
+    setMustChangePassword: jest.fn(),
     setEmailVerified: jest.fn(),
     setPasswordConfirmed: jest.fn(),
     getPasswordConfirmedAt: jest.fn(),
@@ -64,6 +68,12 @@ function build(overrides: {
     compare: jest.fn().mockResolvedValue(overrides.compare ?? true),
     hash: jest.fn(),
   };
+  const tokenService = {
+    signAccessToken: jest.fn(),
+    refreshTtlMs: jest.fn(),
+    signPasswordChangeToken: jest.fn().mockResolvedValue('pc-token'),
+    verifyPasswordChangeToken: jest.fn(),
+  };
   const audit = { log: jest.fn().mockResolvedValue(undefined) };
   const cache = {
     get: jest.fn().mockResolvedValue(overrides.cacheCount ?? 0),
@@ -77,6 +87,7 @@ function build(overrides: {
     otpRepo,
     emailPort,
     passwordHasher,
+    tokenService,
     audit,
     cache as never,
     eventEmitter as never,

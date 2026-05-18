@@ -23,6 +23,8 @@ describe('Disable2faUseCase', () => {
       enableTotp: jest.fn(),
       disableTotp: jest.fn().mockResolvedValue(undefined),
       updatePassword: jest.fn(),
+      updatePasswordWithStatus: jest.fn(),
+      setMustChangePassword: jest.fn(),
       setEmailVerified: jest.fn(),
       setPasswordConfirmed: jest.fn(),
       getPasswordConfirmedAt: jest.fn(),

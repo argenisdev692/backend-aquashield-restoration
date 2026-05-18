@@ -1,4 +1,23 @@
 // ============================================================
+//  PasswordHistory — stores the last N bcrypt hashes for a user so that
+//  recently used passwords cannot be reused.
+//  APPEND-ONLY: rows are never updated; pruning is handled by
+//  the application layer (keeps only the last PASSWORD_HISTORY_LIMIT entries).
+// ============================================================
+
+model PasswordHistory {
+  id           String   @id @default(dbgenerated("uuid_generate_v7()")) @db.Uuid
+  userId       String   @map("user_id") @db.Uuid
+  passwordHash String   @map("password_hash") @db.VarChar(255)
+  createdAt    DateTime @default(now()) @map("created_at") @db.Timestamp(6)
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, createdAt(sort: Desc)], map: "idx_password_history_user_id")
+  @@map("password_history")
+}
+
+// ============================================================
 //  Auth side-tables
 //  - OtpCode      : append-only OTP store (login / email_verify / password_reset).
 //                   NO updatedAt — rows are immutable; only `used_at` is set on use.
