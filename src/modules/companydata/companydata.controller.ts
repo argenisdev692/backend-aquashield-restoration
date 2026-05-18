@@ -9,11 +9,9 @@ import {
   UseGuards,
   ParseUUIDPipe,
   HttpCode,
-  Req,
   UseInterceptors,
   UploadedFile,
   BadRequestException,
-  NotFoundException,
 } from '@nestjs/common';
 import { FileInterceptor } from '@nestjs/platform-express';
 import { ZodValidationPipe } from 'nestjs-zod';
@@ -35,13 +33,15 @@ import {
 import { JwtAuthGuard } from '../../core/guards/jwt-auth.guard';
 import { CaslGuard } from '../../core/guards/casl.guard';
 import { CheckAbilities } from '../../core/decorators/check-abilities.decorator';
+import { CurrentUser } from '../../core/decorators/current-user.decorator';
 import { Action } from '../../core/access/actions.enum';
+import type { AuthenticatedUser } from '../../core/access/actions.enum';
 import { CompanyDataService } from './companydata.service';
 import { CreateCompanyDataSchema } from './dto/create-companydata.dto';
 import type { CreateCompanyDataDto } from './dto/create-companydata.dto';
 import { UpdateCompanyDataSchema } from './dto/update-companydata.dto';
 import type { UpdateCompanyDataDto } from './dto/update-companydata.dto';
-import { CompanyDataResponse } from './companydata.entity';
+import { CompanyDataResponse } from './dto/companydata.response';
 
 @ApiTags('company-data')
 @ApiBearerAuth()
@@ -56,11 +56,9 @@ export class CompanyDataController {
   @CacheTTL(TTL_SECONDS.LONG)
   @CheckAbilities({ action: Action.Read, subject: 'COMPANY' })
   async getMyCompanyData(
-    @Req() req: { user: { id: string } },
+    @CurrentUser() user: AuthenticatedUser,
   ): Promise<CompanyDataResponse> {
-    const result = await this.service.findByUserId(req.user.id);
-    if (!result) throw new NotFoundException('Company data not found');
-    return result;
+    return this.service.findByUserIdOrFail(user.id);
   }
 
   @Post()
@@ -69,10 +67,10 @@ export class CompanyDataController {
   @ApiConflictResponse({ description: 'Company data already exists' })
   @CheckAbilities({ action: Action.Create, subject: 'COMPANY' })
   async create(
-    @Req() req: { user: { id: string } },
+    @CurrentUser() user: AuthenticatedUser,
     @Body(new ZodValidationPipe(CreateCompanyDataSchema)) dto: CreateCompanyDataDto,
   ): Promise<CompanyDataResponse> {
-    return this.service.create(req.user.id, dto);
+    return this.service.create(user.id, dto);
   }
 
   @Get(':id')

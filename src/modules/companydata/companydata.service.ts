@@ -5,6 +5,7 @@ import type { CompanyData } from './companydata.entity';
 import type { CreateCompanyDataDto } from './dto/create-companydata.dto';
 import type { UpdateCompanyDataDto } from './dto/update-companydata.dto';
 import { StorageService } from '../../shared/storage/storage.service';
+import { CacheService } from '../../shared/cache/cache.service';
 import { LoggerService } from '../../logger/logger.service';
 import { ClsService } from 'nestjs-cls';
 import { AUDIT_PORT, type IAuditPort } from '../../shared/activity-log/audit.port';
@@ -12,10 +13,13 @@ import { AUDIT_PORT, type IAuditPort } from '../../shared/activity-log/audit.por
 @Injectable()
 export class CompanyDataService {
   private readonly signatureDirectory = 'company-signatures';
+  /** Matches the CacheTtlInterceptor key scheme `http:{userId}:{originalUrl}`. */
+  private readonly cacheKeyPattern = 'http:*:/company-data*';
 
   constructor(
     private readonly repository: CompanyDataRepository,
     private readonly storage: StorageService,
+    private readonly cache: CacheService,
     private readonly logger: LoggerService,
     private readonly cls: ClsService,
     @Inject(AUDIT_PORT) private readonly audit: IAuditPort,
@@ -27,6 +31,12 @@ export class CompanyDataService {
     const traceId = this.cls.get<string>('traceId');
     this.logger.info('CompanyDataService.findByUserId', { traceId, userId });
     return this.repository.findByUserId(userId);
+  }
+
+  async findByUserIdOrFail(userId: string): Promise<CompanyData> {
+    const result = await this.findByUserId(userId);
+    if (!result) throw new NotFoundException('Company data not found');
+    return result;
   }
 
   async findById(id: string): Promise<CompanyData> {
@@ -52,6 +62,7 @@ export class CompanyDataService {
       resourceId: result.id,
     });
 
+    await this.invalidateCache();
     this.logger.info('CompanyDataService.create end', { traceId, companyDataId: result.id });
     return result;
   }
@@ -68,6 +79,7 @@ export class CompanyDataService {
       resourceId: id,
     });
 
+    await this.invalidateCache();
     this.logger.info('CompanyDataService.update end', { traceId, id });
     return result;
   }
@@ -87,6 +99,7 @@ export class CompanyDataService {
       resourceId: id,
     });
 
+    await this.invalidateCache();
     this.logger.info('CompanyDataService.delete end', { traceId, id });
   }
 
@@ -115,6 +128,7 @@ export class CompanyDataService {
       resourceId: companyDataId,
     });
 
+    await this.invalidateCache();
     this.logger.info('CompanyDataService.uploadSignature end', { traceId, companyDataId });
     return result;
   }
@@ -137,6 +151,7 @@ export class CompanyDataService {
       resourceId: companyDataId,
     });
 
+    await this.invalidateCache();
     this.logger.info('CompanyDataService.deleteSignature end', { traceId, companyDataId });
     return result;
   }
@@ -145,6 +160,11 @@ export class CompanyDataService {
     const result = await this.repository.findById(id);
     if (!result) throw new NotFoundException('Company data not found');
     return result;
+  }
+
+  /** Drops every cached company-data GET response after a mutation. */
+  private async invalidateCache(): Promise<void> {
+    await this.cache.delByPattern(this.cacheKeyPattern);
   }
 
   private async deleteSignatureFile(signaturePath: string): Promise<void> {

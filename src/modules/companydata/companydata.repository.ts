@@ -1,6 +1,6 @@
 import { Injectable } from '@nestjs/common';
 import { PrismaService } from '../../shared/database/prisma.service';
-import { CompanyData } from './companydata.entity';
+import type { CompanyData } from './companydata.entity';
 import type { CompanyData as PrismaCompanyData } from '../../generated/prisma/client';
 
 @Injectable()
@@ -98,10 +98,9 @@ export class CompanyDataRepository {
     return this.mapToEntity(row);
   }
 
-  async delete(id: string): Promise<boolean> {
+  async delete(id: string): Promise<void> {
     await this.prisma.companyData.delete({
       where: { id },
     });
-    return true;
   }
 }
