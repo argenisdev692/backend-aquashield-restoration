@@ -1,4 +1,4 @@
-import { ConflictException } from '@nestjs/common';
+import { BadRequestException, ConflictException } from '@nestjs/common';
 import { RegisterUseCase } from './register.use-case';
 
 const logger = {
@@ -10,7 +10,7 @@ const logger = {
 };
 const cls = { get: jest.fn().mockReturnValue('trace-1') };
 
-function build(opts: { emailTaken?: boolean }) {
+function build(opts: { emailTaken?: boolean; breached?: boolean }) {
   const userRepo = {
     findByEmail: jest
       .fn()
@@ -44,6 +44,9 @@ function build(opts: { emailTaken?: boolean }) {
     hash: jest.fn().mockResolvedValue('hashed'),
     compare: jest.fn(),
   };
+  const breachedPwd = {
+    isBreached: jest.fn().mockResolvedValue(opts.breached ?? false),
+  };
   const emailPort = {
     sendVerificationLink: jest.fn().mockResolvedValue(undefined),
     sendWelcomeEmail: jest.fn().mockResolvedValue(undefined),
@@ -59,6 +62,7 @@ function build(opts: { emailTaken?: boolean }) {
     userRepo,
     historyRepo,
     passwordHasher,
+    breachedPwd,
     emailPort as never,
     audit,
     config as never,
@@ -66,7 +70,15 @@ function build(opts: { emailTaken?: boolean }) {
     logger as never,
     cls as never,
   );
-  return { useCase, userRepo, historyRepo, emailPort, audit, eventEmitter };
+  return {
+    useCase,
+    userRepo,
+    historyRepo,
+    emailPort,
+    audit,
+    eventEmitter,
+    breachedPwd,
+  };
 }
 
 const dto = {
@@ -109,6 +121,16 @@ describe('RegisterUseCase', () => {
 
     await expect(useCase.execute(dto)).rejects.toBeInstanceOf(
       ConflictException,
+    );
+    expect(userRepo.create).not.toHaveBeenCalled();
+    expect(audit.log).not.toHaveBeenCalled();
+  });
+
+  it('rejects a breached password without creating the user', async () => {
+    const { useCase, userRepo, audit } = build({ breached: true });
+
+    await expect(useCase.execute(dto)).rejects.toBeInstanceOf(
+      BadRequestException,
     );
     expect(userRepo.create).not.toHaveBeenCalled();
     expect(audit.log).not.toHaveBeenCalled();

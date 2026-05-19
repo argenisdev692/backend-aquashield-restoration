@@ -4,6 +4,7 @@ import { ClsService } from 'nestjs-cls';
 import { LoggerService } from '../../../../logger/logger.service';
 import type { ICachePort } from '../../../../shared/cache/cache.port';
 import { CACHE_PORT } from '../../../../shared/cache/cache.port';
+import { maskEmail } from '../../../../shared/utils/mask.util';
 import type { IUserAuthRepository } from '../../domain/repositories/user-auth.repository.interface';
 import { USER_AUTH_REPOSITORY } from '../../domain/repositories/user-auth.repository.interface';
 import type { IOtpRepository } from '../../domain/repositories/otp.repository.interface';
@@ -61,7 +62,10 @@ export class LoginUseCase {
 
   async execute(dto: LoginInput): Promise<LoginResult> {
     const traceId = this.cls.get<string>('traceId');
-    this.logger.info('Login attempt', { traceId, email: dto.email });
+    this.logger.info('Login attempt', {
+      traceId,
+      email: maskEmail(dto.email),
+    });
 
     const user = await this.userRepo.findByEmail(dto.email);
     if (!user || !user.password) {

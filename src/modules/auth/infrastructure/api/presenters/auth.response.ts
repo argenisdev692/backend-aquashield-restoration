@@ -158,4 +158,6 @@ export const GoogleAuthResponseSchema = z.object({
   isNewUser: z.boolean(),
 });
 
-export class GoogleAuthResponse extends createZodDto(GoogleAuthResponseSchema) {}
+export class GoogleAuthResponse extends createZodDto(
+  GoogleAuthResponseSchema,
+) {}

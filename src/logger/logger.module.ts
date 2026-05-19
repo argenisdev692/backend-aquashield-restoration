@@ -20,7 +20,9 @@ import { LoggerService } from './logger.service';
           isProduction: config.get<string>('NODE_ENV') === 'production',
           logLevel:
             config.get<string>('LOG_LEVEL') ??
-            (config.get<string>('NODE_ENV') === 'production' ? 'info' : 'debug'),
+            (config.get<string>('NODE_ENV') === 'production'
+              ? 'info'
+              : 'debug'),
         }),
     }),
   ],

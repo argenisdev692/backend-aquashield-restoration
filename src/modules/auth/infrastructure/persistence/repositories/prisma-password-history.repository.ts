@@ -4,9 +4,7 @@ import { LoggerService } from '../../../../../logger/logger.service';
 import type { IPasswordHistoryRepository } from '../../../domain/repositories/password-history.repository.interface';
 
 @Injectable()
-export class PrismaPasswordHistoryRepository
-  implements IPasswordHistoryRepository
-{
+export class PrismaPasswordHistoryRepository implements IPasswordHistoryRepository {
   constructor(
     private readonly prisma: PrismaService,
     private readonly logger: LoggerService,

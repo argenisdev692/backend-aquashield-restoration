@@ -1,4 +1,9 @@
-import { BadRequestException, Inject, Injectable, UnauthorizedException } from '@nestjs/common';
+import {
+  BadRequestException,
+  Inject,
+  Injectable,
+  UnauthorizedException,
+} from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { EventEmitter2 } from '@nestjs/event-emitter';
 import { ClsService } from 'nestjs-cls';
@@ -22,6 +27,11 @@ import { TRANSACTION_MANAGER } from '../../../../shared/database/transaction-man
 import { OtpCode } from '../../domain/value-objects/otp-code.vo';
 import { ResetToken } from '../../domain/value-objects/reset-token.vo';
 import { PasswordResetEvent } from '../../domain/events/auth-events';
+import type { IBreachedPasswordPort } from '../../../../shared/security/breached-password.port';
+import {
+  BREACHED_PASSWORD_PORT,
+  BREACHED_PASSWORD_MESSAGE,
+} from '../../../../shared/security/breached-password.port';
 import type { ResetPasswordInput } from '../dtos/reset-password.dto';
 
 const PASSWORD_HISTORY_CHECK_LIMIT = 5;
@@ -42,6 +52,8 @@ export class ResetPasswordUseCase {
     private readonly otpRepo: IOtpRepository,
     @Inject(PASSWORD_HASHER_PORT)
     private readonly passwordHasher: IPasswordHasherPort,
+    @Inject(BREACHED_PASSWORD_PORT)
+    private readonly breachedPwd: IBreachedPasswordPort,
     @Inject(AUTH_SESSION_REPOSITORY)
     private readonly sessionRepo: IAuthSessionRepository,
     @Inject(AUDIT_PORT)
@@ -93,6 +105,10 @@ export class ResetPasswordUseCase {
       }
     }
 
+    if (await this.breachedPwd.isBreached(dto.password)) {
+      throw new BadRequestException(BREACHED_PASSWORD_MESSAGE);
+    }
+
     const hashedPassword = await this.passwordHasher.hash(dto.password);
     const now = new Date();
     const passwordExpiresAt = this.computeExpiresAt(now);
@@ -111,7 +127,10 @@ export class ResetPasswordUseCase {
       await this.sessionRepo.revokeAllForUser(user.id);
     });
 
-    this.eventEmitter.emit('auth.password_reset', new PasswordResetEvent(user.id));
+    this.eventEmitter.emit(
+      'auth.password_reset',
+      new PasswordResetEvent(user.id),
+    );
 
     await this.audit.log({
       action: 'auth.password_reset',

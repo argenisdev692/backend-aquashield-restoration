@@ -16,6 +16,7 @@ function build(opts: {
   passwordExpiresAt?: Date | null;
   recentHashes?: string[];
   reuseMatches?: boolean;
+  breached?: boolean;
 }) {
   const userId = opts.userId === undefined ? 'u1' : opts.userId;
 
@@ -76,6 +77,9 @@ function build(opts: {
     revokeAllForUser: jest.fn().mockResolvedValue(undefined),
     revokeById: jest.fn(),
   };
+  const breachedPwd = {
+    isBreached: jest.fn().mockResolvedValue(opts.breached ?? false),
+  };
   const audit = { log: jest.fn().mockResolvedValue(undefined) };
   const tx = {
     runInTx: jest.fn((fn: () => Promise<unknown>) => fn()),
@@ -94,6 +98,7 @@ function build(opts: {
     userRepo,
     historyRepo,
     passwordHasher,
+    breachedPwd,
     tokenService,
     sessionRepo,
     audit,
@@ -113,6 +118,7 @@ function build(opts: {
     tokenIssuer,
     eventEmitter,
     tokenService,
+    breachedPwd,
   };
 }
 
@@ -176,6 +182,18 @@ describe('ChangeExpiredPasswordUseCase', () => {
       mustChangePassword: true,
       recentHashes: ['old-hash'],
       reuseMatches: true,
+    });
+
+    await expect(useCase.execute(validDto)).rejects.toBeInstanceOf(
+      BadRequestException,
+    );
+    expect(userRepo.updatePasswordWithStatus).not.toHaveBeenCalled();
+  });
+
+  it('rejects a breached password before persisting', async () => {
+    const { useCase, userRepo } = build({
+      mustChangePassword: true,
+      breached: true,
     });
 
     await expect(useCase.execute(validDto)).rejects.toBeInstanceOf(

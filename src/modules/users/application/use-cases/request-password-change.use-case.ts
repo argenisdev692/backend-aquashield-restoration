@@ -31,9 +31,7 @@ export class RequestPasswordChangeUseCase {
     private readonly cls: ClsService,
   ) {}
 
-  async execute(
-    dto: RequestPasswordChangeInput,
-  ): Promise<void> {
+  async execute(dto: RequestPasswordChangeInput): Promise<void> {
     const traceId = this.cls.get<string>('traceId');
     this.logger.info('RequestPasswordChangeUseCase start', {
       traceId,

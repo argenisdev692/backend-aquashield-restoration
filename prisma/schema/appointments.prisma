@@ -36,11 +36,13 @@ model Appointment {
   additionalNote   String?     @map("additional_note")
   latitude         Float?      @db.DoublePrecision
   longitude        Float?      @db.DoublePrecision
+  readed           Boolean     @default(false)
   createdAt        DateTime    @default(now()) @map("created_at") @db.Timestamp(6)
   updatedAt        DateTime    @default(now()) @map("updated_at") @db.Timestamp(6)
   deletedAt        DateTime?   @map("deleted_at") @db.Timestamp(6)
 
   @@index([statusLead], map: "idx_appointments_status_lead")
   @@index([deletedAt], map: "idx_appointments_deleted_at")
+  @@index([readed], map: "idx_appointments_readed")
   @@map("appointments")
 }

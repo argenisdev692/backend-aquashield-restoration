@@ -33,7 +33,10 @@ export class ConfirmPasswordUseCase {
       throw new UnauthorizedException('Invalid credentials');
     }
 
-    const valid = await this.passwordHasher.compare(dto.password, user.password);
+    const valid = await this.passwordHasher.compare(
+      dto.password,
+      user.password,
+    );
     if (!valid) {
       await this.audit.log({
         action: 'auth.password_confirm_failed',

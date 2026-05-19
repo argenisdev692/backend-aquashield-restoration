@@ -1,8 +1,24 @@
-import { Injectable, NestMiddleware, UnauthorizedException } from '@nestjs/common';
+import {
+  Injectable,
+  NestMiddleware,
+  UnauthorizedException,
+} from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { JwtService } from '@nestjs/jwt';
 import type { Request, Response, NextFunction } from 'express';
 import type { Socket } from 'socket.io';
+
+/** Minimal claims this middleware consumes from the access token. */
+interface WsJwtPayload {
+  sub: string;
+  email?: string;
+}
+
+/** Authenticated identity stamped onto the socket for downstream handlers. */
+interface WsAuthData {
+  userId?: string;
+  email?: string;
+}
 
 @Injectable()
 export class WsJwtMiddleware implements NestMiddleware {
@@ -11,40 +27,39 @@ export class WsJwtMiddleware implements NestMiddleware {
     private readonly configService: ConfigService,
   ) {}
 
-  use(req: Request, res: Response, next: NextFunction) {
-    // This is for HTTP middleware - not used for WebSocket
+  use(req: Request, res: Response, next: NextFunction): void {
+    // HTTP middleware path — not used for WebSocket handshakes.
     next();
   }
 
-  async useWS(client: Socket, next: (err?: Error) => void) {
+  useWS(client: Socket, next: (err?: Error) => void): void {
     try {
       const token = this.extractToken(client);
       if (!token) {
         throw new UnauthorizedException('JWT token not found');
       }
 
-      const payload = this.jwtService.verify(token, {
-        secret: this.configService.get<string>('JWT_SECRET'),
+      const payload = this.jwtService.verify<WsJwtPayload>(token, {
+        secret: this.configService.get<string>('JWT_ACCESS_SECRET'),
       });
 
-      client.data.userId = payload.sub;
-      client.data.email = payload.email;
+      const data = client.data as WsAuthData;
+      data.userId = payload.sub;
+      data.email = payload.email;
       next();
-    } catch (error) {
+    } catch {
       next(new UnauthorizedException('Invalid JWT token'));
     }
   }
 
   private extractToken(client: Socket): string | null {
-    const authHeader = client.handshake.auth.token || client.handshake.headers.authorization;
-    if (!authHeader) {
+    const authToken: unknown = client.handshake.auth?.token;
+    const headerAuth = client.handshake.headers.authorization;
+    const raw = typeof authToken === 'string' ? authToken : headerAuth;
+    if (!raw) {
       return null;
     }
 
-    if (authHeader.startsWith('Bearer ')) {
-      return authHeader.substring(7);
-    }
-
-    return authHeader;
+    return raw.startsWith('Bearer ') ? raw.slice(7) : raw;
   }
 }

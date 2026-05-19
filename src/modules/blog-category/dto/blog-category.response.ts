@@ -12,4 +12,6 @@ export const BlogCategoryResponseSchema = z.object({
   deletedAt: z.string().datetime().nullable(),
 });
 
-export class BlogCategoryResponse extends createZodDto(BlogCategoryResponseSchema) {}
+export class BlogCategoryResponse extends createZodDto(
+  BlogCategoryResponseSchema,
+) {}

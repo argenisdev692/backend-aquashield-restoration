@@ -27,6 +27,11 @@ import {
   type IssuedTokens,
 } from '../services/auth-token-issuer.service';
 import { PasswordChangedEvent } from '../../domain/events/auth-events';
+import type { IBreachedPasswordPort } from '../../../../shared/security/breached-password.port';
+import {
+  BREACHED_PASSWORD_PORT,
+  BREACHED_PASSWORD_MESSAGE,
+} from '../../../../shared/security/breached-password.port';
 import type { ChangeExpiredPasswordInput } from '../dtos/change-expired-password.dto';
 
 /** Number of recent hashes to check for reuse. */
@@ -44,6 +49,8 @@ export class ChangeExpiredPasswordUseCase {
     private readonly historyRepo: IPasswordHistoryRepository,
     @Inject(PASSWORD_HASHER_PORT)
     private readonly passwordHasher: IPasswordHasherPort,
+    @Inject(BREACHED_PASSWORD_PORT)
+    private readonly breachedPwd: IBreachedPasswordPort,
     @Inject(TOKEN_SERVICE_PORT)
     private readonly tokenService: ITokenServicePort,
     @Inject(AUTH_SESSION_REPOSITORY)
@@ -94,6 +101,10 @@ export class ChangeExpiredPasswordUseCase {
           `New password must differ from your last ${PASSWORD_HISTORY_CHECK_LIMIT} passwords`,
         );
       }
+    }
+
+    if (await this.breachedPwd.isBreached(dto.newPassword)) {
+      throw new BadRequestException(BREACHED_PASSWORD_MESSAGE);
     }
 
     const hashedPassword = await this.passwordHasher.hash(dto.newPassword);

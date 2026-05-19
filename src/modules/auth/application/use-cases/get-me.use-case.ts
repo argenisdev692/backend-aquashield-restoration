@@ -1,7 +1,10 @@
 import { Inject, Injectable, NotFoundException } from '@nestjs/common';
 import { ClsService } from 'nestjs-cls';
 import { LoggerService } from '../../../../logger/logger.service';
-import type { IUserAuthRepository, UserProfileRow } from '../../domain/repositories/user-auth.repository.interface';
+import type {
+  IUserAuthRepository,
+  UserProfileRow,
+} from '../../domain/repositories/user-auth.repository.interface';
 import { USER_AUTH_REPOSITORY } from '../../domain/repositories/user-auth.repository.interface';
 
 @Injectable()

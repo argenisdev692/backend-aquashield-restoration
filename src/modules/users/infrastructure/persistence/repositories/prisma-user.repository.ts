@@ -58,8 +58,11 @@ export class PrismaUserRepository implements IUserRepository {
   }
 
   async create(user: User): Promise<User> {
-    const { id: _omitted, ...data } = UserMapper.toPersistence(user);
-    const row = await this.prisma.user.create({ data });
+    // `id` is intentionally omitted so the DB default (uuid_generate_v7()) applies.
+    const { name, lastName, email, password } = UserMapper.toPersistence(user);
+    const row = await this.prisma.user.create({
+      data: { name, lastName, email, password },
+    });
     return UserMapper.toDomain(row);
   }
 
@@ -94,7 +97,10 @@ export class PrismaUserRepository implements IUserRepository {
     return count > 0;
   }
 
-  async existsByUsername(username: string, excludeId?: string): Promise<boolean> {
+  async existsByUsername(
+    username: string,
+    excludeId?: string,
+  ): Promise<boolean> {
     const count = await this.prisma.user.count({
       where: {
         username: username.toLowerCase(),

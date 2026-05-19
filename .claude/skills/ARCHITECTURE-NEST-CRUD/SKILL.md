@@ -11,6 +11,7 @@ globs: src/modules/**
 > **Default for this repo**: start here. Escalate to `.claude/skills/ARCHITECTURE-NEST/SKILL.md` ONLY when an explicit upgrade trigger is met.
 > **Coding patterns for the Service/Repository → see `.claude/skills/BACKEND-NEST-PATTERNS/SKILL.md`.**
 > **Stack syntax (Zod, Prisma, Swagger, logging, cache) → see `.claude/skills/BACKEND-NEST/SKILL.md`. Ignore its CQRS Command/Query handler sections — they apply to Hex/DDD modules only.**
+> **Security baseline → see `.claude/skills/OWASP/SKILL.md`. Note: the `(2026)` in the heading below is this repo's internal skill-version tag, NOT an OWASP release year — there is no official "OWASP 2026". The enforced baseline is OWASP Top 10:2025 + OWASP API Security Top 10:2023, as defined in the OWASP skill. The cache + audit pattern in this file is what satisfies OWASP control #9 (Logging & Alerting) for flat CRUD modules that opt into audit.**
 
 ---
 
@@ -264,6 +265,87 @@ export class CategoryController {
 
 ---
 
+## 🔁 Canonical Mutation Pattern — Cache invalidation + Audit log
+
+> **Opt-in, but all-or-nothing.** A flat CRUD module MAY skip both. The moment it opts into **either** HTTP response caching (`@CacheTTL` on a GET route) **or** audit (`IAuditPort`), **every** state-mutating method (`create`, `update`, `delete`, `restore`, file upload/delete, …) MUST apply the full block below. Partial adoption (e.g. `companydata` invalidates cache but a sibling module forgets) is the exact drift this section exists to prevent.
+
+**Fixed order inside every mutation method:**
+
+1. `findOrFail(id)` existence check (skip only for `create`) — on miss it throws **before** any side effect, so no audit row and no cache flush for a no-op.
+2. `await this.repository.<write>()` — the DB write happens first.
+3. `await this.audit.log({ action, actorId?, resourceType, resourceId })` — `action` is `{module}.{past_tense_verb}`; `resourceId` is the **route param**, never the request body; `actorId` only when the method receives the authenticated user id (typically `create`).
+4. `await this.invalidateCache()` — drops every cached GET for this resource.
+5. `logger.info('<Service>.<method> end', { traceId, … })`.
+
+**Wiring (no module changes needed):** `shared/cache` `CacheModule` and `shared/activity-log` `ActivityLogModule` are both `@Global()`. Inject `CacheService` directly and `@Inject(AUDIT_PORT) IAuditPort`. The cache key pattern MUST mirror the `CacheTtlInterceptor` scheme `http:{userId}:{originalUrl}` → `http:*:/{controller-route}*`.
+
+```typescript
+@Injectable()
+export class BlogCategoryService {
+  /** Matches the CacheTtlInterceptor key scheme `http:{userId}:{originalUrl}`. */
+  private readonly cacheKeyPattern = 'http:*:/blog-categories*';
+
+  constructor(
+    private readonly repository: BlogCategoryRepository,
+    private readonly cache: CacheService,
+    private readonly logger: LoggerService,
+    private readonly cls: ClsService,
+    @Inject(AUDIT_PORT) private readonly audit: IAuditPort,
+  ) {
+    this.logger.setContext(BlogCategoryService.name);
+  }
+
+  async create(userId: string, dto: CreateBlogCategoryDto): Promise<BlogCategory> {
+    const traceId = this.cls.get<string>('traceId');
+    this.logger.info('BlogCategoryService.create start', { traceId, userId });
+
+    const result = await this.repository.create({ ...dto, userId });
+
+    await this.audit.log({
+      action: 'blogcategory.created',
+      actorId: userId,
+      resourceType: 'BLOG_CATEGORY',
+      resourceId: result.id,
+    });
+
+    await this.invalidateCache();
+    this.logger.info('BlogCategoryService.create end', { traceId, blogCategoryId: result.id });
+    return result;
+  }
+
+  async update(id: string, dto: UpdateBlogCategoryDto): Promise<BlogCategory> {
+    const traceId = this.cls.get<string>('traceId');
+    this.logger.info('BlogCategoryService.update start', { traceId, id });
+    await this.findOrFail(id);
+    const result = await this.repository.update(id, dto);
+
+    await this.audit.log({
+      action: 'blogcategory.updated',
+      resourceType: 'BLOG_CATEGORY',
+      resourceId: id,
+    });
+
+    await this.invalidateCache();
+    this.logger.info('BlogCategoryService.update end', { traceId, id });
+    return result;
+  }
+
+  /** Drops every cached GET response for this resource after a mutation. */
+  private async invalidateCache(): Promise<void> {
+    await this.cache.delByPattern(this.cacheKeyPattern);
+  }
+}
+```
+
+**Unit test contract** (repository + cache + audit all mocked, no real DB/Redis):
+
+- Each mutation asserts `audit.log` called with the right `action` / `resourceType` / `resourceId`, and `cache.delByPattern` called with the exact `http:*:/{route}*` pattern.
+- One negative test: a mutation that fails `findOrFail` ⇒ `audit.log` **not** called and `cache.delByPattern` **not** called.
+
+> Reference implementations in this repo: `src/modules/companydata` and `src/modules/blog-category`. `CacheService.delByPattern` uses non-blocking `SCAN` and swallows Redis errors (cache is an optimization, never a hard dependency) — see `.claude/skills/OWASP/SKILL.md` #10 (graceful degradation) and #9 (audit trail).
+
+---
+
 ## 🔄 Request Flow (flat CRUD)
 
 ```
@@ -277,9 +359,10 @@ HTTP Request
         │       └─► repository.findById() → null → service throws NotFoundException
         │
         └─► [WRITE] service.create(dto) / update(id,dto) / delete(id)
-                └─► findOrFail() existence check (update/delete)
+                └─► findOrFail() existence check (update/delete) — throws before any side effect
                 └─► repository → Prisma → PostgreSQL
-                └─► optional IAuditPort.log() on mutations (module opts in)
+                └─► IAuditPort.log() — required on EVERY mutation once the module opts into audit
+                └─► invalidateCache() — required on EVERY mutation once the module opts into @CacheTTL
         └─► global-exception.filter maps exceptions → RFC 7807
 ```
 
@@ -307,6 +390,9 @@ HTTP Request
 ❌ console.log / console.warn — always use LoggerService with traceId
 ❌ Repository throwing HttpException — return null, let Service throw
 ❌ Repeating `if (!x) throw new NotFoundException()` — extract findOrFail (PATTERNS #1)
+❌ Opting into @CacheTTL or IAuditPort but applying it to only SOME mutations — all-or-nothing (Canonical Mutation Pattern)
+❌ audit.log() or invalidateCache() running before the repository write, or before findOrFail passes
+❌ Using request body for audit `resourceId` — always the route param
 ```
 
 ---
@@ -319,7 +405,8 @@ HTTP Request
 |---|---|---|---|
 | Logger | `shared/logger` (or `nestjs-pino`) | `LoggerService` | Always — never `console.log` |
 | Request context | `shared/cls` (`nestjs-cls`) | `ClsService` | traceId / correlationId propagation |
-| Activity log | `shared/activity-log` | `IAuditPort` | Optional: manual call in mutation methods |
+| Activity log | `shared/activity-log` | `@Inject(AUDIT_PORT) IAuditPort` | Opt-in: manual `audit.log()` in EVERY mutation method (see Canonical Mutation Pattern) |
+| HTTP cache | `shared/cache` | `CacheService` | Opt-in: `@CacheTTL` on GET routes ⇒ `cache.delByPattern()` in EVERY mutation method (see Canonical Mutation Pattern) |
 | Excel/PDF export | `shared/export` | `ExportService` | Inject in Service, call from `GET /{module}/export?format=xlsx\|pdf` |
 | Circuit breaker | `shared/external` (cockatiel) | via `@CircuitBreaker('name')` | Wraps ANY outbound HTTP call |
 | AI clients | `shared/external/ai` | `IAiClient` | OpenAI / Anthropic — already CB-wrapped |
@@ -339,6 +426,6 @@ HTTP Request
 - Any Service method exceeds ~20 lines of business logic
 - The entity needs invariants enforced in one place (Value Objects, aggregate factories)
 
-> ❌ Do NOT upgrade just because you need: exports, WebSockets, AI calls, FastAPI integration, audit log, backup. Those are **shared/ infra**, not architecture decisions — see the table above.
+> ❌ Do NOT upgrade just because you need: exports, WebSockets, AI calls, FastAPI integration, audit log, cache invalidation, backup. Those are **shared/ infra**, not architecture decisions — see the table above.
 
 The `{module}.repository.ts` and `dto/` layers migrate as-is — only the Service splits into Command/Query Handlers. Do NOT pre-emptively scaffold `domain/application/infrastructure` for modules that have not yet hit an upgrade trigger.

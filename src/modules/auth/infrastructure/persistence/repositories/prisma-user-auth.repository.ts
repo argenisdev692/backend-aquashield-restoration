@@ -1,6 +1,7 @@
 import { Injectable } from '@nestjs/common';
 import { PrismaService } from '../../../../../shared/database/prisma.service';
 import { LoggerService } from '../../../../../logger/logger.service';
+import { SecretCipher } from '../../../../../shared/crypto/secret-cipher.service';
 import type {
   IUserAuthRepository,
   UserAuthRow,
@@ -14,6 +15,7 @@ export class PrismaUserAuthRepository implements IUserAuthRepository {
   constructor(
     private readonly prisma: PrismaService,
     private readonly logger: LoggerService,
+    private readonly cipher: SecretCipher,
   ) {
     this.logger.setContext(PrismaUserAuthRepository.name);
   }
@@ -109,7 +111,8 @@ export class PrismaUserAuthRepository implements IUserAuthRepository {
   async updateTotpSecret(userId: string, secret: string): Promise<void> {
     await this.prisma.user.update({
       where: { id: userId },
-      data: { totpSecret: secret },
+      // Encrypted at rest (OWASP Cryptographic Failures — MFA seed).
+      data: { totpSecret: this.cipher.encrypt(secret) },
     });
   }
 
@@ -187,10 +190,7 @@ export class PrismaUserAuthRepository implements IUserAuthRepository {
     });
   }
 
-  async updateProfile(
-    userId: string,
-    data: UpdateProfileData,
-  ): Promise<void> {
+  async updateProfile(userId: string, data: UpdateProfileData): Promise<void> {
     await this.prisma.user.update({
       where: { id: userId },
       data: {
@@ -198,7 +198,9 @@ export class PrismaUserAuthRepository implements IUserAuthRepository {
         ...(data.lastName !== undefined && { lastName: data.lastName }),
         ...(data.username !== undefined && { username: data.username }),
         ...(data.phone !== undefined && { phone: data.phone }),
-        ...(data.dateOfBirth !== undefined && { dateOfBirth: data.dateOfBirth }),
+        ...(data.dateOfBirth !== undefined && {
+          dateOfBirth: data.dateOfBirth,
+        }),
         ...(data.address !== undefined && { address: data.address }),
         ...(data.address2 !== undefined && { address2: data.address2 }),
         ...(data.zipCode !== undefined && { zipCode: data.zipCode }),
@@ -210,25 +212,23 @@ export class PrismaUserAuthRepository implements IUserAuthRepository {
     });
   }
 
-  private toAuthRow(
-    row: {
-      id: string;
-      email: string;
-      password: string | null;
-      totpSecret: string | null;
-      totpEnabled: boolean;
-      googleId: string | null;
-      emailVerifiedAt: Date | null;
-      mustChangePassword: boolean;
-      passwordExpiresAt: Date | null;
-      roles: Array<{ roleId: string }>;
-    },
-  ): UserAuthRow {
+  private toAuthRow(row: {
+    id: string;
+    email: string;
+    password: string | null;
+    totpSecret: string | null;
+    totpEnabled: boolean;
+    googleId: string | null;
+    emailVerifiedAt: Date | null;
+    mustChangePassword: boolean;
+    passwordExpiresAt: Date | null;
+    roles: Array<{ roleId: string }>;
+  }): UserAuthRow {
     return {
       id: row.id,
       email: row.email,
       password: row.password,
-      totpSecret: row.totpSecret,
+      totpSecret: row.totpSecret ? this.cipher.decrypt(row.totpSecret) : null,
       totpEnabled: row.totpEnabled,
       googleId: row.googleId,
       emailVerifiedAt: row.emailVerifiedAt,

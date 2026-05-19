@@ -59,7 +59,10 @@ describe('RequestPasswordChangeUseCase', () => {
 
     await useCase.execute({ email: 'john@example.com' });
 
-    expect(setupRepo.invalidateAllForUser).toHaveBeenCalledWith('u-1', 'change');
+    expect(setupRepo.invalidateAllForUser).toHaveBeenCalledWith(
+      'u-1',
+      'change',
+    );
     expect(setupRepo.save).toHaveBeenCalledTimes(1);
     expect(emailPort.sendPasswordSetupLink).toHaveBeenCalledWith(
       expect.objectContaining({ to: 'john@example.com', type: 'change' }),

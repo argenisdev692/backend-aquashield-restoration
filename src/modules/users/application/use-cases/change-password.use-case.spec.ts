@@ -1,4 +1,4 @@
-import { UnauthorizedException } from '@nestjs/common';
+import { BadRequestException, UnauthorizedException } from '@nestjs/common';
 import { ChangePasswordUseCase } from './change-password.use-case';
 
 const logger = {
@@ -15,9 +15,15 @@ const mockUser = {
   changePassword: jest.fn(),
 };
 
-function build(overrides: { tokenRow?: unknown; user?: unknown } = {}) {
+function build(
+  overrides: { tokenRow?: unknown; user?: unknown; breached?: boolean } = {},
+) {
   const userRepo = {
-    findById: jest.fn().mockResolvedValue(overrides.user === undefined ? mockUser : overrides.user),
+    findById: jest
+      .fn()
+      .mockResolvedValue(
+        overrides.user === undefined ? mockUser : overrides.user,
+      ),
     findByEmail: jest.fn(),
     findAll: jest.fn(),
     create: jest.fn(),
@@ -28,17 +34,22 @@ function build(overrides: { tokenRow?: unknown; user?: unknown } = {}) {
   };
   const setupRepo = {
     save: jest.fn(),
-    findValid: jest.fn().mockResolvedValue(
-      overrides.tokenRow === undefined
-        ? { id: 't-1', userId: 'u-1', type: 'change', expiresAt: new Date() }
-        : overrides.tokenRow,
-    ),
+    findValid: jest
+      .fn()
+      .mockResolvedValue(
+        overrides.tokenRow === undefined
+          ? { id: 't-1', userId: 'u-1', type: 'change', expiresAt: new Date() }
+          : overrides.tokenRow,
+      ),
     markUsed: jest.fn().mockResolvedValue(undefined),
     invalidateAllForUser: jest.fn(),
   };
   const passwordHasher = {
     hash: jest.fn().mockResolvedValue('new-hash'),
     compare: jest.fn(),
+  };
+  const breachedPwd = {
+    isBreached: jest.fn().mockResolvedValue(overrides.breached ?? false),
   };
   const audit = { log: jest.fn().mockResolvedValue(undefined) };
   const eventEmitter = { emit: jest.fn() };
@@ -51,6 +62,7 @@ function build(overrides: { tokenRow?: unknown; user?: unknown } = {}) {
     userRepo,
     setupRepo,
     passwordHasher,
+    breachedPwd,
     audit,
     eventEmitter as never,
     logger as never,
@@ -58,21 +70,36 @@ function build(overrides: { tokenRow?: unknown; user?: unknown } = {}) {
     cache as never,
   );
 
-  return { useCase, userRepo, setupRepo, audit, eventEmitter, cache };
+  return {
+    useCase,
+    userRepo,
+    setupRepo,
+    audit,
+    eventEmitter,
+    cache,
+    breachedPwd,
+  };
 }
 
 describe('ChangePasswordUseCase', () => {
   beforeEach(() => jest.clearAllMocks());
 
   it('changes password, marks token used, emits event, invalidates cache, and audits', async () => {
-    const { useCase, userRepo, setupRepo, audit, eventEmitter, cache } = build();
+    const { useCase, userRepo, setupRepo, audit, eventEmitter, cache } =
+      build();
 
-    await useCase.execute({ token: 'raw', password: 'NewPass1!', passwordConfirmation: 'NewPass1!' });
+    await useCase.execute({
+      token: 'raw',
+      password: 'NewPass1!',
+      passwordConfirmation: 'NewPass1!',
+    });
 
     expect(userRepo.save).toHaveBeenCalledTimes(1);
     expect(setupRepo.markUsed).toHaveBeenCalledWith('t-1');
     expect(cache.del).toHaveBeenCalledWith('users-service:user:u-1');
-    expect(cache.delByPattern).toHaveBeenCalledWith('users-service:users:list:*');
+    expect(cache.delByPattern).toHaveBeenCalledWith(
+      'users-service:users:list:*',
+    );
     expect(eventEmitter.emit).toHaveBeenCalledWith(
       'users.password_changed',
       expect.objectContaining({ userId: 'u-1' }),
@@ -86,17 +113,43 @@ describe('ChangePasswordUseCase', () => {
     const { useCase } = build({ tokenRow: null });
 
     await expect(
-      useCase.execute({ token: 'bad', password: 'p', passwordConfirmation: 'p' }),
+      useCase.execute({
+        token: 'bad',
+        password: 'p',
+        passwordConfirmation: 'p',
+      }),
     ).rejects.toBeInstanceOf(UnauthorizedException);
+  });
+
+  it('rejects a breached password and does not persist', async () => {
+    const { useCase, userRepo } = build({ breached: true });
+
+    await expect(
+      useCase.execute({
+        token: 'raw',
+        password: 'Password123',
+        passwordConfirmation: 'Password123',
+      }),
+    ).rejects.toBeInstanceOf(BadRequestException);
+    expect(userRepo.save).not.toHaveBeenCalled();
   });
 
   it('throws when token type is not "change"', async () => {
     const { useCase } = build({
-      tokenRow: { id: 't-1', userId: 'u-1', type: 'setup', expiresAt: new Date() },
+      tokenRow: {
+        id: 't-1',
+        userId: 'u-1',
+        type: 'setup',
+        expiresAt: new Date(),
+      },
     });
 
     await expect(
-      useCase.execute({ token: 'tok', password: 'p', passwordConfirmation: 'p' }),
+      useCase.execute({
+        token: 'tok',
+        password: 'p',
+        passwordConfirmation: 'p',
+      }),
     ).rejects.toBeInstanceOf(UnauthorizedException);
   });
 });

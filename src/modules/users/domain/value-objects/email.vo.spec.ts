@@ -7,12 +7,16 @@ describe('Email (domain VO)', () => {
   });
 
   it('rejects an empty string', () => {
-    expect(() => Email.create('')).toThrow('Email must be between 1 and 255 characters');
+    expect(() => Email.create('')).toThrow(
+      'Email must be between 1 and 255 characters',
+    );
   });
 
   it('rejects a string exceeding 255 chars', () => {
     const long = 'a'.repeat(250) + '@b.com';
-    expect(() => Email.create(long)).toThrow('Email must be between 1 and 255 characters');
+    expect(() => Email.create(long)).toThrow(
+      'Email must be between 1 and 255 characters',
+    );
   });
 
   it('rejects an invalid email format', () => {

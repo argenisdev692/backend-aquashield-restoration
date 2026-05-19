@@ -8,9 +8,7 @@ import type {
 import type { ResetToken } from '../../../domain/value-objects/reset-token.vo';
 
 @Injectable()
-export class PrismaPasswordResetRepository
-  implements IPasswordResetRepository
-{
+export class PrismaPasswordResetRepository implements IPasswordResetRepository {
   constructor(
     private readonly prisma: PrismaService,
     private readonly logger: LoggerService,

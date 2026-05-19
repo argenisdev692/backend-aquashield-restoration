@@ -1,4 +1,5 @@
 import {
+  BadRequestException,
   ConflictException,
   Inject,
   Injectable,
@@ -19,6 +20,12 @@ import { EMAIL_PORT } from '../../domain/ports/outbound/email.port';
 import type { IAuditPort } from '../../../../shared/activity-log/audit.port';
 import { AUDIT_PORT } from '../../../../shared/activity-log/audit.port';
 import { UserRegisteredEvent } from '../../domain/events/auth-events';
+import type { IBreachedPasswordPort } from '../../../../shared/security/breached-password.port';
+import {
+  BREACHED_PASSWORD_PORT,
+  BREACHED_PASSWORD_MESSAGE,
+} from '../../../../shared/security/breached-password.port';
+import { maskEmail } from '../../../../shared/utils/mask.util';
 import type { RegisterInput } from '../dtos/register.dto';
 
 export interface RegisterResult {
@@ -36,6 +43,8 @@ export class RegisterUseCase {
     private readonly historyRepo: IPasswordHistoryRepository,
     @Inject(PASSWORD_HASHER_PORT)
     private readonly passwordHasher: IPasswordHasherPort,
+    @Inject(BREACHED_PASSWORD_PORT)
+    private readonly breachedPwd: IBreachedPasswordPort,
     @Inject(EMAIL_PORT)
     private readonly emailPort: IEmailPort,
     @Inject(AUDIT_PORT)
@@ -50,11 +59,18 @@ export class RegisterUseCase {
 
   async execute(dto: RegisterInput): Promise<RegisterResult> {
     const traceId = this.cls.get<string>('traceId');
-    this.logger.info('Register attempt', { traceId, email: dto.email });
+    this.logger.info('Register attempt', {
+      traceId,
+      email: maskEmail(dto.email),
+    });
 
     const existing = await this.userRepo.findByEmail(dto.email);
     if (existing) {
       throw new ConflictException('Email address is already registered');
+    }
+
+    if (await this.breachedPwd.isBreached(dto.password)) {
+      throw new BadRequestException(BREACHED_PASSWORD_MESSAGE);
     }
 
     const hashedPassword = await this.passwordHasher.hash(dto.password);

@@ -29,9 +29,15 @@ const EXISTING = User.reconstitute({
   deletedAt: null,
 });
 
-function build(overrides: { found?: User | null; emailTaken?: User | null } = {}) {
+function build(
+  overrides: { found?: User | null; emailTaken?: User | null } = {},
+) {
   const userRepo = {
-    findById: jest.fn().mockResolvedValue(overrides.found === undefined ? EXISTING : overrides.found),
+    findById: jest
+      .fn()
+      .mockResolvedValue(
+        overrides.found === undefined ? EXISTING : overrides.found,
+      ),
     findByEmail: jest.fn().mockResolvedValue(overrides.emailTaken ?? null),
     findAll: jest.fn(),
     create: jest.fn(),
@@ -67,7 +73,9 @@ describe('UpdateUserUseCase', () => {
 
     expect(userRepo.save).toHaveBeenCalledTimes(1);
     expect(cache.del).toHaveBeenCalledWith('users-service:user:u-1');
-    expect(cache.delByPattern).toHaveBeenCalledWith('users-service:users:list:*');
+    expect(cache.delByPattern).toHaveBeenCalledWith(
+      'users-service:users:list:*',
+    );
     expect(audit.log).toHaveBeenCalledWith(
       expect.objectContaining({ action: 'users.updated', actorId: 'actor-1' }),
     );

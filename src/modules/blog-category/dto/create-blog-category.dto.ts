@@ -7,4 +7,6 @@ export const CreateBlogCategorySchema = z.object({
   image: z.string().max(255).optional(),
 });
 
-export class CreateBlogCategoryDto extends createZodDto(CreateBlogCategorySchema) {}
+export class CreateBlogCategoryDto extends createZodDto(
+  CreateBlogCategorySchema,
+) {}

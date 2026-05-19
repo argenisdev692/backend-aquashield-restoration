@@ -99,6 +99,7 @@ export class AppointmentMapper {
       additionalNote: row.additionalNote,
       latitude: row.latitude,
       longitude: row.longitude,
+      readed: row.readed,
       createdAt: row.createdAt.toISOString(),
       updatedAt: row.updatedAt.toISOString(),
       deletedAt: row.deletedAt?.toISOString() ?? null,

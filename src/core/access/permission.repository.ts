@@ -25,9 +25,7 @@ type UserPermJoin = RolePermJoin & { isGranted: boolean };
 export class PrismaPermissionRepository implements IPermissionRepository {
   constructor(private readonly prisma: PrismaService) {}
 
-  async getPermissionsForRoles(
-    roleIds: string[],
-  ): Promise<PermissionRow[]> {
+  async getPermissionsForRoles(roleIds: string[]): Promise<PermissionRow[]> {
     if (roleIds.length === 0) return [];
 
     const rows = (await this.prisma.rolePermission.findMany({

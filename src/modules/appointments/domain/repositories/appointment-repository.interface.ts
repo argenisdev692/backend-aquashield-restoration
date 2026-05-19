@@ -22,6 +22,7 @@ export interface AppointmentReadModel {
   additionalNote: string | null;
   latitude: number | null;
   longitude: number | null;
+  readed: boolean;
   createdAt: string;
   updatedAt: string;
   deletedAt: string | null;
@@ -52,6 +53,10 @@ export interface IAppointmentRepository {
   ): Promise<PaginatedResult<AppointmentReadModel>>;
   save(appointment: Appointment): Promise<void>;
   delete(id: string): Promise<void>;
+  /** Soft-delete tombstone clear — restores a previously deleted row. */
+  restore(id: string): Promise<void>;
+  /** Sets the `readed` flag (admin marked the lead as read). */
+  markAsRead(id: string): Promise<void>;
 }
 
 export const APPOINTMENT_REPOSITORY = Symbol('IAppointmentRepository');

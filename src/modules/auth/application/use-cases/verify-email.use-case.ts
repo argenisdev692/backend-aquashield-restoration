@@ -51,7 +51,10 @@ export class VerifyEmailUseCase {
 
     await this.userRepo.setEmailVerified(userId);
 
-    this.eventEmitter.emit('auth.email_verified', new EmailVerifiedEvent(userId));
+    this.eventEmitter.emit(
+      'auth.email_verified',
+      new EmailVerifiedEvent(userId),
+    );
 
     await this.audit.log({
       action: 'auth.email_verified',

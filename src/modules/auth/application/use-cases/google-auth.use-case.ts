@@ -1,8 +1,4 @@
-import {
-  Inject,
-  Injectable,
-  UnauthorizedException,
-} from '@nestjs/common';
+import { Inject, Injectable, UnauthorizedException } from '@nestjs/common';
 import { EventEmitter2 } from '@nestjs/event-emitter';
 import { ClsService } from 'nestjs-cls';
 import { LoggerService } from '../../../../logger/logger.service';
@@ -16,7 +12,10 @@ import type { IGoogleAuthPort } from '../../domain/ports/outbound/google-auth.po
 import { GOOGLE_AUTH_PORT } from '../../domain/ports/outbound/google-auth.port';
 import type { IAuditPort } from '../../../../shared/activity-log/audit.port';
 import { AUDIT_PORT } from '../../../../shared/activity-log/audit.port';
-import { GoogleAuthEvent, UserRegisteredEvent } from '../../domain/events/auth-events';
+import {
+  GoogleAuthEvent,
+  UserRegisteredEvent,
+} from '../../domain/events/auth-events';
 import { AuthTokenIssuer } from '../services/auth-token-issuer.service';
 import { randomBytes } from 'node:crypto';
 import type { GoogleAuthInput } from '../dtos/google-auth.dto';

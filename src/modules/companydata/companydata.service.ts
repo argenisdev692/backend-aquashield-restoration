@@ -1,4 +1,9 @@
-import { ConflictException, Inject, Injectable, NotFoundException } from '@nestjs/common';
+import {
+  ConflictException,
+  Inject,
+  Injectable,
+  NotFoundException,
+} from '@nestjs/common';
 import { v7 as uuidv7 } from 'uuid';
 import { CompanyDataRepository } from './companydata.repository';
 import type { CompanyData } from './companydata.entity';
@@ -8,7 +13,10 @@ import { StorageService } from '../../shared/storage/storage.service';
 import { CacheService } from '../../shared/cache/cache.service';
 import { LoggerService } from '../../logger/logger.service';
 import { ClsService } from 'nestjs-cls';
-import { AUDIT_PORT, type IAuditPort } from '../../shared/activity-log/audit.port';
+import {
+  AUDIT_PORT,
+  type IAuditPort,
+} from '../../shared/activity-log/audit.port';
 
 @Injectable()
 export class CompanyDataService {
@@ -45,12 +53,17 @@ export class CompanyDataService {
     return this.findOrFail(id);
   }
 
-  async create(userId: string, dto: CreateCompanyDataDto): Promise<CompanyData> {
+  async create(
+    userId: string,
+    dto: CreateCompanyDataDto,
+  ): Promise<CompanyData> {
     const traceId = this.cls.get<string>('traceId');
     this.logger.info('CompanyDataService.create start', { traceId, userId });
 
     if (await this.repository.existsAny()) {
-      throw new ConflictException('A company record already exists. Only one company registration is allowed.');
+      throw new ConflictException(
+        'A company record already exists. Only one company registration is allowed.',
+      );
     }
 
     const result = await this.repository.create({ ...dto, userId });
@@ -63,7 +76,10 @@ export class CompanyDataService {
     });
 
     await this.invalidateCache();
-    this.logger.info('CompanyDataService.create end', { traceId, companyDataId: result.id });
+    this.logger.info('CompanyDataService.create end', {
+      traceId,
+      companyDataId: result.id,
+    });
     return result;
   }
 
@@ -108,7 +124,10 @@ export class CompanyDataService {
     file: { buffer: Buffer; mimeType: string },
   ): Promise<CompanyData> {
     const traceId = this.cls.get<string>('traceId');
-    this.logger.info('CompanyDataService.uploadSignature start', { traceId, companyDataId });
+    this.logger.info('CompanyDataService.uploadSignature start', {
+      traceId,
+      companyDataId,
+    });
 
     const existing = await this.findOrFail(companyDataId);
 
@@ -120,7 +139,9 @@ export class CompanyDataService {
     const key = `${this.signatureDirectory}/${uuidv7()}.${ext}`;
     await this.storage.upload(key, file.buffer, file.mimeType);
 
-    const result = await this.repository.update(companyDataId, { signaturePath: this.storage.publicUrl(key) });
+    const result = await this.repository.update(companyDataId, {
+      signaturePath: this.storage.publicUrl(key),
+    });
 
     await this.audit.log({
       action: 'companydata.signature_uploaded',
@@ -129,13 +150,19 @@ export class CompanyDataService {
     });
 
     await this.invalidateCache();
-    this.logger.info('CompanyDataService.uploadSignature end', { traceId, companyDataId });
+    this.logger.info('CompanyDataService.uploadSignature end', {
+      traceId,
+      companyDataId,
+    });
     return result;
   }
 
   async deleteSignature(companyDataId: string): Promise<CompanyData> {
     const traceId = this.cls.get<string>('traceId');
-    this.logger.info('CompanyDataService.deleteSignature start', { traceId, companyDataId });
+    this.logger.info('CompanyDataService.deleteSignature start', {
+      traceId,
+      companyDataId,
+    });
 
     const existing = await this.findOrFail(companyDataId);
 
@@ -143,7 +170,9 @@ export class CompanyDataService {
       await this.deleteSignatureFile(existing.signaturePath);
     }
 
-    const result = await this.repository.update(companyDataId, { signaturePath: null });
+    const result = await this.repository.update(companyDataId, {
+      signaturePath: null,
+    });
 
     await this.audit.log({
       action: 'companydata.signature_deleted',
@@ -152,7 +181,10 @@ export class CompanyDataService {
     });
 
     await this.invalidateCache();
-    this.logger.info('CompanyDataService.deleteSignature end', { traceId, companyDataId });
+    this.logger.info('CompanyDataService.deleteSignature end', {
+      traceId,
+      companyDataId,
+    });
     return result;
   }
 
@@ -173,7 +205,10 @@ export class CompanyDataService {
       await this.storage.delete(key);
     } catch (error) {
       const traceId = this.cls.get<string>('traceId');
-      this.logger.error('Failed to delete signature file from storage', { traceId, error });
+      this.logger.error('Failed to delete signature file from storage', {
+        traceId,
+        error,
+      });
     }
   }
 }

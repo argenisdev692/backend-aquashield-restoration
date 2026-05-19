@@ -43,6 +43,17 @@ export const EnvSchema = z.object({
   PASSWORD_EXPIRES_DAYS: z.coerce.number().int().min(0).max(3650).default(90),
   // Google OAuth — optional; Google sign-in is disabled when unset.
   GOOGLE_CLIENT_ID: z.string().min(1).optional(),
+  // At-rest encryption key for TOTP seeds (OWASP Cryptographic Failures).
+  // Any long random string; normalized to 32 bytes via SHA-256.
+  TOTP_ENCRYPTION_KEY: z.string().min(32),
+  // Breached-password screening (HIBP). Disable for offline/tests.
+  HIBP_ENABLED: booleanFromString.default(true),
+  HIBP_TIMEOUT_MS: z.coerce.number().int().min(100).max(10_000).default(1000),
+  // Outbound allowlist (OWASP #15) — override only to point at a mock.
+  HIBP_RANGE_URL: z
+    .string()
+    .url()
+    .default('https://api.pwnedpasswords.com/range/'),
 
   // ── Observability ──────────────────────────────────────────
   LOG_LEVEL: z
@@ -59,6 +70,8 @@ export const EnvSchema = z.object({
   // ── Email (Resend) ──────────────────────────────────────────
   RESEND_API_KEY: z.string().min(1),
   RESEND_FROM_EMAIL: z.string().email(),
+  // Contact-support notifications go to every active super-admin user
+  // (resolved from the DB at runtime) — no static admin address needed.
 
   // ── Application ─────────────────────────────────────────────
   APP_URL: z.string().url().default('http://localhost:3000'),

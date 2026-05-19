@@ -27,7 +27,10 @@ export class GoogleAuthAdapter implements IGoogleAuthPort {
   async verifyIdToken(idToken: string): Promise<GoogleUserInfo | null> {
     const clientId = this.config.get<string>('GOOGLE_CLIENT_ID');
     if (!clientId) {
-      this.logger.warn('GOOGLE_CLIENT_ID not configured — Google auth disabled', {});
+      this.logger.warn(
+        'GOOGLE_CLIENT_ID not configured — Google auth disabled',
+        {},
+      );
       return null;
     }
 
@@ -45,11 +48,19 @@ export class GoogleAuthAdapter implements IGoogleAuthPort {
 
       const payload = (await response.json()) as Record<string, unknown>;
 
-      if (
-        typeof payload['aud'] !== 'string' ||
-        payload['aud'] !== clientId
-      ) {
+      if (typeof payload['aud'] !== 'string' || payload['aud'] !== clientId) {
         this.logger.warn('Google token audience mismatch', {});
+        return null;
+      }
+
+      // Issuer must be Google — guards against forged tokens whose `aud`
+      // happens to match (OWASP Unsafe Consumption of APIs).
+      const iss = payload['iss'];
+      if (
+        iss !== 'accounts.google.com' &&
+        iss !== 'https://accounts.google.com'
+      ) {
+        this.logger.warn('Google token issuer mismatch', {});
         return null;
       }
 
@@ -61,11 +72,21 @@ export class GoogleAuthAdapter implements IGoogleAuthPort {
         return null;
       }
 
+      const emailVerified =
+        payload['email_verified'] === 'true' ||
+        payload['email_verified'] === true;
+      // Never link/sign-in an account from an unverified Google email:
+      // it enables account takeover via an attacker-controlled address.
+      if (!emailVerified) {
+        this.logger.warn('Google token email not verified', {});
+        return null;
+      }
+
       return {
         googleId: payload['sub'],
         email: payload['email'],
         name: payload['name'],
-        emailVerified: payload['email_verified'] === 'true' || payload['email_verified'] === true,
+        emailVerified,
       };
     } catch (err) {
       const message = err instanceof Error ? err.message : 'unknown';

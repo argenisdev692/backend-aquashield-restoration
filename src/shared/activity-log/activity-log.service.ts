@@ -72,14 +72,10 @@ export class ActivityLogService implements IAuditPort {
       : undefined;
   }
 
-  private sanitize(
-    metadata: Record<string, unknown>,
-  ): Record<string, unknown> {
+  private sanitize(metadata: Record<string, unknown>): Record<string, unknown> {
     const clean: Record<string, unknown> = {};
     for (const [key, value] of Object.entries(metadata)) {
-      clean[key] = SENSITIVE_KEYS.has(key.toLowerCase())
-        ? '[REDACTED]'
-        : value;
+      clean[key] = SENSITIVE_KEYS.has(key.toLowerCase()) ? '[REDACTED]' : value;
     }
     return clean;
   }

@@ -67,7 +67,9 @@ src/
 │   │   └── transactions/                 # @nestjs-cls/transactional Prisma adapter (optional)
 │   │
 │   ├── cache/
-│   │   ├── cache.module.ts               # ioredis-backed @nestjs/cache-manager 3.x
+│   │   ├── cache.module.ts               # @Global() — ioredis-backed CacheService (NOT @nestjs/cache-manager)
+│   │   ├── cache.service.ts              # Concrete facade — get/set/del/delByPattern (SCAN, never KEYS)
+│   │   ├── cache.port.ts                 # ICachePort + CACHE_PORT Symbol — the Hex/DDD application boundary
 │   │   └── cache-ttl.constants.ts        # TTL_SECONDS: SHORT | MEDIUM | LONG | STATIC
 │   │
 │   ├── export/                           # 🟢 Reports — usable from ANY module (CRUD or Hex/DDD)
@@ -567,12 +569,79 @@ HTTP / WebSocket Request
                             │     └─► aggregate.create() / .approve() / .complete() etc.
                             ├─► Repository.save(aggregate)              ← DB TX
                             ├─► IAuditPort.log(...)                     ← business audit
-                            ├─► CacheManager.del(affected keys)         ← cache invalidation
+                            ├─► ICachePort.delByPattern(...) / .del(key) ← cache invalidation
                             └─► EventEmitter2.emit('xxx.created', new XxxCreatedEvent())
                                     └─► @OnEvent() listeners in infrastructure/event-listeners/
                                           └─► XxxGateway → WS emit to room
                                           └─► BullMQ processor (async side effects)
 ```
+
+---
+
+## 🔁 Canonical Mutation Pattern — Cache invalidation + Audit log (CommandHandler)
+
+> This is the Hex/DDD counterpart of the same section in `.claude/skills/ARCHITECTURE-NEST-CRUD/SKILL.md`. CRUD does it manually in the Service; Hex/DDD does it inside the **CommandHandler**, after `Repository.save()`, using **ports** (never the concrete infra). The AuditInterceptor / CacheTtlInterceptor cover the HTTP edge; the explicit handler steps below cover **business** audit and **targeted** invalidation that an interceptor cannot infer.
+
+**Opt-in, but all-or-nothing.** A bounded context MAY rely solely on the interceptors. The moment a CommandHandler does an explicit `IAuditPort.log()` **or** an explicit cache invalidation, **every** write handler in that context MUST do the full block — partial adoption (one handler invalidates, a sibling forgets) is the exact drift this section prevents.
+
+**Fixed order inside every CommandHandler `execute()`:**
+
+1. Load aggregate / existence check — throws **before** any side effect (no audit row, no cache flush for a no-op).
+2. `aggregate.<behavior>()` — pure domain mutation.
+3. `await repository.save(aggregate)` — DB write (inside the TX) happens first.
+4. `await this.audit.log({ action, actorId?, resourceType, resourceId })` — `action` = `{context}.{past_tense_verb}`; `resourceId` from the command payload / aggregate id, never raw request body. **Never** call `IAuditPort` from a QueryHandler (reads never audit — except export).
+5. `await this.cache.delByPattern(pattern)` and/or `await this.cache.del(key)` — targeted invalidation.
+6. `eventEmitter.emit(...)` — domain events, always **after** save + audit + invalidation.
+
+**Ports, not infra (layering).** The application layer injects the cache through a port — never the concrete `CacheService`:
+
+```typescript
+// application/commands/handlers/update-xxx.handler.ts
+@CommandHandler(UpdateXxxCommand)
+export class UpdateXxxHandler implements ICommandHandler<UpdateXxxCommand> {
+  constructor(
+    @Inject(XXX_REPOSITORY) private readonly repo: IXxxRepository,
+    @Inject(AUDIT_PORT) private readonly audit: IAuditPort,
+    @Inject(CACHE_PORT) private readonly cache: ICachePort,
+  ) {}
+
+  async execute({ id, dto, actorId }: UpdateXxxCommand): Promise<XxxReadModel> {
+    const aggregate = await this.repo.findByIdOrThrow(id); // step 1 — throws before side effects
+    aggregate.update(dto);                                  // step 2
+    const saved = await this.repo.save(aggregate);          // step 3
+
+    await this.audit.log({                                  // step 4
+      action: 'xxx.updated',
+      actorId,
+      resourceType: 'XXX',
+      resourceId: id,
+    });
+
+    await this.cache.del(`xxx-service:xxx:${id}`);           // step 5 — single key
+    await this.cache.delByPattern('xxx-service:xxx:list:*'); // step 5 — list caches
+
+    this.events.emit('xxx.updated', new XxxUpdatedEvent(id));// step 6
+    return XxxMapper.toReadModel(saved);
+  }
+}
+```
+
+> Bind `{ provide: CACHE_PORT, useExisting: CacheService }` and `{ provide: AUDIT_PORT, useExisting: ActivityLogService }` in the module (both `shared/` modules are `@Global()`, so no extra `imports:` entry is needed). Domain layer stays pure — `ICachePort` / `IAuditPort` are application-facing ports, never imported from `domain/`.
+
+**Two cache-key conventions in this repo — pick by how the GET is cached:**
+
+| GET cached via | Invalidation pattern | Used by |
+|---|---|---|
+| `CacheTtlInterceptor` (`@CacheTTL` on the controller) | `http:*:/{controller-route}*` (mirrors interceptor key `http:{userId}:{originalUrl}`) | flat CRUD (`companydata`, `blog-category`) |
+| Handler/ReadModel sets its own keys | service-scoped `{context}-service:{entity}:{id}` + `{context}-service:{entity}:list:*` | Hex/DDD (`users`) |
+
+> Never mix the two schemes in one context. `delByPattern` uses non-blocking `SCAN` and swallows Redis errors — cache is an optimization, never a hard dependency (OWASP #10 graceful degradation; the audit row in step 4 is the durable record — OWASP #9).
+
+**Unit-test contract** (repository, `CACHE_PORT`, `AUDIT_PORT` all mocked — no real DB/Redis):
+
+- Each write handler asserts `audit.log` called with the right `action` / `resourceType` / `resourceId`, and `cache.del` / `cache.delByPattern` called with the exact key/pattern.
+- One negative test per context: a write whose step-1 load fails ⇒ `audit.log` **not** called and no `cache.*` call.
+- QueryHandler tests assert `audit.log` is **never** called (except the export handler).
 
 ---
 
@@ -627,8 +696,15 @@ Anti-patterns:
   ❌ @ExportColumn on password, token, secret, or any sensitive field
   ❌ GET controller method without @CacheTTL() — always declare a tier
   ❌ Magic number TTL values — always use TTL_SECONDS constants
-  ❌ CacheManager.reset() in production
+  ❌ Whole-DB cache flush (Redis FLUSHALL) — invalidate by key / delByPattern only
   ❌ Export endpoint serving cached data — @SkipCache() is mandatory
+  ❌ Opting into explicit IAuditPort.log() or cache invalidation in only SOME write
+     handlers of a context — all-or-nothing (Canonical Mutation Pattern)
+  ❌ audit.log() or cache invalidation running before Repository.save(), or before
+     the step-1 existence check passes
+  ❌ Domain events emitted before audit + cache invalidation — order is save → audit → cache → emit
+  ❌ Application layer injecting concrete CacheService — inject CACHE_PORT (ICachePort) only
+  ❌ Mixing the http:*:/{route}* and {context}-service:* cache-key schemes in one context
   ❌ Business logic in Controller — belongs in Aggregate or CommandHandler
   ❌ Domain Events emitted before Repository.save() — always after
   ❌ Domain Events emitted from Aggregate — CommandHandler owns the publish step

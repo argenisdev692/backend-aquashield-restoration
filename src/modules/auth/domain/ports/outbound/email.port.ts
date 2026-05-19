@@ -10,7 +10,10 @@ export interface IEmailPort {
     name: string;
     ttlMinutes: number;
   }): Promise<void>;
-  sendPasswordResetLink(params: { to: string; resetLink: string }): Promise<void>;
+  sendPasswordResetLink(params: {
+    to: string;
+    resetLink: string;
+  }): Promise<void>;
   sendVerificationLink(params: {
     to: string;
     verificationLink: string;

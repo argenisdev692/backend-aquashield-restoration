@@ -26,6 +26,7 @@ const baseUser = {
 function build(opts: {
   user?: typeof baseUser | null;
   stored?: { id: string; code: string; expiresAt: Date } | null;
+  failCount?: number;
 }) {
   const userRepo = {
     findByEmail: jest
@@ -60,6 +61,12 @@ function build(opts: {
     deleteExpired: jest.fn(),
   };
   const audit = { log: jest.fn().mockResolvedValue(undefined) };
+  const cache = {
+    get: jest.fn().mockResolvedValue(opts.failCount ?? 0),
+    set: jest.fn().mockResolvedValue(undefined),
+    del: jest.fn().mockResolvedValue(undefined),
+    delByPattern: jest.fn().mockResolvedValue(undefined),
+  };
   const tokenIssuer = {
     issue: jest.fn().mockResolvedValue({
       accessToken: 'at',
@@ -77,13 +84,14 @@ function build(opts: {
     userRepo,
     otpRepo,
     audit,
+    cache as never,
     tx as never,
     tokenIssuer as never,
     eventEmitter as never,
     logger as never,
     cls as never,
   );
-  return { useCase, otpRepo, audit, tokenIssuer, eventEmitter, tx };
+  return { useCase, otpRepo, audit, cache, tokenIssuer, eventEmitter, tx };
 }
 
 describe('VerifyOtpUseCase', () => {
@@ -138,6 +146,22 @@ describe('VerifyOtpUseCase', () => {
     ).rejects.toBeInstanceOf(UnauthorizedException);
     expect(audit.log).toHaveBeenCalledWith(
       expect.objectContaining({ action: 'auth.otp_failed' }),
+    );
+  });
+
+  it('burns the OTP and audits auth.otp_locked after MAX attempts', async () => {
+    const { useCase, audit, otpRepo, cache } = build({
+      stored: { id: 'o1', code: '9999', expiresAt: new Date() },
+      failCount: 4, // next attempt is the 5th → lock
+    });
+
+    await expect(
+      useCase.execute({ email: 'a@b.com', code: '1234', type: 'login' }),
+    ).rejects.toBeInstanceOf(UnauthorizedException);
+    expect(otpRepo.markUsed).toHaveBeenCalledWith('o1');
+    expect(cache.del).toHaveBeenCalled();
+    expect(audit.log).toHaveBeenCalledWith(
+      expect.objectContaining({ action: 'auth.otp_locked' }),
     );
   });
 });

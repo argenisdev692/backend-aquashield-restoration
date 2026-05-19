@@ -57,6 +57,7 @@ export class AppointmentsGateway
         } else {
           const userId = client.data.userId;
           if (userId) void client.join(`user:${userId}`);
+          void client.join('appointments:admin');
           resolve();
         }
       });
@@ -85,9 +86,19 @@ export class AppointmentsGateway
     client.emit('left-appointments', { userId: data.userId });
   }
 
-  // Methods for event listeners to call
+  // Methods for event listeners to call.
+  // `appointments:created` / `appointments:read` are scoped to the
+  // `appointments:admin` room (super-admin/admin clients only).
   broadcastAppointmentCreated(appointmentId: string) {
-    this.server.emit('appointment:created', { appointmentId });
+    this.server
+      .to('appointments:admin')
+      .emit('appointments:created', { appointmentId });
+  }
+
+  broadcastAppointmentRead(appointmentId: string) {
+    this.server
+      .to('appointments:admin')
+      .emit('appointments:read', { appointmentId });
   }
 
   broadcastAppointmentUpdated(appointmentId: string) {

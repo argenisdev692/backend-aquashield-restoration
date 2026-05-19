@@ -139,7 +139,9 @@ export class UsersController {
     @Body(new ZodValidationPipe(SetupPasswordSchema)) dto: SetupPasswordDto,
   ): Promise<MessageResponse> {
     await this.setupPasswordUC.execute(dto);
-    return { message: 'Password has been set successfully. You can now log in.' };
+    return {
+      message: 'Password has been set successfully. You can now log in.',
+    };
   }
 
   @Post('request-password-change')
@@ -242,16 +244,27 @@ export class UsersController {
   @ApiBearerAuth()
   @Throttle({ default: { limit: 20, ttl: 60_000 } })
   @CacheTTL(TTL_SECONDS.SHORT)
-  @ApiOkResponse({ schema: { type: 'object', properties: { exists: { type: 'boolean' } } } })
+  @ApiOkResponse({
+    schema: { type: 'object', properties: { exists: { type: 'boolean' } } },
+  })
   @ApiQuery({ name: 'value', required: true, type: String })
-  @ApiQuery({ name: 'excludeId', required: false, type: String, format: 'uuid' })
+  @ApiQuery({
+    name: 'excludeId',
+    required: false,
+    type: String,
+    format: 'uuid',
+  })
   @ApiUnauthorizedResponse()
   async checkEmail(
     @Query('value') value: string,
     @Query('excludeId') excludeId?: string,
   ): Promise<{ exists: boolean }> {
-    if (!value || value.trim().length === 0) throw new BadRequestException('value is required');
-    const exists = await this.checkEmailExistsUC.execute(value.trim(), excludeId);
+    if (!value || value.trim().length === 0)
+      throw new BadRequestException('value is required');
+    const exists = await this.checkEmailExistsUC.execute(
+      value.trim(),
+      excludeId,
+    );
     return { exists };
   }
 
@@ -260,16 +273,27 @@ export class UsersController {
   @ApiBearerAuth()
   @Throttle({ default: { limit: 20, ttl: 60_000 } })
   @CacheTTL(TTL_SECONDS.SHORT)
-  @ApiOkResponse({ schema: { type: 'object', properties: { exists: { type: 'boolean' } } } })
+  @ApiOkResponse({
+    schema: { type: 'object', properties: { exists: { type: 'boolean' } } },
+  })
   @ApiQuery({ name: 'value', required: true, type: String })
-  @ApiQuery({ name: 'excludeId', required: false, type: String, format: 'uuid' })
+  @ApiQuery({
+    name: 'excludeId',
+    required: false,
+    type: String,
+    format: 'uuid',
+  })
   @ApiUnauthorizedResponse()
   async checkUsername(
     @Query('value') value: string,
     @Query('excludeId') excludeId?: string,
   ): Promise<{ exists: boolean }> {
-    if (!value || value.trim().length === 0) throw new BadRequestException('value is required');
-    const exists = await this.checkUsernameExistsUC.execute(value.trim(), excludeId);
+    if (!value || value.trim().length === 0)
+      throw new BadRequestException('value is required');
+    const exists = await this.checkUsernameExistsUC.execute(
+      value.trim(),
+      excludeId,
+    );
     return { exists };
   }
 

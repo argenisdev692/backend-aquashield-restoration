@@ -54,6 +54,8 @@ export class LoggerService {
   }
 
   private safeGet(key: string): string | undefined {
-    return this.cls.isActive() ? this.cls.get<string | undefined>(key) : undefined;
+    return this.cls.isActive()
+      ? this.cls.get<string | undefined>(key)
+      : undefined;
   }
 }

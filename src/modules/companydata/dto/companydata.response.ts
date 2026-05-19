@@ -23,4 +23,6 @@ export const CompanyDataResponseSchema = z.object({
   deletedAt: z.string().datetime().nullable(),
 });
 
-export class CompanyDataResponse extends createZodDto(CompanyDataResponseSchema) {}
+export class CompanyDataResponse extends createZodDto(
+  CompanyDataResponseSchema,
+) {}

@@ -16,6 +16,8 @@ import { validateEnv } from './shared/config/env.config';
 import { buildClsOptions } from './shared/cls/cls.setup';
 import { ActivityLogModule } from './shared/activity-log/activity-log.module';
 import { CacheModule } from './shared/cache/cache.module';
+import { CryptoModule } from './shared/crypto/crypto.module';
+import { SecurityModule } from './shared/security/security.module';
 import { DatabaseModule } from './shared/database/database.module';
 import { PrismaService } from './shared/database/prisma.service';
 import { QueueModule } from './shared/messaging/queue.module';
@@ -24,6 +26,7 @@ import { CompanyDataModule } from './modules/companydata/companydata.module';
 import { BlogCategoryModule } from './modules/blog-category/blog-category.module';
 import { UsersModule } from './modules/users/users.module';
 import { AppointmentsModule } from './modules/appointments/appointments.module';
+import { ContactSupportModule } from './modules/contact-support/contact-support.module';
 
 @Module({
   imports: [
@@ -46,6 +49,8 @@ import { AppointmentsModule } from './modules/appointments/appointments.module';
     LoggerModule,
     DatabaseModule,
     CacheModule,
+    CryptoModule,
+    SecurityModule,
     ActivityLogModule,
     QueueModule,
     EventEmitterModule.forRoot(),
@@ -68,6 +73,7 @@ import { AppointmentsModule } from './modules/appointments/appointments.module';
     BlogCategoryModule,
     UsersModule,
     AppointmentsModule,
+    ContactSupportModule,
   ],
   controllers: [AppController],
   providers: [AppService, { provide: APP_GUARD, useClass: ThrottlerGuard }],

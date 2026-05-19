@@ -25,10 +25,7 @@ export class CacheTtlInterceptor implements NestInterceptor {
     private readonly cache: CacheService,
   ) {}
 
-  intercept(
-    context: ExecutionContext,
-    next: CallHandler,
-  ): Observable<unknown> {
+  intercept(context: ExecutionContext, next: CallHandler): Observable<unknown> {
     const req = context
       .switchToHttp()
       .getRequest<Request & { user?: AuthenticatedUser }>();
@@ -56,9 +53,7 @@ export class CacheTtlInterceptor implements NestInterceptor {
         }
         return next
           .handle()
-          .pipe(
-            tap((body) => void this.cache.set(key, body, ttl)),
-          );
+          .pipe(tap((body) => void this.cache.set(key, body, ttl)));
       }),
     );
   }

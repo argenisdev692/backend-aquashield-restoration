@@ -86,4 +86,18 @@ export class PrismaAppointmentRepository implements IAppointmentRepository {
       data: { deletedAt: new Date() },
     });
   }
+
+  async restore(id: string): Promise<void> {
+    await this.prisma.appointment.update({
+      where: { id },
+      data: { deletedAt: null },
+    });
+  }
+
+  async markAsRead(id: string): Promise<void> {
+    await this.prisma.appointment.update({
+      where: { id },
+      data: { readed: true },
+    });
+  }
 }

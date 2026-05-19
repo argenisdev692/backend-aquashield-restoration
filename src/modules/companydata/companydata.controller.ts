@@ -68,7 +68,8 @@ export class CompanyDataController {
   @CheckAbilities({ action: Action.Create, subject: 'COMPANY' })
   async create(
     @CurrentUser() user: AuthenticatedUser,
-    @Body(new ZodValidationPipe(CreateCompanyDataSchema)) dto: CreateCompanyDataDto,
+    @Body(new ZodValidationPipe(CreateCompanyDataSchema))
+    dto: CreateCompanyDataDto,
   ): Promise<CompanyDataResponse> {
     return this.service.create(user.id, dto);
   }
@@ -93,7 +94,8 @@ export class CompanyDataController {
   @CheckAbilities({ action: Action.Update, subject: 'COMPANY' })
   async update(
     @Param('id', ParseUUIDPipe) id: string,
-    @Body(new ZodValidationPipe(UpdateCompanyDataSchema)) dto: UpdateCompanyDataDto,
+    @Body(new ZodValidationPipe(UpdateCompanyDataSchema))
+    dto: UpdateCompanyDataDto,
   ): Promise<CompanyDataResponse> {
     return this.service.update(id, dto);
   }
@@ -136,7 +138,9 @@ export class CompanyDataController {
     @UploadedFile() file: Express.Multer.File,
   ): Promise<CompanyDataResponse> {
     if (!file) {
-      throw new BadRequestException('No file provided or invalid file type. Allowed: png, jpeg, webp (max 2 MB)');
+      throw new BadRequestException(
+        'No file provided or invalid file type. Allowed: png, jpeg, webp (max 2 MB)',
+      );
     }
     return this.service.uploadSignature(id, {
       buffer: file.buffer,

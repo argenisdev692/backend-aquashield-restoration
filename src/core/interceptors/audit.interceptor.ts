@@ -29,10 +29,7 @@ export class AuditInterceptor implements NestInterceptor {
     private readonly reflector: Reflector,
   ) {}
 
-  intercept(
-    context: ExecutionContext,
-    next: CallHandler,
-  ): Observable<unknown> {
+  intercept(context: ExecutionContext, next: CallHandler): Observable<unknown> {
     const req = context
       .switchToHttp()
       .getRequest<Request & { user?: AuthenticatedUser }>();
@@ -53,7 +50,9 @@ export class AuditInterceptor implements NestInterceptor {
           actorId: req.user?.id,
           resourceId:
             typeof req.params?.id === 'string' ? req.params.id : undefined,
-          metadata: { path: req.route?.path ?? req.url },
+          metadata: {
+            path: (req.route as { path?: string } | undefined)?.path ?? req.url,
+          },
         });
       }),
     );

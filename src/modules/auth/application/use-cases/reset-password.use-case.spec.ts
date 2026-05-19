@@ -14,6 +14,7 @@ function build(opts: {
   tokenValid?: boolean;
   recentHashes?: string[];
   reuseMatches?: boolean;
+  breached?: boolean;
 }) {
   const userRepo = {
     findByEmail: jest.fn().mockResolvedValue({ id: 'u1', email: 'a@b.com' }),
@@ -64,6 +65,9 @@ function build(opts: {
     revokeAllForUser: jest.fn().mockResolvedValue(undefined),
     revokeById: jest.fn(),
   };
+  const breachedPwd = {
+    isBreached: jest.fn().mockResolvedValue(opts.breached ?? false),
+  };
   const audit = { log: jest.fn().mockResolvedValue(undefined) };
   const tx = { runInTx: jest.fn((fn: () => Promise<unknown>) => fn()) };
   const config = { get: jest.fn().mockReturnValue(90) };
@@ -75,6 +79,7 @@ function build(opts: {
     resetRepo,
     otpRepo as never,
     passwordHasher,
+    breachedPwd,
     sessionRepo,
     audit,
     tx as never,
@@ -91,6 +96,7 @@ function build(opts: {
     sessionRepo,
     audit,
     eventEmitter,
+    breachedPwd,
   };
 }
 
@@ -147,6 +153,15 @@ describe('ResetPasswordUseCase', () => {
       recentHashes: ['old-hash'],
       reuseMatches: true,
     });
+
+    await expect(useCase.execute(dto)).rejects.toBeInstanceOf(
+      BadRequestException,
+    );
+    expect(userRepo.updatePasswordWithStatus).not.toHaveBeenCalled();
+  });
+
+  it('rejects a breached password before persisting', async () => {
+    const { useCase, userRepo } = build({ breached: true });
 
     await expect(useCase.execute(dto)).rejects.toBeInstanceOf(
       BadRequestException,

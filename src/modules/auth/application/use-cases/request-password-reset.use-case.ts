@@ -16,6 +16,7 @@ import type { IAuditPort } from '../../../../shared/activity-log/audit.port';
 import { AUDIT_PORT } from '../../../../shared/activity-log/audit.port';
 import { OtpCode } from '../../domain/value-objects/otp-code.vo';
 import { ResetToken } from '../../domain/value-objects/reset-token.vo';
+import { maskEmail } from '../../../../shared/utils/mask.util';
 import type { RequestPasswordResetInput } from '../dtos/request-password-reset.dto';
 
 export interface RequestPasswordResetResult {
@@ -61,7 +62,10 @@ export class RequestPasswordResetUseCase {
     dto: RequestPasswordResetInput,
   ): Promise<RequestPasswordResetResult> {
     const traceId = this.cls.get<string>('traceId');
-    this.logger.info('Password reset requested', { traceId, email: dto.email });
+    this.logger.info('Password reset requested', {
+      traceId,
+      email: maskEmail(dto.email),
+    });
 
     await this.enforceRateLimit(dto.email, traceId);
 
@@ -116,7 +120,7 @@ export class RequestPasswordResetUseCase {
     if (current >= RESET_RATE_LIMIT) {
       this.logger.warn('Password reset rate limit exceeded', {
         traceId,
-        email,
+        email: maskEmail(email),
       });
       throw new HttpException(
         'Too many password reset requests. Please try again later.',

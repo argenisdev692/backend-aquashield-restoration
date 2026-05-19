@@ -69,7 +69,12 @@ export class VerifyTwoFactorChallengeUseCase {
   }
 
   private async handleOtp(
-    user: { id: string; email: string; roleIds: string[]; totpEnabled: boolean },
+    user: {
+      id: string;
+      email: string;
+      roleIds: string[];
+      totpEnabled: boolean;
+    },
     code: string,
     traceId: string,
   ): Promise<TwoFactorChallengeResult> {

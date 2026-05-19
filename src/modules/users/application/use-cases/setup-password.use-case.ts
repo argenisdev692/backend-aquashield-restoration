@@ -1,4 +1,9 @@
-import { Inject, Injectable, UnauthorizedException } from '@nestjs/common';
+import {
+  BadRequestException,
+  Inject,
+  Injectable,
+  UnauthorizedException,
+} from '@nestjs/common';
 import { EventEmitter2 } from '@nestjs/event-emitter';
 import { ClsService } from 'nestjs-cls';
 import { CacheService } from '../../../../shared/cache/cache.service';
@@ -13,6 +18,11 @@ import type { IAuditPort } from '../../../../shared/activity-log/audit.port';
 import { AUDIT_PORT } from '../../../../shared/activity-log/audit.port';
 import { SetupToken } from '../../domain/value-objects/setup-token.vo';
 import { PasswordSetupEvent } from '../../domain/events/password-setup.domain-event';
+import type { IBreachedPasswordPort } from '../../../../shared/security/breached-password.port';
+import {
+  BREACHED_PASSWORD_PORT,
+  BREACHED_PASSWORD_MESSAGE,
+} from '../../../../shared/security/breached-password.port';
 import type { SetupPasswordInput } from '../dtos/setup-password.dto';
 
 const INVALID_MSG = 'Invalid or expired setup token';
@@ -26,6 +36,8 @@ export class SetupPasswordUseCase {
     private readonly setupRepo: IPasswordSetupRepository,
     @Inject(PASSWORD_HASHER_PORT)
     private readonly passwordHasher: IPasswordHasherPort,
+    @Inject(BREACHED_PASSWORD_PORT)
+    private readonly breachedPwd: IBreachedPasswordPort,
     @Inject(AUDIT_PORT)
     private readonly audit: IAuditPort,
     private readonly eventEmitter: EventEmitter2,
@@ -47,6 +59,10 @@ export class SetupPasswordUseCase {
     const user = await this.userRepo.findById(tokenRow.userId);
     if (!user) {
       throw new UnauthorizedException(INVALID_MSG);
+    }
+
+    if (await this.breachedPwd.isBreached(dto.password)) {
+      throw new BadRequestException(BREACHED_PASSWORD_MESSAGE);
     }
 
     const hashedPassword = await this.passwordHasher.hash(dto.password);

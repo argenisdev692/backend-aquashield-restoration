@@ -64,7 +64,9 @@ describe('DeleteUserUseCase', () => {
 
     expect(userRepo.softDelete).toHaveBeenCalledWith('u-1');
     expect(cache.del).toHaveBeenCalledWith('users-service:user:u-1');
-    expect(cache.delByPattern).toHaveBeenCalledWith('users-service:users:list:*');
+    expect(cache.delByPattern).toHaveBeenCalledWith(
+      'users-service:users:list:*',
+    );
     expect(audit.log).toHaveBeenCalledWith(
       expect.objectContaining({ action: 'users.deleted', actorId: 'actor-1' }),
     );

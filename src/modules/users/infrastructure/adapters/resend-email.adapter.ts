@@ -50,19 +50,21 @@ export class ResendEmailAdapter implements IEmailPort, OnModuleInit {
     type: 'setup' | 'change';
   }): Promise<void> {
     const isSetup = params.type === 'setup';
-    const subject = isSetup
-      ? 'Set up your password'
-      : 'Change your password';
+    const subject = isSetup ? 'Set up your password' : 'Change your password';
 
-    const safeName = sanitize(params.name, { allowedTags: [], allowedAttributes: {} });
+    const safeName = sanitize(params.name, {
+      allowedTags: [],
+      allowedAttributes: {},
+    });
 
     const html = `
       <div style="font-family: Arial, sans-serif; max-width: 480px; margin: 0 auto;">
         <h2>${isSetup ? 'Welcome, ' + safeName + '!' : 'Hello, ' + safeName + '!'}</h2>
         <p>
-          ${isSetup
-            ? 'Your account has been created. Click the button below to set up your password.'
-            : 'You requested to change your password. Click the button below to set a new password.'
+          ${
+            isSetup
+              ? 'Your account has been created. Click the button below to set up your password.'
+              : 'You requested to change your password. Click the button below to set a new password.'
           }
         </p>
         <a href="${params.setupLink}"
@@ -80,11 +82,7 @@ export class ResendEmailAdapter implements IEmailPort, OnModuleInit {
     await this.send(params.to, subject, html);
   }
 
-  private async send(
-    to: string,
-    subject: string,
-    html: string,
-  ): Promise<void> {
+  private async send(to: string, subject: string, html: string): Promise<void> {
     await this.resilience.execute(async () => {
       const { error } = await this.resend.emails.send({
         from: this.from,

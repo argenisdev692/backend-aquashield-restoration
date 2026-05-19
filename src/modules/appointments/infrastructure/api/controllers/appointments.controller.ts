@@ -45,6 +45,8 @@ import { DeleteAppointmentUseCase } from '../../../application/use-cases/delete-
 import { GetAppointmentByIdUseCase } from '../../../application/use-cases/get-appointment-by-id.use-case';
 import { GetAppointmentsListUseCase } from '../../../application/use-cases/get-appointments-list.use-case';
 import { ExportAppointmentsUseCase } from '../../../application/use-cases/export-appointments.use-case';
+import { MarkAppointmentReadUseCase } from '../../../application/use-cases/mark-appointment-read.use-case';
+import { RestoreAppointmentUseCase } from '../../../application/use-cases/restore-appointment.use-case';
 import type {
   AppointmentReadModel,
   PaginatedResult,
@@ -53,6 +55,8 @@ import { AppointmentResponse } from '../presenters/appointment.response';
 import { AppointmentListResponse } from '../presenters/appointment-list.response';
 import { CreateAppointmentResponse } from '../presenters/create-appointment.response';
 import { CurrentUser } from '../../../../../core/decorators/current-user.decorator';
+import { CheckAbilities } from '../../../../../core/decorators/check-abilities.decorator';
+import { Action } from '../../../../../core/access/actions.enum';
 
 @ApiTags('appointments')
 @ApiBearerAuth()
@@ -66,6 +70,8 @@ export class AppointmentsController {
     private readonly getAppointmentById: GetAppointmentByIdUseCase,
     private readonly getAppointmentsList: GetAppointmentsListUseCase,
     private readonly exportAppointments: ExportAppointmentsUseCase,
+    private readonly markAppointmentRead: MarkAppointmentReadUseCase,
+    private readonly restoreAppointment: RestoreAppointmentUseCase,
   ) {}
 
   @Post()
@@ -150,6 +156,32 @@ export class AppointmentsController {
     @CurrentUser('userId') userId: string,
   ): Promise<void> {
     await this.updateAppointment.execute(id, dto, userId);
+  }
+
+  @Patch(':id/read')
+  @CheckAbilities({ action: Action.Update, subject: 'APPOINTMENT' })
+  @ApiOkResponse({ description: 'Marked as read' })
+  @ApiNotFoundResponse()
+  @ApiParam({ name: 'id', type: String, format: 'uuid' })
+  async markRead(
+    @Param('id', ParseUUIDPipe) id: string,
+    @CurrentUser('userId') userId: string,
+  ): Promise<{ success: true }> {
+    await this.markAppointmentRead.execute(id, userId);
+    return { success: true };
+  }
+
+  @Patch(':id/restore')
+  @CheckAbilities({ action: Action.Restore, subject: 'APPOINTMENT' })
+  @ApiOkResponse({ description: 'Restored' })
+  @ApiNotFoundResponse()
+  @ApiParam({ name: 'id', type: String, format: 'uuid' })
+  async restore(
+    @Param('id', ParseUUIDPipe) id: string,
+    @CurrentUser('userId') userId: string,
+  ): Promise<{ success: true }> {
+    await this.restoreAppointment.execute(id, userId);
+    return { success: true };
   }
 
   @Delete(':id')

@@ -8,17 +8,22 @@ import { DeleteAppointmentUseCase } from './application/use-cases/delete-appoint
 import { GetAppointmentByIdUseCase } from './application/use-cases/get-appointment-by-id.use-case';
 import { GetAppointmentsListUseCase } from './application/use-cases/get-appointments-list.use-case';
 import { ExportAppointmentsUseCase } from './application/use-cases/export-appointments.use-case';
+import { MarkAppointmentReadUseCase } from './application/use-cases/mark-appointment-read.use-case';
+import { RestoreAppointmentUseCase } from './application/use-cases/restore-appointment.use-case';
 import { PrismaAppointmentRepository } from './infrastructure/persistence/repositories/prisma-appointment.repository';
 import { APPOINTMENT_REPOSITORY } from './domain/repositories/appointment-repository.interface';
 import { AUDIT_PORT } from './domain/ports/outbound/audit.port.interface';
 import { EMAIL_PORT } from './domain/ports/outbound/email.port.interface';
+import { ADMIN_RECIPIENTS_PORT } from './domain/ports/outbound/admin-recipients.port.interface';
 import { AppointmentCreatedListener } from './infrastructure/event-listeners/appointment-created.listener';
+import { AppointmentReadListener } from './infrastructure/event-listeners/appointment-read.listener';
 import { AppointmentUpdatedListener } from './infrastructure/event-listeners/appointment-updated.listener';
 import { AppointmentDeletedListener } from './infrastructure/event-listeners/appointment-deleted.listener';
 import { StatusChangedListener } from './infrastructure/event-listeners/status-changed.listener';
 import { AppointmentCreatedEmailListener } from './infrastructure/event-listeners/appointment-created-email.listener';
 import { ActivityLogService } from '../../shared/activity-log/activity-log.service';
-import { ConsoleEmailAdapter } from './infrastructure/external-services/console-email.adapter';
+import { ResendAppointmentEmailAdapter } from './infrastructure/external-services/resend-appointment-email.adapter';
+import { UsersAdminRecipientsAdapter } from './infrastructure/acl/users-admin-recipients.adapter';
 import { WsJwtMiddleware } from '../../shared/websockets/ws-jwt.middleware';
 
 @Module({
@@ -31,6 +36,8 @@ import { WsJwtMiddleware } from '../../shared/websockets/ws-jwt.middleware';
     GetAppointmentByIdUseCase,
     GetAppointmentsListUseCase,
     ExportAppointmentsUseCase,
+    MarkAppointmentReadUseCase,
+    RestoreAppointmentUseCase,
 
     // Repository
     PrismaAppointmentRepository,
@@ -39,7 +46,13 @@ import { WsJwtMiddleware } from '../../shared/websockets/ws-jwt.middleware';
     // Ports — domain AUDIT_PORT bound to the shared ActivityLogService instance
     ActivityLogService,
     { provide: AUDIT_PORT, useExisting: ActivityLogService },
-    { provide: EMAIL_PORT, useClass: ConsoleEmailAdapter },
+    ResendAppointmentEmailAdapter,
+    { provide: EMAIL_PORT, useExisting: ResendAppointmentEmailAdapter },
+    UsersAdminRecipientsAdapter,
+    {
+      provide: ADMIN_RECIPIENTS_PORT,
+      useExisting: UsersAdminRecipientsAdapter,
+    },
 
     // WebSocket Gateway
     AppointmentsGateway,
@@ -47,6 +60,7 @@ import { WsJwtMiddleware } from '../../shared/websockets/ws-jwt.middleware';
 
     // Event Listeners
     AppointmentCreatedListener,
+    AppointmentReadListener,
     AppointmentUpdatedListener,
     AppointmentDeletedListener,
     StatusChangedListener,

@@ -52,7 +52,7 @@ export class HealthController {
       const pong = await this.redis.ping();
       return pong === 'PONG'
         ? ind.up()
-        : ind.down({ message: `unexpected ping reply: ${pong}` });
+        : ind.down({ message: `unexpected ping reply: ${String(pong)}` });
     } catch (err) {
       return ind.down({ message: (err as Error).message });
     }

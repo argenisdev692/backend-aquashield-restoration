@@ -2,6 +2,8 @@ import { Inject, Injectable, UnauthorizedException } from '@nestjs/common';
 import { EventEmitter2 } from '@nestjs/event-emitter';
 import { ClsService } from 'nestjs-cls';
 import { LoggerService } from '../../../../logger/logger.service';
+import type { ICachePort } from '../../../../shared/cache/cache.port';
+import { CACHE_PORT } from '../../../../shared/cache/cache.port';
 import type { IUserAuthRepository } from '../../domain/repositories/user-auth.repository.interface';
 import { USER_AUTH_REPOSITORY } from '../../domain/repositories/user-auth.repository.interface';
 import type { IOtpRepository } from '../../domain/repositories/otp.repository.interface';
@@ -17,6 +19,7 @@ import type { ITransactionManager } from '../../../../shared/database/transactio
 import { TRANSACTION_MANAGER } from '../../../../shared/database/transaction-manager.port';
 import type { VerifyOtpInput } from '../dtos/verify-otp.dto';
 import { AuthTokenIssuer } from '../services/auth-token-issuer.service';
+import { maskEmail } from '../../../../shared/utils/mask.util';
 
 export interface VerifyOtpResult {
   requiresTotp: boolean;
@@ -24,6 +27,11 @@ export interface VerifyOtpResult {
   refreshToken?: string;
   expiresIn?: number;
 }
+
+/** Invalid OTP attempts allowed before the active code is burned. */
+const MAX_OTP_ATTEMPTS = 5;
+/** Window (seconds) the failed-attempt counter is kept (matches OTP TTL). */
+const OTP_ATTEMPT_WINDOW_SECONDS = 15 * 60;
 
 @Injectable()
 export class VerifyOtpUseCase {
@@ -34,6 +42,8 @@ export class VerifyOtpUseCase {
     private readonly otpRepo: IOtpRepository,
     @Inject(AUDIT_PORT)
     private readonly audit: IAuditPort,
+    @Inject(CACHE_PORT)
+    private readonly cache: ICachePort,
     @Inject(TRANSACTION_MANAGER)
     private readonly tx: ITransactionManager,
     private readonly tokenIssuer: AuthTokenIssuer,
@@ -46,7 +56,10 @@ export class VerifyOtpUseCase {
 
   async execute(dto: VerifyOtpInput): Promise<VerifyOtpResult> {
     const traceId = this.cls.get<string>('traceId');
-    this.logger.info('Verify OTP attempt', { traceId, email: dto.email });
+    this.logger.info('Verify OTP attempt', {
+      traceId,
+      email: maskEmail(dto.email),
+    });
 
     const user = await this.userRepo.findByEmail(dto.email);
     if (!user) {
@@ -56,14 +69,14 @@ export class VerifyOtpUseCase {
     const stored = await this.otpRepo.findValid(user.id, dto.type);
     // Constant-time comparison defends against timing oracles on the OTP.
     if (!stored || !OtpCode.safeEqual(stored.code, dto.code)) {
-      await this.audit.log({
-        action: 'auth.otp_failed',
-        resourceType: 'USER',
-        resourceId: user.id,
-        metadata: { type: dto.type },
-      });
+      await this.handleInvalidAttempt(user.id, dto.type, stored?.id ?? null);
+      // handleInvalidAttempt always throws; this keeps control-flow analysis
+      // happy and narrows `stored` to non-null below.
       throw new UnauthorizedException('Invalid or expired OTP');
     }
+
+    // Successful credential check — reset the brute-force counter.
+    await this.cache.del(this.attemptKey(user.id, dto.type));
 
     // Consuming the OTP and (when TOTP is not required) minting a session
     // happen atomically so `markUsed` never sticks without a session.
@@ -107,5 +120,48 @@ export class VerifyOtpUseCase {
 
     this.logger.info('User logged in', { traceId, userId: user.id });
     return { requiresTotp: false, ...tokens };
+  }
+
+  private attemptKey(userId: string, type: string): string {
+    return `auth:otp-fail:${userId}:${type}`;
+  }
+
+  /**
+   * Records a failed OTP attempt. After {@link MAX_OTP_ATTEMPTS} the active
+   * code is burned so a guessable short OTP cannot be brute-forced past the
+   * per-request throttle. Always throws.
+   */
+  private async handleInvalidAttempt(
+    userId: string,
+    type: string,
+    otpId: string | null,
+  ): Promise<never> {
+    const key = this.attemptKey(userId, type);
+    const attempts = ((await this.cache.get<number>(key)) ?? 0) + 1;
+    await this.cache.set(key, attempts, OTP_ATTEMPT_WINDOW_SECONDS);
+
+    if (attempts >= MAX_OTP_ATTEMPTS) {
+      if (otpId) {
+        await this.otpRepo.markUsed(otpId);
+      }
+      await this.cache.del(key);
+      await this.audit.log({
+        action: 'auth.otp_locked',
+        resourceType: 'USER',
+        resourceId: userId,
+        metadata: { type, attempts },
+      });
+      throw new UnauthorizedException(
+        'Too many invalid codes. Please request a new code.',
+      );
+    }
+
+    await this.audit.log({
+      action: 'auth.otp_failed',
+      resourceType: 'USER',
+      resourceId: userId,
+      metadata: { type, attempts },
+    });
+    throw new UnauthorizedException('Invalid or expired OTP');
   }
 }

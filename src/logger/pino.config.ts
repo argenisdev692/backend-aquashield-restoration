@@ -16,7 +16,10 @@ interface PinoConfigInput {
  * - `traceId` / `correlationId` are surfaced on every HTTP log line from the
  *   request object (populated by the CLS middleware before logging runs).
  */
-export function buildPinoParams({ isProduction, logLevel }: PinoConfigInput): Params {
+export function buildPinoParams({
+  isProduction,
+  logLevel,
+}: PinoConfigInput): Params {
   return {
     pinoHttp: {
       level: logLevel,
@@ -38,8 +41,10 @@ export function buildPinoParams({ isProduction, logLevel }: PinoConfigInput): Pa
           correlationId: r.correlationId,
         };
       },
-      customSuccessMessage: (_req: IncomingMessage, res: ServerResponse): string =>
-        `request completed ${res.statusCode}`,
+      customSuccessMessage: (
+        _req: IncomingMessage,
+        res: ServerResponse,
+      ): string => `request completed ${res.statusCode}`,
       customErrorMessage: (
         _req: IncomingMessage,
         res: ServerResponse,

@@ -56,7 +56,8 @@ export class BlogCategoryController {
   @CheckAbilities({ action: Action.Create, subject: 'BLOG_CATEGORY' })
   async create(
     @CurrentUser() user: AuthenticatedUser,
-    @Body(new ZodValidationPipe(CreateBlogCategorySchema)) dto: CreateBlogCategoryDto,
+    @Body(new ZodValidationPipe(CreateBlogCategorySchema))
+    dto: CreateBlogCategoryDto,
   ): Promise<BlogCategoryResponse> {
     return this.service.create(user.id, dto);
   }
@@ -89,7 +90,8 @@ export class BlogCategoryController {
   @CheckAbilities({ action: Action.Update, subject: 'BLOG_CATEGORY' })
   async update(
     @Param('id', ParseUUIDPipe) id: string,
-    @Body(new ZodValidationPipe(UpdateBlogCategorySchema)) dto: UpdateBlogCategoryDto,
+    @Body(new ZodValidationPipe(UpdateBlogCategorySchema))
+    dto: UpdateBlogCategoryDto,
   ): Promise<BlogCategoryResponse> {
     return this.service.update(id, dto);
   }

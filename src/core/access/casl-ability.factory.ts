@@ -91,10 +91,7 @@ export class CaslAbilityFactory {
     conditions: Record<string, unknown>,
     user: AuthenticatedUser,
   ): MongoQuery {
-    const json = JSON.stringify(conditions).replace(
-      /\$\{user\.id\}/g,
-      user.id,
-    );
+    const json = JSON.stringify(conditions).replace(/\$\{user\.id\}/g, user.id);
     return JSON.parse(json) as MongoQuery;
   }
 }

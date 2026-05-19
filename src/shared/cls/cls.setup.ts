@@ -1,5 +1,5 @@
 import { randomUUID } from 'node:crypto';
-import type { IncomingMessage, ServerResponse } from 'node:http';
+import type { IncomingMessage } from 'node:http';
 import type { ClsModuleOptions } from 'nestjs-cls';
 import { CLS_KEYS, CONTEXT_HEADERS } from './cls.constants';
 
@@ -9,10 +9,7 @@ type ContextRequest = IncomingMessage & {
   headers: Record<string, string | string[] | undefined>;
 };
 
-function headerValue(
-  req: ContextRequest,
-  name: string,
-): string | undefined {
+function headerValue(req: ContextRequest, name: string): string | undefined {
   const raw = req.headers[name];
   return Array.isArray(raw) ? raw[0] : raw;
 }
@@ -34,11 +31,7 @@ export function buildClsOptions(): ClsModuleOptions {
       generateId: true,
       idGenerator: (req: ContextRequest): string =>
         headerValue(req, CONTEXT_HEADERS.REQUEST_ID) ?? randomUUID(),
-      setup: (
-        cls,
-        req: ContextRequest,
-        _res: ServerResponse,
-      ): void => {
+      setup: (cls, req: ContextRequest): void => {
         const traceId = cls.getId();
         const correlationId =
           headerValue(req, CONTEXT_HEADERS.CORRELATION_ID) ?? traceId;

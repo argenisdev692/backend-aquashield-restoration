@@ -77,8 +77,7 @@ export class ActivityLogQueryService {
       correlationId: row.correlationId,
       ipAddress: row.ipAddress,
       userAgent: row.userAgent,
-      metadata:
-        (row.metadata as Record<string, unknown> | null) ?? null,
+      metadata: (row.metadata as Record<string, unknown> | null) ?? null,
       createdAt: row.createdAt.toISOString(),
     };
   }

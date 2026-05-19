@@ -49,10 +49,7 @@ export class GlobalExceptionFilter implements ExceptionFilter {
       ? this.cls.get<string | undefined>(CLS_KEYS.TRACE_ID)
       : undefined;
 
-    const { status, title, detail, errors } = this.normalize(
-      exception,
-      isProd,
-    );
+    const { status, title, detail, errors } = this.normalize(exception, isProd);
 
     const problem: ProblemDetails = {
       type: 'about:blank',
@@ -71,16 +68,13 @@ export class GlobalExceptionFilter implements ExceptionFilter {
       method: req.method,
       error: detail,
     };
-    if (status >= HttpStatus.INTERNAL_SERVER_ERROR) {
+    if (status >= Number(HttpStatus.INTERNAL_SERVER_ERROR)) {
       this.logger.error('Unhandled exception', logCtx);
     } else {
       this.logger.warn('Request rejected', logCtx);
     }
 
-    res
-      .status(status)
-      .type('application/problem+json')
-      .json(problem);
+    res.status(status).type('application/problem+json').json(problem);
   }
 
   private normalize(
@@ -110,12 +104,15 @@ export class GlobalExceptionFilter implements ExceptionFilter {
       const detail =
         typeof response === 'string'
           ? response
-          : ((response as { message?: unknown }).message ??
-              exception.message);
+          : ((response as { message?: unknown }).message ?? exception.message);
       return {
         status,
         title: exception.name,
-        detail: Array.isArray(detail) ? detail.join(', ') : String(detail),
+        detail: Array.isArray(detail)
+          ? detail.join(', ')
+          : typeof detail === 'string'
+            ? detail
+            : JSON.stringify(detail),
         errors:
           typeof response === 'object'
             ? (response as { errors?: unknown }).errors

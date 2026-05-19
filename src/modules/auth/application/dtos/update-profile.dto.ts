@@ -13,7 +13,9 @@ export const UpdateProfileSchema = z.object({
   city: z.string().max(100).optional(),
   state: z.string().max(100).optional(),
   country: z.string().max(100).optional(),
-  gender: z.enum(['male', 'female', 'non_binary', 'prefer_not_to_say']).optional(),
+  gender: z
+    .enum(['male', 'female', 'non_binary', 'prefer_not_to_say'])
+    .optional(),
 });
 
 export class UpdateProfileDto extends createZodDto(UpdateProfileSchema) {}

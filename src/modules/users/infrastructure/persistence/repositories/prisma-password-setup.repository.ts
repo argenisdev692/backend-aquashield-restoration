@@ -21,9 +21,7 @@ function toSetupTokenType(value: string): SetupTokenType {
 }
 
 @Injectable()
-export class PrismaPasswordSetupRepository
-  implements IPasswordSetupRepository
-{
+export class PrismaPasswordSetupRepository implements IPasswordSetupRepository {
   constructor(
     private readonly prisma: PrismaService,
     private readonly logger: LoggerService,

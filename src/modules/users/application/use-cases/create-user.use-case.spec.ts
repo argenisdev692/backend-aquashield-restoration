@@ -1,5 +1,7 @@
 jest.mock('@nestjs-cls/transactional', () => ({
-  Transactional: () => (_target: unknown, _key: string, descriptor: PropertyDescriptor) => descriptor,
+  Transactional:
+    () => (_target: unknown, _key: string, descriptor: PropertyDescriptor) =>
+      descriptor,
 }));
 
 import { EmailAlreadyExistsException } from '../../domain/exceptions/user-domain.exception';
@@ -70,15 +72,30 @@ function build(overrides: { existing?: User | null } = {}) {
     cache as never,
   );
 
-  return { useCase, userRepo, setupRepo, emailPort, audit, eventEmitter, cache };
+  return {
+    useCase,
+    userRepo,
+    setupRepo,
+    emailPort,
+    audit,
+    eventEmitter,
+    cache,
+  };
 }
 
 describe('CreateUserUseCase', () => {
   beforeEach(() => jest.clearAllMocks());
 
   it('creates user, saves setup token, sends email, audits, and invalidates cache', async () => {
-    const { useCase, userRepo, setupRepo, emailPort, audit, eventEmitter, cache } =
-      build();
+    const {
+      useCase,
+      userRepo,
+      setupRepo,
+      emailPort,
+      audit,
+      eventEmitter,
+      cache,
+    } = build();
 
     const id = await useCase.execute(
       { name: 'John', lastName: 'Doe', email: 'new@example.com' },
@@ -91,7 +108,9 @@ describe('CreateUserUseCase', () => {
     expect(emailPort.sendPasswordSetupLink).toHaveBeenCalledWith(
       expect.objectContaining({ to: 'new@example.com', type: 'setup' }),
     );
-    expect(cache.delByPattern).toHaveBeenCalledWith('users-service:users:list:*');
+    expect(cache.delByPattern).toHaveBeenCalledWith(
+      'users-service:users:list:*',
+    );
     expect(eventEmitter.emit).toHaveBeenCalledWith(
       'users.created',
       expect.objectContaining({ userId: id }),
@@ -109,10 +128,7 @@ describe('CreateUserUseCase', () => {
     const { useCase } = build({ existing: CREATED_USER });
 
     await expect(
-      useCase.execute(
-        { name: 'John', email: 'new@example.com' },
-        'actor-1',
-      ),
+      useCase.execute({ name: 'John', email: 'new@example.com' }, 'actor-1'),
     ).rejects.toBeInstanceOf(EmailAlreadyExistsException);
   });
 });

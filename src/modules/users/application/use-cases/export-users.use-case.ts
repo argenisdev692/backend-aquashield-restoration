@@ -64,7 +64,13 @@ export class ExportUsersUseCase {
   }
 
   private async generateXlsx(
-    rows: { id: string; name: string; lastName: string; email: string; createdAt: string }[],
+    rows: {
+      id: string;
+      name: string;
+      lastName: string;
+      email: string;
+      createdAt: string;
+    }[],
   ): Promise<Buffer> {
     const workbook = new ExcelJS.Workbook();
     const sheet = workbook.addWorksheet('Users');
@@ -95,10 +101,20 @@ export class ExportUsersUseCase {
   }
 
   private generatePdf(
-    rows: { id: string; name: string; lastName: string; email: string; createdAt: string }[],
+    rows: {
+      id: string;
+      name: string;
+      lastName: string;
+      email: string;
+      createdAt: string;
+    }[],
   ): Promise<Buffer> {
     return new Promise((resolve, reject) => {
-      const doc = new PDFDocument({ size: 'A4', layout: 'landscape', margin: 40 });
+      const doc = new PDFDocument({
+        size: 'A4',
+        layout: 'landscape',
+        margin: 40,
+      });
       const chunks: Buffer[] = [];
 
       doc.on('data', (chunk: Buffer) => chunks.push(chunk));
@@ -116,11 +132,14 @@ export class ExportUsersUseCase {
       doc.fontSize(9).font('Helvetica-Bold');
       let x = startX;
       for (let i = 0; i < headers.length; i++) {
-        doc.text(headers[i]!, x, y, { width: colWidths[i], continued: false });
-        x += colWidths[i]!;
+        doc.text(headers[i], x, y, { width: colWidths[i], continued: false });
+        x += colWidths[i];
       }
       y += 18;
-      doc.moveTo(startX, y).lineTo(startX + colWidths.reduce((a, b) => a + b, 0), y).stroke();
+      doc
+        .moveTo(startX, y)
+        .lineTo(startX + colWidths.reduce((a, b) => a + b, 0), y)
+        .stroke();
       y += 6;
 
       doc.font('Helvetica').fontSize(8);
@@ -132,8 +151,8 @@ export class ExportUsersUseCase {
         const vals = [row.id, row.name, row.lastName, row.email, row.createdAt];
         x = startX;
         for (let i = 0; i < vals.length; i++) {
-          doc.text(vals[i]!, x, y, { width: colWidths[i], continued: false });
-          x += colWidths[i]!;
+          doc.text(vals[i], x, y, { width: colWidths[i], continued: false });
+          x += colWidths[i];
         }
         y += 16;
       }

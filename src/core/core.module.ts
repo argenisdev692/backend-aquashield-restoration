@@ -42,6 +42,12 @@ import { LoggingInterceptor } from './interceptors/logging.interceptor';
     { provide: APP_INTERCEPTOR, useClass: CacheTtlInterceptor },
     { provide: APP_INTERCEPTOR, useClass: AuditInterceptor },
   ],
-  exports: [CaslAbilityFactory, JwtAuthGuard, CaslGuard, SpamFilterGuard, PassportModule],
+  exports: [
+    CaslAbilityFactory,
+    JwtAuthGuard,
+    CaslGuard,
+    SpamFilterGuard,
+    PassportModule,
+  ],
 })
 export class CoreModule {}

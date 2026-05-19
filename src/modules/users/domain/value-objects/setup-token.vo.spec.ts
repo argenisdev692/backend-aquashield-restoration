@@ -11,7 +11,9 @@ describe('SetupToken (domain VO)', () => {
   it('throws when accessing raw on a hash-only token', () => {
     const token = SetupToken.fromHash('abc123');
     expect(token.hash).toBe('abc123');
-    expect(() => token.raw).toThrow('Raw setup token is not available after persistence');
+    expect(() => token.raw).toThrow(
+      'Raw setup token is not available after persistence',
+    );
   });
 
   it('hashOf is deterministic', () => {

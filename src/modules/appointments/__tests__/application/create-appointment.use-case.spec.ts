@@ -30,6 +30,8 @@ describe('CreateAppointmentUseCase', () => {
       findAll: jest.fn(),
       save: jest.fn(),
       delete: jest.fn(),
+      restore: jest.fn(),
+      markAsRead: jest.fn(),
     };
 
     mockAudit = {
