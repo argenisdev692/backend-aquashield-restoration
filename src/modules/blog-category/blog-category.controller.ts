@@ -6,8 +6,10 @@ import {
   Delete,
   Body,
   Param,
+  Query,
   UseGuards,
   ParseUUIDPipe,
+  ParseIntPipe,
   HttpCode,
   UseInterceptors,
   UploadedFile,
@@ -16,6 +18,7 @@ import {
 import { FileInterceptor } from '@nestjs/platform-express';
 import { ZodValidationPipe } from 'nestjs-zod';
 import { CacheTTL } from '@nestjs/cache-manager';
+import { Throttle, SkipThrottle } from '@nestjs/throttler';
 import {
   ApiTags,
   ApiBearerAuth,
@@ -27,6 +30,7 @@ import {
   ApiConsumes,
   ApiBody,
   ApiParam,
+  ApiQuery,
 } from '@nestjs/swagger';
 import { JwtAuthGuard } from '../../core/guards/jwt-auth.guard';
 import { CaslGuard } from '../../core/guards/casl.guard';
@@ -42,6 +46,8 @@ import type { CreateBlogCategoryDto } from './dto/create-blog-category.dto';
 import { UpdateBlogCategorySchema } from './dto/update-blog-category.dto';
 import type { UpdateBlogCategoryDto } from './dto/update-blog-category.dto';
 import { BlogCategoryResponse } from './dto/blog-category.response';
+import { BulkIdsSchema } from './dto/bulk-ids.dto';
+import type { BulkIdsDto } from './dto/bulk-ids.dto';
 
 @ApiTags('blog-categories')
 @ApiBearerAuth()
@@ -51,6 +57,7 @@ export class BlogCategoryController {
   constructor(private readonly service: BlogCategoryService) {}
 
   @Post()
+  @Throttle({ default: { limit: 10, ttl: 60000 } })
   @ApiCreatedResponse({ type: BlogCategoryResponse })
   @ApiBadRequestResponse({ description: 'Validation failed' })
   @CheckAbilities({ action: Action.Create, subject: 'BLOG_CATEGORY' })
@@ -63,26 +70,68 @@ export class BlogCategoryController {
   }
 
   @Get()
+  @SkipThrottle()
   @ApiOkResponse({ type: [BlogCategoryResponse] })
+  @ApiQuery({ name: 'limit', required: false, type: Number })
+  @ApiQuery({ name: 'skip', required: false, type: Number })
+  @ApiQuery({
+    name: 'withTrashed',
+    required: false,
+    type: Boolean,
+    description: 'Include soft-deleted categories (Laravel `withTrashed()`).',
+  })
+  @ApiQuery({
+    name: 'onlyTrashed',
+    required: false,
+    type: Boolean,
+    description:
+      'Return ONLY soft-deleted categories. Cannot be combined with `withTrashed`.',
+  })
   @CacheTTL(TTL_SECONDS.MEDIUM)
   @CheckAbilities({ action: Action.Read, subject: 'BLOG_CATEGORY' })
-  async findAll(): Promise<BlogCategoryResponse[]> {
-    return this.service.findAll();
+  async findAll(
+    @Query('limit', new ParseIntPipe({ optional: true })) limit?: number,
+    @Query('skip', new ParseIntPipe({ optional: true })) skip?: number,
+    @Query('withTrashed') withTrashedRaw?: string,
+    @Query('onlyTrashed') onlyTrashedRaw?: string,
+  ): Promise<BlogCategoryResponse[]> {
+    if (withTrashedRaw === 'true' && onlyTrashedRaw === 'true') {
+      throw new BadRequestException(
+        'Use either withTrashed or onlyTrashed, not both',
+      );
+    }
+    const trashed: 'exclude' | 'include' | 'only' =
+      onlyTrashedRaw === 'true'
+        ? 'only'
+        : withTrashedRaw === 'true'
+          ? 'include'
+          : 'exclude';
+    return this.service.findAll(limit, skip, trashed);
   }
 
   @Get(':id')
+  @SkipThrottle()
   @ApiOkResponse({ type: BlogCategoryResponse })
   @ApiNotFoundResponse()
   @ApiParam({ name: 'id', type: String, format: 'uuid' })
+  @ApiQuery({
+    name: 'withTrashed',
+    required: false,
+    type: Boolean,
+    description:
+      'When `true`, return the category even if it has been soft-deleted.',
+  })
   @CacheTTL(TTL_SECONDS.MEDIUM)
   @CheckAbilities({ action: Action.Read, subject: 'BLOG_CATEGORY' })
   async findOne(
     @Param('id', ParseUUIDPipe) id: string,
+    @Query('withTrashed') withTrashedRaw?: string,
   ): Promise<BlogCategoryResponse> {
-    return this.service.findById(id);
+    return this.service.findById(id, withTrashedRaw === 'true');
   }
 
   @Patch(':id')
+  @Throttle({ default: { limit: 20, ttl: 60000 } })
   @ApiOkResponse({ type: BlogCategoryResponse })
   @ApiNotFoundResponse()
   @ApiBadRequestResponse({ description: 'Validation failed' })
@@ -97,6 +146,7 @@ export class BlogCategoryController {
   }
 
   @Delete(':id')
+  @Throttle({ default: { limit: 20, ttl: 60000 } })
   @ApiNoContentResponse()
   @ApiNotFoundResponse()
   @ApiParam({ name: 'id', type: String, format: 'uuid' })
@@ -107,6 +157,7 @@ export class BlogCategoryController {
   }
 
   @Post(':id/restore')
+  @Throttle({ default: { limit: 20, ttl: 60000 } })
   @ApiOkResponse({ type: BlogCategoryResponse })
   @ApiNotFoundResponse()
   @ApiParam({ name: 'id', type: String, format: 'uuid' })
@@ -118,7 +169,36 @@ export class BlogCategoryController {
     return this.service.restore(id);
   }
 
+  @Post('bulk-delete')
+  @Throttle({ default: { limit: 5, ttl: 60000 } })
+  @HttpCode(200)
+  @ApiOkResponse({ schema: { example: { count: 3 } } })
+  @ApiBadRequestResponse({ description: 'Validation failed' })
+  @SkipCache()
+  @CheckAbilities({ action: Action.Delete, subject: 'BLOG_CATEGORY' })
+  async bulkDelete(
+    @CurrentUser() user: AuthenticatedUser,
+    @Body(new ZodValidationPipe(BulkIdsSchema)) dto: BulkIdsDto,
+  ): Promise<{ count: number }> {
+    return this.service.bulkDelete(dto.ids, user.id);
+  }
+
+  @Post('bulk-restore')
+  @Throttle({ default: { limit: 5, ttl: 60000 } })
+  @HttpCode(200)
+  @ApiOkResponse({ schema: { example: { count: 3 } } })
+  @ApiBadRequestResponse({ description: 'Validation failed' })
+  @SkipCache()
+  @CheckAbilities({ action: Action.Restore, subject: 'BLOG_CATEGORY' })
+  async bulkRestore(
+    @CurrentUser() user: AuthenticatedUser,
+    @Body(new ZodValidationPipe(BulkIdsSchema)) dto: BulkIdsDto,
+  ): Promise<{ count: number }> {
+    return this.service.bulkRestore(dto.ids, user.id);
+  }
+
   @Post(':id/image')
+  @Throttle({ default: { limit: 5, ttl: 60000 } })
   @ApiOkResponse({ type: BlogCategoryResponse })
   @ApiNotFoundResponse()
   @ApiBadRequestResponse({ description: 'Invalid file' })
@@ -157,6 +237,7 @@ export class BlogCategoryController {
   }
 
   @Delete(':id/image')
+  @Throttle({ default: { limit: 20, ttl: 60000 } })
   @ApiOkResponse({ type: BlogCategoryResponse })
   @ApiNotFoundResponse()
   @ApiParam({ name: 'id', type: String, format: 'uuid' })

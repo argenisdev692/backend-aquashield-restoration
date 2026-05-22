@@ -11,6 +11,12 @@ export interface ContactSupportReadModel {
   readed: boolean;
   createdAt: string;
   updatedAt: string;
+  /**
+   * Soft-delete tombstone. `null` for active rows; ISO timestamp when
+   * the request has been suspended. Frontend renders a "Suspended" badge
+   * whenever this field is non-null.
+   */
+  deletedAt: string | null;
 }
 
 export interface PaginatedContactSupport {

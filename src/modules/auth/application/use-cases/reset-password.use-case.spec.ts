@@ -33,6 +33,8 @@ function build(opts: {
     getPasswordConfirmedAt: jest.fn(),
     setGoogleId: jest.fn(),
     updateProfile: jest.fn(),
+    setLockedUntil: jest.fn(),
+    clearLockedUntil: jest.fn(),
   };
   const historyRepo = {
     addEntry: jest.fn().mockResolvedValue(undefined),
@@ -64,6 +66,9 @@ function build(opts: {
     findByUserId: jest.fn(),
     revokeAllForUser: jest.fn().mockResolvedValue(undefined),
     revokeById: jest.fn(),
+    revokeByIdForUser: jest.fn().mockResolvedValue(true),
+    touch: jest.fn(),
+    hasMatchingActiveSession: jest.fn().mockResolvedValue(true),
   };
   const breachedPwd = {
     isBreached: jest.fn().mockResolvedValue(opts.breached ?? false),

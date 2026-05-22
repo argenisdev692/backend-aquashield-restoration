@@ -35,34 +35,25 @@
 
 **Static rule (manual):**
 
-- `.claude/rules/backend-nest.md` — TypeScript/NestJS decision router (STRICT)
+- `.claude/rules/backend-nest.md` — TypeScript/NestJS decision router (STRICT). Single source of truth for all stack/syntax rules.
 
 **Auto-invocable skills** (Claude loads them based on context):
 
-- `.claude/skills/BACKEND-NEST/SKILL.md` — NestJS 11 · TypeScript 5.x enterprise backend
-- `.claude/skills/ARQUITECTURE-NEST/SKILL.md` — Hexagonal / DDD for complex bounded contexts
-- `.claude/skills/ARQUITECTURE-NEST-CRUD/SKILL.md` — Service/Repository pattern for simple CRUD
+- `.claude/skills/BACKEND-NEST/SKILL.md` — NestJS 11 · TypeScript 5.x enterprise stack (CQRS handlers, Prisma, Zod, Swagger, logging, cache, exports, CASL)
+- `.claude/skills/ARCHITECTURE-NEST/SKILL.md` — Hexagonal / DDD layout for complex bounded contexts
+- `.claude/skills/ARCHITECTURE-NEST-CRUD/SKILL.md` — Flat Service/Repository layout for simple CRUD (DEFAULT; contains the canonical Upgrade Triggers table)
 - `.claude/skills/BACKEND-NEST-PATTERNS/SKILL.md` — DRY service patterns (findOrFail, singleton guard, repository return types, storage side-effects)
 - `.claude/skills/OWASP/SKILL.md` — OWASP Security Baseline (2025/2023)
 
-## Critical rules (always active)
+## Critical rules (pointers — content lives in linked files)
 
 <critical>
-- **TypeScript strict mode:** `strict: true` in every `.ts` file. NEVER `any`, NEVER `@ts-ignore`, NEVER `as unknown as X`.
-- **NestJS CLI:** Use `npx nest` — NEVER the global `nest`.
-- **Single Source of Truth:** Follow `.claude/rules/backend-nest.md` for every TypeScript/NestJS syntax decision.
-- **Architecture (default):** Follow `.claude/skills/ARQUITECTURE-NEST-CRUD/SKILL.md` for every new module unless an upgrade trigger is justified.
-- **Architecture (upgrade):** Follow `.claude/skills/ARQUITECTURE-NEST/SKILL.md` ONLY when the module needs domain events with real listeners, cross-context ACL, state machines / multi-step workflows, invariants in VOs/aggregates, or service methods exceeding ~20 lines of logic.
-- **Security:** Follow `.claude/skills/OWASP/SKILL.md` for every backend/API security decision.
-- **ORM:** Prisma v7 ONLY — NEVER import Drizzle or TypeORM. `prisma-client` generator with `output = "../src/generated/prisma"`. Always import from `src/generated/prisma/client`, NEVER from `@prisma/client`.
-- **Validation:** Zod v4 for ALL validation — NEVER `class-validator`.
-- **Context:** nestjs-cls for traceId/correlationId — NEVER pass them as parameters.
-- **Controllers:** Never contain business logic. CRUD modules call a Service; Hex/DDD modules call a UseCase. Never mix both styles in the same module.
-- **CQRS:** `@nestjs/cqrs` is installed but is NOT the default pattern. Service (CRUD) or UseCase (Hex/DDD) are the SoT. Use `CommandBus`/`QueryBus`/`EventBus` only with an explicit, documented decision per bounded context.
-- **IAuditPort:** Called manually in every write path that mutates state (write UseCase in Hex/DDD; Service mutation method in CRUD when the module opts in to audit).
-- **Logging:** NEVER `console.log` — always use the injected LoggerService. Log entries without traceId/correlationId are forbidden.
-- **Git:** NEVER commit `.env`, credentials, or keys. NEVER `git push --force` to `main`/`master`.
-- **Tests:** Integration tests MUST NOT mock the database.
+- **Stack & syntax SoT:** `.claude/rules/backend-nest.md` is the [ABSOLUTE]/[MUST] router — covers TS strict, no `any`/`@ts-ignore`, `npx nest`, Prisma v7 (`prisma-client` generator + import from `src/generated/prisma/client`), Zod v4, nestjs-cls, controllers no business logic, CQRS-not-default, IAuditPort manual, logging with traceId, bulk operations.
+- **Architecture decision:** start at `.claude/skills/ARCHITECTURE-NEST-CRUD/SKILL.md`. Escalate to `.claude/skills/ARCHITECTURE-NEST/SKILL.md` ONLY when an Upgrade Trigger (listed in the CRUD skill) is met.
+- **Security baseline:** `.claude/skills/OWASP/SKILL.md` applies to every endpoint, adapter, and external integration.
+- **DRY service patterns:** `.claude/skills/BACKEND-NEST-PATTERNS/SKILL.md` — apply before writing any CRUD service method.
+- **Git safety (CLAUDE-only, not in router):** NEVER commit `.env`, credentials, or keys. NEVER `git push --force` to `main`/`master`. NEVER `--no-verify` unless explicitly requested.
+- **Tests (CLAUDE-only, not in router):** Integration tests MUST NOT mock the database.
 </critical>
 
 ## Workflow
@@ -88,8 +79,8 @@
 │   └── backend-nest.md                 # TypeScript/NestJS router
 ├── skills/                             # auto-invocable SKILL.md files
 │   ├── BACKEND-NEST/SKILL.md           # NestJS 11 enterprise stack
-│   ├── ARQUITECTURE-NEST/SKILL.md      # Hexagonal / DDD
-│   ├── ARQUITECTURE-NEST-CRUD/SKILL.md # CRUD Service/Repository
+│   ├── ARCHITECTURE-NEST/SKILL.md      # Hexagonal / DDD
+│   ├── ARCHITECTURE-NEST-CRUD/SKILL.md # CRUD Service/Repository
 │   ├── BACKEND-NEST-PATTERNS/SKILL.md  # DRY helpers: findOrFail, singleton guard, storage side-effects
 │   └── OWASP/SKILL.md                  # security baseline
 ├── agents/                             # specialized sub-agents (empty for now)

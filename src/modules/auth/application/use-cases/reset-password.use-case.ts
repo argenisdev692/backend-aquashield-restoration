@@ -26,7 +26,12 @@ import type { ITransactionManager } from '../../../../shared/database/transactio
 import { TRANSACTION_MANAGER } from '../../../../shared/database/transaction-manager.port';
 import { OtpCode } from '../../domain/value-objects/otp-code.vo';
 import { ResetToken } from '../../domain/value-objects/reset-token.vo';
-import { PasswordResetEvent } from '../../domain/events/auth-events';
+import {
+  PasswordChangedEvent,
+  PasswordResetEvent,
+} from '../../domain/events/auth-events';
+import { deviceLabelFromUserAgent } from '../../domain/entities/auth-session.aggregate';
+import { CLS_KEYS } from '../../../../shared/cls/cls.constants';
 import type { IBreachedPasswordPort } from '../../../../shared/security/breached-password.port';
 import {
   BREACHED_PASSWORD_PORT,
@@ -130,6 +135,19 @@ export class ResetPasswordUseCase {
     this.eventEmitter.emit(
       'auth.password_reset',
       new PasswordResetEvent(user.id),
+    );
+
+    // Fan-out the generic password-changed event so the notification email
+    // is sent through the same listener as in-app password changes.
+    const ua = this.cls.get<string>(CLS_KEYS.USER_AGENT) ?? null;
+    const ip = this.cls.get<string>(CLS_KEYS.IP_ADDRESS) ?? null;
+    this.eventEmitter.emit(
+      'auth.password_changed',
+      new PasswordChangedEvent(user.id, new Date(), {
+        email: user.email,
+        ipAddress: ip,
+        deviceLabel: deviceLabelFromUserAgent(ua),
+      }),
     );
 
     await this.audit.log({

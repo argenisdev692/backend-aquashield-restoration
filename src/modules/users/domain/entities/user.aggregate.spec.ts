@@ -13,6 +13,7 @@ describe('User (domain aggregate)', () => {
         email: EMAIL,
         name: 'John',
         lastName: 'Doe',
+      phone: null,
       });
 
       expect(user.id).toBe(ID);
@@ -31,6 +32,7 @@ describe('User (domain aggregate)', () => {
         email: EMAIL,
         name: 'Jane',
         lastName: null,
+      phone: null,
       });
       expect(user.lastName).toBeNull();
     });
@@ -43,6 +45,7 @@ describe('User (domain aggregate)', () => {
         email: EMAIL,
         name: 'John',
         lastName: null,
+      phone: null,
       });
 
       expect(user.password).toBeNull();
@@ -62,6 +65,7 @@ describe('User (domain aggregate)', () => {
         email: EMAIL,
         name: 'John',
         lastName: null,
+        phone: null,
         password: 'old-hash',
         emailVerifiedAt: null,
         passwordConfirmedAt: null,
@@ -85,6 +89,7 @@ describe('User (domain aggregate)', () => {
         email: EMAIL,
         name: 'Jane',
         lastName: 'Smith',
+        phone: null,
         password: 'hashed',
         emailVerifiedAt: now,
         passwordConfirmedAt: now,

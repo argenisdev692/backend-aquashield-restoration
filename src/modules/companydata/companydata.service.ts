@@ -1,13 +1,7 @@
-import {
-  ConflictException,
-  Inject,
-  Injectable,
-  NotFoundException,
-} from '@nestjs/common';
+import { Inject, Injectable, NotFoundException } from '@nestjs/common';
 import { v7 as uuidv7 } from 'uuid';
 import { CompanyDataRepository } from './companydata.repository';
 import type { CompanyData } from './companydata.entity';
-import type { CreateCompanyDataDto } from './dto/create-companydata.dto';
 import type { UpdateCompanyDataDto } from './dto/update-companydata.dto';
 import { StorageService } from '../../shared/storage/storage.service';
 import { CacheService } from '../../shared/cache/cache.service';
@@ -17,6 +11,16 @@ import {
   AUDIT_PORT,
   type IAuditPort,
 } from '../../shared/activity-log/audit.port';
+import {
+  TRANSACTION_MANAGER,
+  type ITransactionManager,
+} from '../../shared/database/transaction-manager.port';
+
+const SIGNATURE_EXTENSION_BY_MIME: Readonly<Record<string, string>> = {
+  'image/png': 'png',
+  'image/jpeg': 'jpg',
+  'image/webp': 'webp',
+};
 
 @Injectable()
 export class CompanyDataService {
@@ -31,6 +35,7 @@ export class CompanyDataService {
     private readonly logger: LoggerService,
     private readonly cls: ClsService,
     @Inject(AUDIT_PORT) private readonly audit: IAuditPort,
+    @Inject(TRANSACTION_MANAGER) private readonly tx: ITransactionManager,
   ) {
     this.logger.setContext(CompanyDataService.name);
   }
@@ -53,33 +58,11 @@ export class CompanyDataService {
     return this.findOrFail(id);
   }
 
-  async create(
-    userId: string,
-    dto: CreateCompanyDataDto,
-  ): Promise<CompanyData> {
+  async findSingletonOrFail(): Promise<CompanyData> {
     const traceId = this.cls.get<string>('traceId');
-    this.logger.info('CompanyDataService.create start', { traceId, userId });
-
-    if (await this.repository.existsAny()) {
-      throw new ConflictException(
-        'A company record already exists. Only one company registration is allowed.',
-      );
-    }
-
-    const result = await this.repository.create({ ...dto, userId });
-
-    await this.audit.log({
-      action: 'companydata.created',
-      actorId: userId,
-      resourceType: 'COMPANY',
-      resourceId: result.id,
-    });
-
-    await this.invalidateCache();
-    this.logger.info('CompanyDataService.create end', {
-      traceId,
-      companyDataId: result.id,
-    });
+    this.logger.info('CompanyDataService.findSingletonOrFail', { traceId });
+    const result = await this.repository.findFirst();
+    if (!result) throw new NotFoundException('Company data not found');
     return result;
   }
 
@@ -87,36 +70,23 @@ export class CompanyDataService {
     const traceId = this.cls.get<string>('traceId');
     this.logger.info('CompanyDataService.update start', { traceId, id });
     await this.findOrFail(id);
-    const result = await this.repository.update(id, dto);
 
-    await this.audit.log({
-      action: 'companydata.updated',
-      resourceType: 'COMPANY',
-      resourceId: id,
+    const result = await this.tx.runInTx(async () => {
+      const row = await this.repository.update(id, dto);
+      await this.audit.log(
+        {
+          action: 'companydata.updated',
+          resourceType: 'COMPANY',
+          resourceId: id,
+        },
+        { strict: true },
+      );
+      return row;
     });
 
     await this.invalidateCache();
     this.logger.info('CompanyDataService.update end', { traceId, id });
     return result;
-  }
-
-  async delete(id: string): Promise<void> {
-    const traceId = this.cls.get<string>('traceId');
-    this.logger.info('CompanyDataService.delete start', { traceId, id });
-    const existing = await this.findOrFail(id);
-    if (existing.signaturePath) {
-      await this.deleteSignatureFile(existing.signaturePath);
-    }
-    await this.repository.delete(id);
-
-    await this.audit.log({
-      action: 'companydata.deleted',
-      resourceType: 'COMPANY',
-      resourceId: id,
-    });
-
-    await this.invalidateCache();
-    this.logger.info('CompanyDataService.delete end', { traceId, id });
   }
 
   async uploadSignature(
@@ -131,23 +101,35 @@ export class CompanyDataService {
 
     const existing = await this.findOrFail(companyDataId);
 
-    if (existing.signaturePath) {
-      await this.deleteSignatureFile(existing.signaturePath);
-    }
-
-    const ext = file.mimeType.split('/').at(1) ?? 'bin';
+    const ext = SIGNATURE_EXTENSION_BY_MIME[file.mimeType] ?? 'bin';
     const key = `${this.signatureDirectory}/${uuidv7()}.${ext}`;
     await this.storage.upload(key, file.buffer, file.mimeType);
 
-    const result = await this.repository.update(companyDataId, {
-      signaturePath: this.storage.publicUrl(key),
-    });
+    let result: CompanyData;
+    try {
+      result = await this.tx.runInTx(async () => {
+        const row = await this.repository.update(companyDataId, {
+          signaturePath: this.storage.publicUrl(key),
+        });
+        await this.audit.log(
+          {
+            action: 'companydata.signature_uploaded',
+            resourceType: 'COMPANY',
+            resourceId: companyDataId,
+          },
+          { strict: true },
+        );
+        return row;
+      });
+    } catch (error) {
+      // DB tx rolled back — also rollback the R2 blob we just uploaded.
+      await this.deleteSignatureFileByKey(key);
+      throw error;
+    }
 
-    await this.audit.log({
-      action: 'companydata.signature_uploaded',
-      resourceType: 'COMPANY',
-      resourceId: companyDataId,
-    });
+    if (existing.signaturePath) {
+      await this.deleteSignatureFile(existing.signaturePath);
+    }
 
     await this.invalidateCache();
     this.logger.info('CompanyDataService.uploadSignature end', {
@@ -166,19 +148,24 @@ export class CompanyDataService {
 
     const existing = await this.findOrFail(companyDataId);
 
+    const result = await this.tx.runInTx(async () => {
+      const row = await this.repository.update(companyDataId, {
+        signaturePath: null,
+      });
+      await this.audit.log(
+        {
+          action: 'companydata.signature_deleted',
+          resourceType: 'COMPANY',
+          resourceId: companyDataId,
+        },
+        { strict: true },
+      );
+      return row;
+    });
+
     if (existing.signaturePath) {
       await this.deleteSignatureFile(existing.signaturePath);
     }
-
-    const result = await this.repository.update(companyDataId, {
-      signaturePath: null,
-    });
-
-    await this.audit.log({
-      action: 'companydata.signature_deleted',
-      resourceType: 'COMPANY',
-      resourceId: companyDataId,
-    });
 
     await this.invalidateCache();
     this.logger.info('CompanyDataService.deleteSignature end', {
@@ -207,6 +194,19 @@ export class CompanyDataService {
       const traceId = this.cls.get<string>('traceId');
       this.logger.error('Failed to delete signature file from storage', {
         traceId,
+        error,
+      });
+    }
+  }
+
+  private async deleteSignatureFileByKey(key: string): Promise<void> {
+    try {
+      await this.storage.delete(key);
+    } catch (error) {
+      const traceId = this.cls.get<string>('traceId');
+      this.logger.error('Failed to rollback uploaded signature file', {
+        traceId,
+        key,
         error,
       });
     }

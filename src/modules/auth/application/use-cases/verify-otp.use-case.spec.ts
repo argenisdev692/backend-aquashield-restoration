@@ -47,6 +47,8 @@ function build(opts: {
     getPasswordConfirmedAt: jest.fn(),
     setGoogleId: jest.fn(),
     updateProfile: jest.fn(),
+    setLockedUntil: jest.fn(),
+    clearLockedUntil: jest.fn(),
   };
   const otpRepo = {
     save: jest.fn(),

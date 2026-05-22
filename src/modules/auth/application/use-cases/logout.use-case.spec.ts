@@ -21,6 +21,9 @@ describe('LogoutUseCase', () => {
       findByUserId: jest.fn(),
       revokeAllForUser: jest.fn(),
       revokeById: jest.fn().mockResolvedValue(undefined),
+      revokeByIdForUser: jest.fn().mockResolvedValue(true),
+      touch: jest.fn(),
+      hasMatchingActiveSession: jest.fn().mockResolvedValue(true),
     };
     const audit = { log: jest.fn().mockResolvedValue(undefined) };
 
@@ -51,6 +54,9 @@ describe('LogoutUseCase', () => {
       findByUserId: jest.fn(),
       revokeAllForUser: jest.fn(),
       revokeById: jest.fn(),
+    revokeByIdForUser: jest.fn().mockResolvedValue(true),
+    touch: jest.fn(),
+    hasMatchingActiveSession: jest.fn().mockResolvedValue(true),
     };
     const audit = { log: jest.fn().mockResolvedValue(undefined) };
 

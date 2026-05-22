@@ -32,6 +32,12 @@ export interface AuthenticatedUser {
   id: string;
   email?: string;
   roleIds: string[];
+  /**
+   * Lowercase role names from the JWT. Lets `CaslAbilityFactory` short-circuit
+   * for built-in roles (e.g. `super-admin`) without a DB hit. Empty for
+   * legacy tokens issued before the field was embedded.
+   */
+  roleNames: string[];
 }
 
 /** Raw permission row shape shared by both repository queries. */

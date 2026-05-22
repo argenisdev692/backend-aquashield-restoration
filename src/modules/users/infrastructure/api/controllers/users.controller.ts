@@ -14,6 +14,7 @@ import {
   StreamableFile,
   Res,
   BadRequestException,
+  ForbiddenException,
 } from '@nestjs/common';
 import {
   ApiTags,
@@ -38,21 +39,29 @@ import { JwtAuthGuard } from '../../../../../core/guards/jwt-auth.guard';
 import { CaslGuard } from '../../../../../core/guards/casl.guard';
 import { CheckAbilities } from '../../../../../core/decorators/check-abilities.decorator';
 import { Action } from '../../../../../core/access/actions.enum';
+import { CaslAbilityFactory } from '../../../../../core/access/casl-ability.factory';
 import { CurrentUser } from '../../../../../core/decorators/current-user.decorator';
 import type { AuthenticatedUser } from '../../../../../core/access/actions.enum';
 import { TTL_SECONDS } from '../../../../../shared/cache/cache-ttl.constants';
 
-import { CreateUserUseCase } from '../../../application/use-cases/create-user.use-case';
-import { SetupPasswordUseCase } from '../../../application/use-cases/setup-password.use-case';
-import { RequestPasswordChangeUseCase } from '../../../application/use-cases/request-password-change.use-case';
-import { ChangePasswordUseCase } from '../../../application/use-cases/change-password.use-case';
-import { GetUserByIdUseCase } from '../../../application/use-cases/get-user-by-id.use-case';
-import { GetUsersListUseCase } from '../../../application/use-cases/get-users-list.use-case';
-import { UpdateUserUseCase } from '../../../application/use-cases/update-user.use-case';
-import { DeleteUserUseCase } from '../../../application/use-cases/delete-user.use-case';
-import { ExportUsersUseCase } from '../../../application/use-cases/export-users.use-case';
-import { CheckEmailExistsUseCase } from '../../../application/use-cases/check-email-exists.use-case';
-import { CheckUsernameExistsUseCase } from '../../../application/use-cases/check-username-exists.use-case';
+import { CommandBus, QueryBus } from '@nestjs/cqrs';
+
+import { CreateUserCommand } from '../../../application/commands/create-user.command';
+import { SetupPasswordCommand } from '../../../application/commands/setup-password.command';
+import { RequestPasswordChangeCommand } from '../../../application/commands/request-password-change.command';
+import { ChangePasswordCommand } from '../../../application/commands/change-password.command';
+import { GetUserByIdQuery } from '../../../application/queries/get-user-by-id.query';
+import { GetUsersListQuery } from '../../../application/queries/get-users-list.query';
+import { UpdateUserCommand } from '../../../application/commands/update-user.command';
+import { DeleteUserCommand } from '../../../application/commands/delete-user.command';
+import { BulkDeleteUsersCommand } from '../../../application/commands/bulk-delete-users.command';
+import { BulkRestoreUsersCommand } from '../../../application/commands/bulk-restore-users.command';
+import { ExportUsersCommand } from '../../../application/commands/export-users.command';
+import { CheckEmailExistsQuery } from '../../../application/queries/check-email-exists.query';
+import { CheckUsernameExistsQuery } from '../../../application/queries/check-username-exists.query';
+import type { UserReadModel } from '../../../application/read-models/user.read-model';
+import type { PaginatedUsers } from '../../../application/queries/handlers/get-users-list.handler';
+import { formatPhonePretty } from '../../../../../shared/phone/phone.util';
 
 import {
   CreateUserDto,
@@ -79,6 +88,10 @@ import {
   UsersListQuerySchema,
   type UsersListQuery,
 } from '../../../application/dtos/users-list-query.dto';
+import {
+  BulkIdsDto,
+  BulkIdsSchema,
+} from '../../../application/dtos/bulk-ids.dto';
 
 import {
   UserResponse,
@@ -90,18 +103,29 @@ import {
 @Controller('users')
 export class UsersController {
   constructor(
-    private readonly createUserUC: CreateUserUseCase,
-    private readonly setupPasswordUC: SetupPasswordUseCase,
-    private readonly requestPasswordChangeUC: RequestPasswordChangeUseCase,
-    private readonly changePasswordUC: ChangePasswordUseCase,
-    private readonly getUserByIdUC: GetUserByIdUseCase,
-    private readonly getUsersListUC: GetUsersListUseCase,
-    private readonly updateUserUC: UpdateUserUseCase,
-    private readonly deleteUserUC: DeleteUserUseCase,
-    private readonly exportUsersUC: ExportUsersUseCase,
-    private readonly checkEmailExistsUC: CheckEmailExistsUseCase,
-    private readonly checkUsernameExistsUC: CheckUsernameExistsUseCase,
+    private readonly commandBus: CommandBus,
+    private readonly queryBus: QueryBus,
+    private readonly abilityFactory: CaslAbilityFactory,
   ) {}
+
+  /**
+   * Gates body-driven ACL mutations. `@CheckAbilities` runs before body
+   * parsing, so we can't declare `Action.Manage USER` statically — the
+   * requirement only kicks in when the request actually carries roleIds
+   * or permissionIds.
+   */
+  private async assertCanManageAcl(
+    actor: AuthenticatedUser,
+    dto: { roleIds?: string[]; permissionIds?: string[] },
+  ): Promise<void> {
+    if (dto.roleIds === undefined && dto.permissionIds === undefined) return;
+    const ability = await this.abilityFactory.createForUser(actor);
+    if (!ability.can(Action.Manage, 'USER')) {
+      throw new ForbiddenException(
+        'Managing roles/permissions requires the Manage USER ability',
+      );
+    }
+  }
 
   @Post()
   @UseGuards(JwtAuthGuard, CaslGuard)
@@ -116,16 +140,30 @@ export class UsersController {
     @Body(new ZodValidationPipe(CreateUserSchema)) dto: CreateUserDto,
     @CurrentUser() actor: AuthenticatedUser,
   ): Promise<UserResponse> {
-    const id = await this.createUserUC.execute(dto, actor.id);
+    await this.assertCanManageAcl(actor, dto);
+    const id = await this.commandBus.execute<CreateUserCommand, string>(
+      new CreateUserCommand(dto, actor.id),
+    );
+    const user = await this.queryBus.execute<
+      GetUserByIdQuery,
+      UserReadModel | null
+    >(new GetUserByIdQuery(id));
+    if (!user) {
+      throw new NotFoundException(`User with id ${id} not found`);
+    }
     return {
-      id,
-      name: dto.name,
-      lastName: dto.lastName ?? null,
-      email: dto.email,
-      emailVerifiedAt: null,
-      passwordConfirmedAt: null,
-      createdAt: new Date().toISOString(),
-      updatedAt: new Date().toISOString(),
+      id: user.id,
+      name: user.name,
+      lastName: user.lastName,
+      email: user.email,
+      phone: formatPhonePretty(user.phone),
+      emailVerifiedAt: user.emailVerifiedAt?.toISOString() ?? null,
+      passwordConfirmedAt: user.passwordConfirmedAt?.toISOString() ?? null,
+      createdAt: user.createdAt.toISOString(),
+      updatedAt: user.updatedAt.toISOString(),
+      deletedAt: user.deletedAt?.toISOString() ?? null,
+      roles: user.roles,
+      permissions: user.permissions,
     };
   }
 
@@ -138,7 +176,7 @@ export class UsersController {
   async setupPassword(
     @Body(new ZodValidationPipe(SetupPasswordSchema)) dto: SetupPasswordDto,
   ): Promise<MessageResponse> {
-    await this.setupPasswordUC.execute(dto);
+    await this.commandBus.execute(new SetupPasswordCommand(dto));
     return {
       message: 'Password has been set successfully. You can now log in.',
     };
@@ -153,7 +191,7 @@ export class UsersController {
     @Body(new ZodValidationPipe(RequestPasswordChangeSchema))
     dto: RequestPasswordChangeDto,
   ): Promise<MessageResponse> {
-    await this.requestPasswordChangeUC.execute(dto);
+    await this.commandBus.execute(new RequestPasswordChangeCommand(dto));
     return {
       message:
         'If an account with that email exists, a password change link has been sent.',
@@ -171,7 +209,7 @@ export class UsersController {
   async changePassword(
     @Body(new ZodValidationPipe(ChangePasswordSchema)) dto: ChangePasswordDto,
   ): Promise<MessageResponse> {
-    await this.changePasswordUC.execute(dto);
+    await this.commandBus.execute(new ChangePasswordCommand(dto));
     return { message: 'Password has been changed successfully.' };
   }
 
@@ -183,21 +221,42 @@ export class UsersController {
   @ApiOkResponse({ type: UserListResponse })
   @ApiUnauthorizedResponse()
   @ApiForbiddenResponse({ description: 'Insufficient permissions' })
+  @ApiQuery({
+    name: 'withTrashed',
+    required: false,
+    type: Boolean,
+    description:
+      'Include suspended (soft-deleted) users alongside active ones. Laravel-style `withTrashed()`.',
+  })
+  @ApiQuery({
+    name: 'onlyTrashed',
+    required: false,
+    type: Boolean,
+    description:
+      'Return ONLY suspended users — useful for audit reports. Laravel-style `onlyTrashed()`. Cannot be combined with `withTrashed`.',
+  })
   async findAll(
     @Query(new ZodValidationPipe(UsersListQuerySchema))
     query: UsersListQueryDto,
   ): Promise<UserListResponse> {
-    const result = await this.getUsersListUC.execute(query);
+    const result = await this.queryBus.execute<
+      GetUsersListQuery,
+      PaginatedUsers
+    >(new GetUsersListQuery(query));
     return {
-      data: result.data.map((u) => ({
+      data: result.data.map((u: UserReadModel) => ({
         id: u.id,
         name: u.name,
         lastName: u.lastName,
         email: u.email,
+        phone: formatPhonePretty(u.phone),
         emailVerifiedAt: u.emailVerifiedAt?.toISOString() ?? null,
         passwordConfirmedAt: u.passwordConfirmedAt?.toISOString() ?? null,
         createdAt: u.createdAt.toISOString(),
         updatedAt: u.updatedAt.toISOString(),
+        deletedAt: u.deletedAt?.toISOString() ?? null,
+        roles: u.roles,
+        permissions: u.permissions,
       })),
       total: result.total,
       page: result.page,
@@ -217,6 +276,19 @@ export class UsersController {
   })
   @ApiUnauthorizedResponse()
   @ApiForbiddenResponse({ description: 'Insufficient permissions' })
+  @ApiQuery({
+    name: 'withTrashed',
+    required: false,
+    type: Boolean,
+    description: 'Include suspended users in the export.',
+  })
+  @ApiQuery({
+    name: 'onlyTrashed',
+    required: false,
+    type: Boolean,
+    description:
+      'Export ONLY suspended users (audit report of deactivated accounts).',
+  })
   async export(
     @Query(new ZodValidationPipe(UsersListQuerySchema))
     query: UsersListQuery,
@@ -225,7 +297,9 @@ export class UsersController {
     @Res({ passthrough: true }) res: Response,
   ): Promise<StreamableFile> {
     const fmt: 'xlsx' | 'pdf' = format === 'pdf' ? 'pdf' : 'xlsx';
-    const buffer = await this.exportUsersUC.execute(query, fmt, actor.id);
+    const buffer = await this.commandBus.execute(
+      new ExportUsersCommand(query, fmt, actor.id),
+    );
 
     const contentTypes = {
       xlsx: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
@@ -261,9 +335,8 @@ export class UsersController {
   ): Promise<{ exists: boolean }> {
     if (!value || value.trim().length === 0)
       throw new BadRequestException('value is required');
-    const exists = await this.checkEmailExistsUC.execute(
-      value.trim(),
-      excludeId,
+    const exists = await this.queryBus.execute(
+      new CheckEmailExistsQuery(value.trim(), excludeId),
     );
     return { exists };
   }
@@ -290,9 +363,8 @@ export class UsersController {
   ): Promise<{ exists: boolean }> {
     if (!value || value.trim().length === 0)
       throw new BadRequestException('value is required');
-    const exists = await this.checkUsernameExistsUC.execute(
-      value.trim(),
-      excludeId,
+    const exists = await this.queryBus.execute(
+      new CheckUsernameExistsQuery(value.trim(), excludeId),
     );
     return { exists };
   }
@@ -307,8 +379,22 @@ export class UsersController {
   @ApiUnauthorizedResponse()
   @ApiForbiddenResponse({ description: 'Insufficient permissions' })
   @ApiParam({ name: 'id', type: String, format: 'uuid' })
-  async findOne(@Param('id', ParseUUIDPipe) id: string): Promise<UserResponse> {
-    const user = await this.getUserByIdUC.execute(id);
+  @ApiQuery({
+    name: 'withTrashed',
+    required: false,
+    type: Boolean,
+    description:
+      'When `true`, return the user even if it has been suspended (soft-deleted). Without it the endpoint behaves like `Model::find()` and returns 404 for suspended rows.',
+  })
+  async findOne(
+    @Param('id', ParseUUIDPipe) id: string,
+    @Query('withTrashed') withTrashedRaw?: string,
+  ): Promise<UserResponse> {
+    const withTrashed = withTrashedRaw === 'true';
+    const user = await this.queryBus.execute<
+      GetUserByIdQuery,
+      UserReadModel | null
+    >(new GetUserByIdQuery(id, withTrashed));
     if (!user) {
       throw new NotFoundException(`User with id ${id} not found`);
     }
@@ -317,10 +403,14 @@ export class UsersController {
       name: user.name,
       lastName: user.lastName,
       email: user.email,
+      phone: formatPhonePretty(user.phone),
       emailVerifiedAt: user.emailVerifiedAt?.toISOString() ?? null,
       passwordConfirmedAt: user.passwordConfirmedAt?.toISOString() ?? null,
       createdAt: user.createdAt.toISOString(),
       updatedAt: user.updatedAt.toISOString(),
+      deletedAt: user.deletedAt?.toISOString() ?? null,
+      roles: user.roles,
+      permissions: user.permissions,
     };
   }
 
@@ -328,7 +418,7 @@ export class UsersController {
   @UseGuards(JwtAuthGuard, CaslGuard)
   @CheckAbilities({ action: Action.Update, subject: 'USER' })
   @ApiBearerAuth()
-  @ApiOkResponse({ type: MessageResponse })
+  @ApiOkResponse({ type: UserResponse })
   @ApiNotFoundResponse()
   @ApiBadRequestResponse({ description: 'Validation failed' })
   @ApiUnauthorizedResponse()
@@ -339,9 +429,30 @@ export class UsersController {
     @Param('id', ParseUUIDPipe) id: string,
     @Body(new ZodValidationPipe(UpdateUserSchema)) dto: UpdateUserDto,
     @CurrentUser() actor: AuthenticatedUser,
-  ): Promise<MessageResponse> {
-    await this.updateUserUC.execute(id, dto, actor.id);
-    return { message: 'User updated successfully' };
+  ): Promise<UserResponse> {
+    await this.assertCanManageAcl(actor, dto);
+    await this.commandBus.execute(new UpdateUserCommand(id, dto, actor.id));
+    const user = await this.queryBus.execute<
+      GetUserByIdQuery,
+      UserReadModel | null
+    >(new GetUserByIdQuery(id));
+    if (!user) {
+      throw new NotFoundException(`User with id ${id} not found`);
+    }
+    return {
+      id: user.id,
+      name: user.name,
+      lastName: user.lastName,
+      email: user.email,
+      phone: formatPhonePretty(user.phone),
+      emailVerifiedAt: user.emailVerifiedAt?.toISOString() ?? null,
+      passwordConfirmedAt: user.passwordConfirmedAt?.toISOString() ?? null,
+      createdAt: user.createdAt.toISOString(),
+      updatedAt: user.updatedAt.toISOString(),
+      deletedAt: user.deletedAt?.toISOString() ?? null,
+      roles: user.roles,
+      permissions: user.permissions,
+    };
   }
 
   @Delete(':id')
@@ -358,6 +469,42 @@ export class UsersController {
     @Param('id', ParseUUIDPipe) id: string,
     @CurrentUser() actor: AuthenticatedUser,
   ): Promise<void> {
-    await this.deleteUserUC.execute(id, actor.id);
+    await this.commandBus.execute(new DeleteUserCommand(id, actor.id));
+  }
+
+  @Post('bulk-delete')
+  @HttpCode(200)
+  @UseGuards(JwtAuthGuard, CaslGuard)
+  @CheckAbilities({ action: Action.Delete, subject: 'USER' })
+  @ApiBearerAuth()
+  @ApiOkResponse({ schema: { example: { count: 3 } } })
+  @ApiBadRequestResponse({ description: 'Validation failed' })
+  @ApiUnauthorizedResponse()
+  @ApiForbiddenResponse({ description: 'Insufficient permissions' })
+  async bulkDelete(
+    @Body(new ZodValidationPipe(BulkIdsSchema)) dto: BulkIdsDto,
+    @CurrentUser() actor: AuthenticatedUser,
+  ): Promise<{ count: number }> {
+    return this.commandBus.execute(
+      new BulkDeleteUsersCommand(dto.ids, actor.id),
+    );
+  }
+
+  @Post('bulk-restore')
+  @HttpCode(200)
+  @UseGuards(JwtAuthGuard, CaslGuard)
+  @CheckAbilities({ action: Action.Restore, subject: 'USER' })
+  @ApiBearerAuth()
+  @ApiOkResponse({ schema: { example: { count: 3 } } })
+  @ApiBadRequestResponse({ description: 'Validation failed' })
+  @ApiUnauthorizedResponse()
+  @ApiForbiddenResponse({ description: 'Insufficient permissions' })
+  async bulkRestore(
+    @Body(new ZodValidationPipe(BulkIdsSchema)) dto: BulkIdsDto,
+    @CurrentUser() actor: AuthenticatedUser,
+  ): Promise<{ count: number }> {
+    return this.commandBus.execute(
+      new BulkRestoreUsersCommand(dto.ids, actor.id),
+    );
   }
 }

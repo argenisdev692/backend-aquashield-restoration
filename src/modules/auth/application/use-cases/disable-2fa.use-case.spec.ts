@@ -30,13 +30,25 @@ describe('Disable2faUseCase', () => {
       getPasswordConfirmedAt: jest.fn(),
       setGoogleId: jest.fn(),
       updateProfile: jest.fn(),
+    setLockedUntil: jest.fn(),
+    clearLockedUntil: jest.fn(),
     };
     const audit = { log: jest.fn().mockResolvedValue(undefined) };
     const eventEmitter = { emit: jest.fn() };
+    const backupCodeRepo = {
+      replaceAllForUser: jest.fn(),
+      findUnusedByUserId: jest.fn(),
+      markUsed: jest.fn(),
+      deleteAllForUser: jest.fn().mockResolvedValue(undefined),
+      countUnusedByUserId: jest.fn(),
+    };
+    const tx = { runInTx: async (fn: () => Promise<unknown>) => fn() };
 
     const useCase = new Disable2faUseCase(
       userRepo,
+      backupCodeRepo,
       audit,
+      tx as never,
       eventEmitter as never,
       logger as never,
       cls as never,
@@ -51,6 +63,7 @@ describe('Disable2faUseCase', () => {
     );
     expect(audit.log).toHaveBeenCalledWith(
       expect.objectContaining({ action: 'auth.2fa_disabled' }),
+      { strict: true },
     );
     expect(logger.info).toHaveBeenCalledWith('Disable 2FA', expect.any(Object));
     expect(logger.info).toHaveBeenCalledWith(

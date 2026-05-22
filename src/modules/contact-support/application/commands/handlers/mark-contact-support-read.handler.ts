@@ -1,5 +1,6 @@
 import { CommandHandler, ICommandHandler } from '@nestjs/cqrs';
 import { Inject, NotFoundException } from '@nestjs/common';
+import { Transactional } from '@nestjs-cls/transactional';
 import { EventEmitter2 } from '@nestjs/event-emitter';
 import { ClsService } from 'nestjs-cls';
 import { LoggerService } from '../../../../../logger/logger.service';
@@ -7,7 +8,7 @@ import { AUDIT_PORT } from '../../../../../shared/activity-log/audit.port';
 import type { IAuditPort } from '../../../../../shared/activity-log/audit.port';
 import { CACHE_PORT } from '../../../../../shared/cache/cache.port';
 import type { ICachePort } from '../../../../../shared/cache/cache.port';
-import { MarkContactSupportReadCommand } from '../impl/mark-contact-support-read.command';
+import { MarkContactSupportReadCommand } from '../mark-contact-support-read.command';
 import { CONTACT_SUPPORT_REPOSITORY } from '../../../domain/ports/contact-support.repository.interface';
 import type { IContactSupportRepository } from '../../../domain/ports/contact-support.repository.interface';
 import { ContactSupportReadEvent } from '../../../domain/events/contact-support-read.domain-event';
@@ -28,6 +29,7 @@ export class MarkContactSupportReadHandler implements ICommandHandler<MarkContac
 
   private static readonly CACHE_PATTERN = 'http:*:/contact-support*';
 
+  @Transactional()
   async execute(command: MarkContactSupportReadCommand): Promise<void> {
     const traceId = this.cls.get<string>('traceId');
     this.logger.info('MarkContactSupportReadHandler start', {
@@ -41,12 +43,15 @@ export class MarkContactSupportReadHandler implements ICommandHandler<MarkContac
     entity.markAsRead();
     await this.repo.save(entity);
 
-    await this.audit.log({
-      action: 'contact_support.read',
-      actorId: command.actorId,
-      resourceType: 'CONTACT',
-      resourceId: command.id,
-    });
+    await this.audit.log(
+      {
+        action: 'contact_support.read',
+        actorId: command.actorId,
+        resourceType: 'CONTACT',
+        resourceId: command.id,
+      },
+      { strict: true },
+    );
 
     await this.cache.delByPattern(MarkContactSupportReadHandler.CACHE_PATTERN);
 

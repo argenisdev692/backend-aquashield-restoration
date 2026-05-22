@@ -2,13 +2,16 @@ import {
   Controller,
   Post,
   Get,
+  Delete,
   Body,
   Param,
   Query,
   HttpCode,
   UseGuards,
   ParseUUIDPipe,
+  Res,
 } from '@nestjs/common';
+import type { Response } from 'express';
 import {
   ApiTags,
   ApiCreatedResponse,
@@ -46,8 +49,14 @@ import { ConfirmPasswordUseCase } from '../../../application/use-cases/confirm-p
 import { VerifyTwoFactorChallengeUseCase } from '../../../application/use-cases/verify-two-factor-challenge.use-case';
 import { GoogleAuthUseCase } from '../../../application/use-cases/google-auth.use-case';
 import { Enable2faUseCase } from '../../../application/use-cases/enable-2fa.use-case';
+import { formatPhonePretty } from '../../../../../shared/phone/phone.util';
 import { Confirm2faUseCase } from '../../../application/use-cases/confirm-2fa.use-case';
 import { Disable2faUseCase } from '../../../application/use-cases/disable-2fa.use-case';
+import { Regenerate2faBackupCodesUseCase } from '../../../application/use-cases/regenerate-2fa-backup-codes.use-case';
+import { ListSessionsUseCase } from '../../../application/use-cases/list-sessions.use-case';
+import { RevokeSessionUseCase } from '../../../application/use-cases/revoke-session.use-case';
+import { ListTrustedDevicesUseCase } from '../../../application/use-cases/list-trusted-devices.use-case';
+import { RevokeTrustedDeviceUseCase } from '../../../application/use-cases/revoke-trusted-device.use-case';
 import { VerifyOtpUseCase } from '../../../application/use-cases/verify-otp.use-case';
 import { VerifyTotpUseCase } from '../../../application/use-cases/verify-totp.use-case';
 import { ChangeExpiredPasswordUseCase } from '../../../application/use-cases/change-expired-password.use-case';
@@ -118,7 +127,14 @@ import {
   MeResponse,
   GoogleAuthResponse,
   VerifyOtpResponse,
+  Confirm2faResponse,
+  RegenerateBackupCodesResponse,
+  SessionsResponse,
+  TrustedDevicesResponse,
 } from '../presenters/auth.response';
+
+/** Trusted-device cookie name. Read in cls.setup.ts and on /logout to clear. */
+const TRUSTED_DEVICE_COOKIE = 'td';
 
 /**
  * Auth controller — covers all authentication, registration, email-verification,
@@ -154,7 +170,12 @@ export class AuthController {
     private readonly enable2faUseCase: Enable2faUseCase,
     private readonly confirm2faUseCase: Confirm2faUseCase,
     private readonly disable2faUseCase: Disable2faUseCase,
+    private readonly regenerate2faBackupCodesUseCase: Regenerate2faBackupCodesUseCase,
     private readonly changeExpiredPasswordUseCase: ChangeExpiredPasswordUseCase,
+    private readonly listSessionsUseCase: ListSessionsUseCase,
+    private readonly revokeSessionUseCase: RevokeSessionUseCase,
+    private readonly listTrustedDevicesUseCase: ListTrustedDevicesUseCase,
+    private readonly revokeTrustedDeviceUseCase: RevokeTrustedDeviceUseCase,
   ) {}
 
   // ─── Authentication ────────────────────────────────────────────────────────
@@ -248,7 +269,7 @@ export class AuthController {
       lastName: profile.lastName,
       username: profile.username,
       email: profile.email,
-      phone: profile.phone,
+      phone: formatPhonePretty(profile.phone),
       dateOfBirth: profile.dateOfBirth?.toISOString() ?? null,
       address: profile.address,
       address2: profile.address2,
@@ -354,6 +375,7 @@ export class AuthController {
   @Get('email/verify/:id/:hash')
   @ApiOkResponse({ type: MessageResponse })
   @ApiBadRequestResponse({ description: 'Invalid verification link' })
+  @ApiUnauthorizedResponse({ description: 'Invalid or tampered verification hash' })
   @ApiParam({
     name: 'id',
     type: String,
@@ -447,8 +469,85 @@ export class AuthController {
   async twoFactorChallenge(
     @Body(new ZodValidationPipe(VerifyTwoFactorChallengeSchema))
     dto: VerifyTwoFactorChallengeDto,
+    @Res({ passthrough: true }) res: Response,
   ): Promise<TwoFactorChallengeResponse> {
-    return this.verifyTwoFactorChallengeUseCase.execute(dto);
+    const result = await this.verifyTwoFactorChallengeUseCase.execute(dto);
+    // Set the trusted-device cookie when the use case minted one. The raw
+    // token never lives in the JSON body shown to JS callers — only the
+    // httpOnly cookie carries it. (`trustedDeviceToken` is stripped below.)
+    if (result.trustedDeviceToken && result.trustedDeviceTtlMs) {
+      res.cookie(TRUSTED_DEVICE_COOKIE, result.trustedDeviceToken, {
+        httpOnly: true,
+        secure: process.env.NODE_ENV === 'production',
+        sameSite: 'lax',
+        maxAge: result.trustedDeviceTtlMs,
+        path: '/',
+      });
+    }
+    const { trustedDeviceToken: _t, trustedDeviceTtlMs: _ttl, ...body } = result;
+    return body;
+  }
+
+  // ─── Sessions ──────────────────────────────────────────────────────────────
+
+  @Get('sessions')
+  @UseGuards(JwtAuthGuard)
+  @ApiBearerAuth()
+  @ApiOkResponse({ type: SessionsResponse })
+  @ApiUnauthorizedResponse({ description: 'Authentication required' })
+  async listSessions(
+    @CurrentUser() user: AuthenticatedUser,
+  ): Promise<SessionsResponse> {
+    const sessions = await this.listSessionsUseCase.execute(user.id);
+    return { sessions };
+  }
+
+  @Delete('sessions/:id')
+  @HttpCode(204)
+  @UseGuards(JwtAuthGuard)
+  @ApiBearerAuth()
+  @ApiNoContentResponse()
+  @ApiUnauthorizedResponse({ description: 'Authentication required' })
+  @ApiParam({ name: 'id', type: String, format: 'uuid' })
+  async revokeSession(
+    @CurrentUser() user: AuthenticatedUser,
+    @Param('id', ParseUUIDPipe) id: string,
+  ): Promise<void> {
+    await this.revokeSessionUseCase.execute(user.id, id);
+  }
+
+  // ─── Trusted Devices ───────────────────────────────────────────────────────
+
+  @Get('trusted-devices')
+  @UseGuards(JwtAuthGuard)
+  @ApiBearerAuth()
+  @ApiOkResponse({ type: TrustedDevicesResponse })
+  @ApiUnauthorizedResponse({ description: 'Authentication required' })
+  async listTrustedDevices(
+    @CurrentUser() user: AuthenticatedUser,
+  ): Promise<TrustedDevicesResponse> {
+    const trustedDevices = await this.listTrustedDevicesUseCase.execute(user.id);
+    return { trustedDevices };
+  }
+
+  @Delete('trusted-devices/:id')
+  @HttpCode(204)
+  @UseGuards(JwtAuthGuard, FreshPasswordGuard)
+  @ApiBearerAuth()
+  @ApiNoContentResponse()
+  @ApiUnauthorizedResponse({ description: 'Authentication required' })
+  @ApiForbiddenResponse({ description: 'Password confirmation required' })
+  @ApiParam({ name: 'id', type: String, format: 'uuid' })
+  async revokeTrustedDevice(
+    @CurrentUser() user: AuthenticatedUser,
+    @Param('id', ParseUUIDPipe) id: string,
+    @Res({ passthrough: true }) res: Response,
+  ): Promise<void> {
+    await this.revokeTrustedDeviceUseCase.execute(user.id, id);
+    // Best-effort: if the revoked device is the caller's current device,
+    // clear the cookie. We don't know the cookie's hash here, so always
+    // clear — the worst case is the user re-trusts on next 2FA prompt.
+    res.clearCookie(TRUSTED_DEVICE_COOKIE, { path: '/' });
   }
 
   // ─── Google OAuth ──────────────────────────────────────────────────────────
@@ -481,16 +580,36 @@ export class AuthController {
   @Post('2fa/confirm')
   @UseGuards(JwtAuthGuard, FreshPasswordGuard)
   @ApiBearerAuth()
-  @ApiCreatedResponse({ type: MessageResponse })
+  @ApiCreatedResponse({ type: Confirm2faResponse })
   @ApiBadRequestResponse({ description: 'Invalid TOTP code' })
   @ApiUnauthorizedResponse({ description: 'Authentication required' })
   @ApiForbiddenResponse({ description: 'Password confirmation required' })
   async confirm2fa(
     @CurrentUser() user: AuthenticatedUser,
     @Body(new ZodValidationPipe(Confirm2faSchema)) dto: Confirm2faDto,
-  ): Promise<MessageResponse> {
-    await this.confirm2faUseCase.execute(user.id, dto);
-    return { message: '2FA enabled successfully' };
+  ): Promise<Confirm2faResponse> {
+    const { backupCodes } = await this.confirm2faUseCase.execute(user.id, dto);
+    return {
+      message:
+        '2FA enabled successfully. Store these one-time backup codes — they will not be shown again.',
+      backupCodes,
+    };
+  }
+
+  @Post('2fa/backup-codes/regenerate')
+  @UseGuards(JwtAuthGuard, FreshPasswordGuard)
+  @ApiBearerAuth()
+  @ApiCreatedResponse({ type: RegenerateBackupCodesResponse })
+  @ApiBadRequestResponse({ description: '2FA not enabled' })
+  @ApiUnauthorizedResponse({ description: 'Authentication required' })
+  @ApiForbiddenResponse({ description: 'Password confirmation required' })
+  async regenerateBackupCodes(
+    @CurrentUser() user: AuthenticatedUser,
+  ): Promise<RegenerateBackupCodesResponse> {
+    const { backupCodes } = await this.regenerate2faBackupCodesUseCase.execute(
+      user.id,
+    );
+    return { backupCodes };
   }
 
   @Post('2fa/disable')

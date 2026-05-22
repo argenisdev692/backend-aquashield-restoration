@@ -16,9 +16,12 @@ export class AuthSessionMapper {
       userId: row.userId,
       refreshTokenHash: row.refreshToken,
       deviceInfo: row.deviceInfo as DeviceInfo | null,
+      userAgent: row.userAgent,
+      deviceLabel: row.deviceLabel,
       ipAddress: row.ipAddress,
       expiresAt: row.expiresAt,
       createdAt: row.createdAt,
+      lastActivityAt: row.lastActivityAt,
       revokedAt: row.revokedAt,
     });
   }
@@ -30,9 +33,12 @@ export class AuthSessionMapper {
       userId: session.userId,
       refreshToken: session.refreshToken.hash,
       deviceInfo: session.deviceInfo as Prisma.InputJsonValue | undefined,
+      userAgent: session.userAgent,
+      deviceLabel: session.deviceLabel,
       ipAddress: session.ipAddress,
       expiresAt: session.expiresAt,
       createdAt: session.createdAt,
+      lastActivityAt: session.lastActivityAt,
     };
   }
 }

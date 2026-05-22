@@ -7,6 +7,7 @@ export class User {
     public readonly email: Email,
     public readonly name: string,
     public readonly lastName: string | null,
+    public readonly phone: string | null,
     private _password: string | null,
     private _emailVerifiedAt: Date | null,
     private _passwordConfirmedAt: Date | null,
@@ -20,12 +21,14 @@ export class User {
     email: Email;
     name: string;
     lastName: string | null;
+    phone: string | null;
   }): User {
     return new User(
       params.id,
       params.email,
       params.name,
       params.lastName,
+      params.phone,
       null,
       null,
       null,
@@ -40,6 +43,7 @@ export class User {
     email: Email;
     name: string;
     lastName: string | null;
+    phone: string | null;
     password: string | null;
     emailVerifiedAt: Date | null;
     passwordConfirmedAt: Date | null;
@@ -52,6 +56,7 @@ export class User {
       params.email,
       params.name,
       params.lastName,
+      params.phone,
       params.password,
       params.emailVerifiedAt,
       params.passwordConfirmedAt,

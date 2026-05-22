@@ -10,6 +10,7 @@ export class UserMapper {
       email: Email.reconstitute(row.email),
       name: row.name,
       lastName: row.lastName,
+      phone: row.phone,
       password: row.password,
       emailVerifiedAt: row.emailVerifiedAt,
       passwordConfirmedAt: row.passwordConfirmedAt,
@@ -24,6 +25,7 @@ export class UserMapper {
     name: string;
     lastName: string | null;
     email: string;
+    phone: string | null;
     password: string | null;
   } {
     return {
@@ -31,6 +33,7 @@ export class UserMapper {
       name: user.name,
       lastName: user.lastName,
       email: user.email.value,
+      phone: user.phone,
       password: user.password,
     };
   }

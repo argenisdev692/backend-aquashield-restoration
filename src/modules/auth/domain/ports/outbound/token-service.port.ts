@@ -15,10 +15,16 @@ export interface ITokenServicePort {
     userId: string;
     email: string;
     roleIds: string[];
+    /** Lowercased role names. Drives the per-role TTL split (admin ≠ user). */
+    roleNames: string[];
   }): Promise<SignedAccessToken>;
 
-  /** Refresh-token lifetime in milliseconds (drives session `expiresAt`). */
-  refreshTtlMs(): number;
+  /**
+   * Refresh-token lifetime in milliseconds (drives session `expiresAt`).
+   * The roleNames argument lets the adapter shorten the window for
+   * privileged accounts (admin / superadmin).
+   */
+  refreshTtlMs(roleNames: string[]): number;
 
   /** Signs a short-lived (15 min) token scoped only to the password-change flow. */
   signPasswordChangeToken(userId: string): Promise<string>;

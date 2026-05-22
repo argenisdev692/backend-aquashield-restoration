@@ -22,6 +22,11 @@ const cache = {
 const makeAudit = () => ({ log: jest.fn().mockResolvedValue(undefined) });
 type Audit = ReturnType<typeof makeAudit>;
 
+const makeTx = () => ({
+  runInTx: jest.fn(async <T>(fn: () => Promise<T>): Promise<T> => fn()),
+});
+type Tx = ReturnType<typeof makeTx>;
+
 const baseEntity: BlogCategory = {
   id: '018f0000-0000-7000-8000-000000000001',
   name: 'News',
@@ -37,10 +42,15 @@ const makeRepo = (overrides: Record<string, jest.Mock> = {}) => ({
   findAll: jest.fn().mockResolvedValue([baseEntity]),
   findById: jest.fn().mockResolvedValue(baseEntity),
   findByIdWithDeleted: jest.fn().mockResolvedValue(baseEntity),
+  // `null` = no duplicate, so create/update don't trip the ConflictException
+  // guard (`if (await repo.findByName(...))`).
+  findByName: jest.fn().mockResolvedValue(null),
   create: jest.fn().mockResolvedValue(baseEntity),
   update: jest.fn().mockResolvedValue(baseEntity),
   softDelete: jest.fn().mockResolvedValue(undefined),
   restore: jest.fn().mockResolvedValue(baseEntity),
+  bulkDelete: jest.fn().mockResolvedValue({ count: 0 }),
+  bulkRestore: jest.fn().mockResolvedValue({ count: 0 }),
   ...overrides,
 });
 
@@ -65,6 +75,7 @@ const makeService = (
   repo: Repo,
   storage: Storage = makeStorage(),
   audit: Audit = makeAudit(),
+  tx: Tx = makeTx(),
 ): BlogCategoryService =>
   new BlogCategoryService(
     repo as never,
@@ -73,6 +84,7 @@ const makeService = (
     logger as never,
     cls as never,
     audit,
+    tx as never,
   );
 
 describe('BlogCategoryService', () => {
@@ -109,6 +121,7 @@ describe('BlogCategoryService', () => {
         resourceType: 'BLOG_CATEGORY',
         resourceId: baseEntity.id,
       }),
+      { strict: true },
     );
     expect(cache.delByPattern).toHaveBeenCalledWith('http:*:/blog-categories*');
   });
@@ -129,6 +142,7 @@ describe('BlogCategoryService', () => {
         resourceType: 'BLOG_CATEGORY',
         resourceId: baseEntity.id,
       }),
+      { strict: true },
     );
     expect(cache.delByPattern).toHaveBeenCalledWith('http:*:/blog-categories*');
   });
@@ -145,6 +159,7 @@ describe('BlogCategoryService', () => {
         resourceType: 'BLOG_CATEGORY',
         resourceId: baseEntity.id,
       }),
+      { strict: true },
     );
     expect(cache.delByPattern).toHaveBeenCalledWith('http:*:/blog-categories*');
   });
@@ -162,6 +177,7 @@ describe('BlogCategoryService', () => {
         resourceType: 'BLOG_CATEGORY',
         resourceId: baseEntity.id,
       }),
+      { strict: true },
     );
     expect(cache.delByPattern).toHaveBeenCalledWith('http:*:/blog-categories*');
   });

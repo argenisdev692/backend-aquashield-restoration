@@ -33,12 +33,14 @@ import { CheckAbilities } from '../../../../../core/decorators/check-abilities.d
 import { CurrentUser } from '../../../../../core/decorators/current-user.decorator';
 import { Action } from '../../../../../core/access/actions.enum';
 import type { AuthenticatedUser } from '../../../../../core/access/actions.enum';
-import { CreateContactSupportCommand } from '../../../application/commands/impl/create-contact-support.command';
-import { MarkContactSupportReadCommand } from '../../../application/commands/impl/mark-contact-support-read.command';
-import { DeleteContactSupportCommand } from '../../../application/commands/impl/delete-contact-support.command';
-import { RestoreContactSupportCommand } from '../../../application/commands/impl/restore-contact-support.command';
-import { GetContactSupportByIdQuery } from '../../../application/queries/impl/get-contact-support-by-id.query';
-import { ListContactSupportQuery } from '../../../application/queries/impl/list-contact-support.query';
+import { CreateContactSupportCommand } from '../../../application/commands/create-contact-support.command';
+import { MarkContactSupportReadCommand } from '../../../application/commands/mark-contact-support-read.command';
+import { DeleteContactSupportCommand } from '../../../application/commands/delete-contact-support.command';
+import { RestoreContactSupportCommand } from '../../../application/commands/restore-contact-support.command';
+import { BulkDeleteContactSupportCommand } from '../../../application/commands/bulk-delete-contact-support.command';
+import { BulkRestoreContactSupportCommand } from '../../../application/commands/bulk-restore-contact-support.command';
+import { GetContactSupportByIdQuery } from '../../../application/queries/get-contact-support-by-id.query';
+import { ListContactSupportQuery } from '../../../application/queries/list-contact-support.query';
 import {
   CreateContactSupportDto,
   CreateContactSupportSchema,
@@ -47,6 +49,10 @@ import {
   ListContactSupportDto,
   ListContactSupportSchema,
 } from '../../../application/dtos/list-contact-support.dto';
+import {
+  BulkIdsDto,
+  BulkIdsSchema,
+} from '../../../application/dtos/bulk-ids.dto';
 import {
   ContactSupportResponse,
   ContactSupportListResponse,
@@ -102,14 +108,39 @@ export class ContactSupportController {
   @ApiQuery({ name: 'page', required: false, type: Number })
   @ApiQuery({ name: 'limit', required: false, type: Number })
   @ApiQuery({ name: 'readed', required: false, enum: ['true', 'false'] })
+  @ApiQuery({
+    name: 'withTrashed',
+    required: false,
+    type: Boolean,
+    description: 'Include soft-deleted requests (Laravel `withTrashed()`).',
+  })
+  @ApiQuery({
+    name: 'onlyTrashed',
+    required: false,
+    type: Boolean,
+    description:
+      'Return ONLY soft-deleted requests. Cannot be combined with `withTrashed`.',
+  })
   list(
     @Query(new ZodValidationPipe(ListContactSupportSchema))
     query: ListContactSupportDto,
   ): Promise<PaginatedContactSupport> {
+    const trashed: 'exclude' | 'include' | 'only' = query.onlyTrashed
+      ? 'only'
+      : query.withTrashed
+        ? 'include'
+        : 'exclude';
     return this.queryBus.execute<
       ListContactSupportQuery,
       PaginatedContactSupport
-    >(new ListContactSupportQuery(query.page, query.limit, query.readed));
+    >(
+      new ListContactSupportQuery(
+        query.page,
+        query.limit,
+        query.readed,
+        trashed,
+      ),
+    );
   }
 
   @Get(':id')
@@ -120,13 +151,22 @@ export class ContactSupportController {
   @ApiOkResponse({ type: ContactSupportResponse })
   @ApiNotFoundResponse()
   @ApiParam({ name: 'id', type: String, format: 'uuid' })
+  @ApiQuery({
+    name: 'withTrashed',
+    required: false,
+    type: Boolean,
+    description:
+      'When `true`, return the request even if it has been soft-deleted.',
+  })
   findOne(
     @Param('id', ParseUUIDPipe) id: string,
+    @Query('withTrashed') withTrashedRaw?: string,
   ): Promise<ContactSupportReadModel> {
+    const withTrashed = withTrashedRaw === 'true';
     return this.queryBus.execute<
       GetContactSupportByIdQuery,
       ContactSupportReadModel
-    >(new GetContactSupportByIdQuery(id));
+    >(new GetContactSupportByIdQuery(id, withTrashed));
   }
 
   @Patch(':id/read')
@@ -161,6 +201,40 @@ export class ContactSupportController {
       new RestoreContactSupportCommand(id, user.id),
     );
     return { success: true };
+  }
+
+  @Post('bulk-delete')
+  @UseGuards(JwtAuthGuard, CaslGuard)
+  @ApiBearerAuth()
+  @HttpCode(200)
+  @CheckAbilities({ action: Action.Delete, subject: 'CONTACT' })
+  @ApiOkResponse({ schema: { example: { count: 3 } } })
+  @ApiBadRequestResponse({ description: 'Validation failed' })
+  async bulkDelete(
+    @Body(new ZodValidationPipe(BulkIdsSchema)) dto: BulkIdsDto,
+    @CurrentUser() user: AuthenticatedUser,
+  ): Promise<{ count: number }> {
+    return this.commandBus.execute<
+      BulkDeleteContactSupportCommand,
+      { count: number }
+    >(new BulkDeleteContactSupportCommand(dto.ids, user.id));
+  }
+
+  @Post('bulk-restore')
+  @UseGuards(JwtAuthGuard, CaslGuard)
+  @ApiBearerAuth()
+  @HttpCode(200)
+  @CheckAbilities({ action: Action.Restore, subject: 'CONTACT' })
+  @ApiOkResponse({ schema: { example: { count: 3 } } })
+  @ApiBadRequestResponse({ description: 'Validation failed' })
+  async bulkRestore(
+    @Body(new ZodValidationPipe(BulkIdsSchema)) dto: BulkIdsDto,
+    @CurrentUser() user: AuthenticatedUser,
+  ): Promise<{ count: number }> {
+    return this.commandBus.execute<
+      BulkRestoreContactSupportCommand,
+      { count: number }
+    >(new BulkRestoreContactSupportCommand(dto.ids, user.id));
   }
 
   @Delete(':id')

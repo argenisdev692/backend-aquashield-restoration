@@ -24,6 +24,9 @@ function build(opts: { active?: boolean; sessionFound?: boolean }) {
     findByUserId: jest.fn(),
     revokeAllForUser: jest.fn(),
     revokeById: jest.fn().mockResolvedValue(undefined),
+      revokeByIdForUser: jest.fn().mockResolvedValue(true),
+      touch: jest.fn(),
+      hasMatchingActiveSession: jest.fn().mockResolvedValue(true),
   };
   const userRepo = {
     findByEmail: jest.fn(),
@@ -53,6 +56,8 @@ function build(opts: { active?: boolean; sessionFound?: boolean }) {
     getPasswordConfirmedAt: jest.fn(),
     setGoogleId: jest.fn(),
     updateProfile: jest.fn(),
+    setLockedUntil: jest.fn(),
+    clearLockedUntil: jest.fn(),
   };
   const audit = { log: jest.fn().mockResolvedValue(undefined) };
   const tokenIssuer = {

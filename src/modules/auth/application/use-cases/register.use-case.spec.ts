@@ -34,6 +34,8 @@ function build(opts: { emailTaken?: boolean; breached?: boolean }) {
     getPasswordConfirmedAt: jest.fn(),
     setGoogleId: jest.fn(),
     updateProfile: jest.fn(),
+    setLockedUntil: jest.fn(),
+    clearLockedUntil: jest.fn(),
   };
   const historyRepo = {
     addEntry: jest.fn().mockResolvedValue(undefined),
@@ -53,6 +55,8 @@ function build(opts: { emailTaken?: boolean; breached?: boolean }) {
     sendOtp: jest.fn(),
     sendPasswordResetCode: jest.fn(),
     sendSecurityAlert: jest.fn(),
+    sendNewDeviceAlert: jest.fn().mockResolvedValue(undefined),
+    sendPasswordChangedNotification: jest.fn().mockResolvedValue(undefined),
   };
   const audit = { log: jest.fn().mockResolvedValue(undefined) };
   const config = { get: jest.fn().mockReturnValue('http://localhost:3000') };

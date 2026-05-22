@@ -49,6 +49,8 @@ function build(overrides: {
     getPasswordConfirmedAt: jest.fn(),
     setGoogleId: jest.fn(),
     updateProfile: jest.fn(),
+    setLockedUntil: jest.fn(),
+    clearLockedUntil: jest.fn(),
   };
   const otpRepo = {
     save: jest.fn().mockResolvedValue(undefined),
@@ -63,6 +65,8 @@ function build(overrides: {
     sendVerificationLink: jest.fn().mockResolvedValue(undefined),
     sendWelcomeEmail: jest.fn().mockResolvedValue(undefined),
     sendSecurityAlert: jest.fn().mockResolvedValue(undefined),
+    sendNewDeviceAlert: jest.fn().mockResolvedValue(undefined),
+    sendPasswordChangedNotification: jest.fn().mockResolvedValue(undefined),
   };
   const passwordHasher = {
     compare: jest.fn().mockResolvedValue(overrides.compare ?? true),
@@ -81,6 +85,22 @@ function build(overrides: {
     del: jest.fn().mockResolvedValue(undefined),
   };
   const eventEmitter = { emit: jest.fn() };
+  const trustedDeviceRepo = {
+    save: jest.fn(),
+    findValidForUser: jest.fn().mockResolvedValue(null),
+    touch: jest.fn(),
+    listForUser: jest.fn(),
+    deleteByIdForUser: jest.fn(),
+    deleteAllForUser: jest.fn(),
+    deleteExpired: jest.fn(),
+  };
+  const tokenIssuer = {
+    issue: jest.fn().mockResolvedValue({
+      accessToken: 'at',
+      refreshToken: 'rt',
+      expiresIn: 900,
+    }),
+  };
 
   const useCase = new LoginUseCase(
     userRepo,
@@ -90,6 +110,8 @@ function build(overrides: {
     tokenService,
     audit,
     cache as never,
+    trustedDeviceRepo,
+    tokenIssuer as never,
     eventEmitter as never,
     logger as never,
     cls as never,

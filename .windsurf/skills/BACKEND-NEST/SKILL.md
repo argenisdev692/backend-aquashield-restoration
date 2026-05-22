@@ -44,7 +44,7 @@ Every write operation is a **Command** dispatched via `CommandBus`. Every read o
 #### Command (payload class — plain TS, no NestJS deps)
 
 ```typescript
-// application/commands/impl/create-project.command.ts
+// application/commands/create-project.command.ts
 export class CreateProjectCommand {
   constructor(
     public readonly clientId: string,
@@ -99,7 +99,7 @@ export class CreateProjectHandler implements ICommandHandler<CreateProjectComman
 #### Query (payload class — plain TS)
 
 ```typescript
-// application/queries/impl/get-project-by-id.query.ts
+// application/queries/get-project-by-id.query.ts
 export class GetProjectByIdQuery {
   constructor(public readonly projectId: string) {}
 }
@@ -432,7 +432,7 @@ async execute(dto: CreateProjectDto, traceId: string): Promise<string>
 - Decorated with `@CommandHandler(XxxCommand)` and implements `ICommandHandler<XxxCommand>`.
 
 ```typescript
-// application/commands/impl/approve-project.command.ts
+// application/commands/approve-project.command.ts
 export class ApproveProjectCommand {
   constructor(
     public readonly projectId: string,
@@ -448,10 +448,10 @@ export class ApproveProjectHandler implements ICommandHandler<ApproveProjectComm
   constructor(
     @Inject(PROJECT_REPOSITORY) private readonly repo: IProjectRepository,
     @Inject(AUDIT_PORT) private readonly audit: IAuditPort,
+    @Inject(CACHE_PORT) private readonly cache: ICachePort,   // port, never CacheService directly
     private readonly logger: LoggerService,
     private readonly cls: ClsService,
     private readonly eventEmitter: EventEmitter2,
-    private readonly cacheManager: CacheManager,
   ) {}
 
   async execute(command: ApproveProjectCommand): Promise<void> {
@@ -461,23 +461,26 @@ export class ApproveProjectHandler implements ICommandHandler<ApproveProjectComm
     const project = await this.repo.findById(command.projectId);
     if (!project) throw new ProjectNotFoundException(command.projectId);
 
-    project.approve();
-    await this.repo.save(project);
+    project.approve();                                          // step 2 — domain mutation
+    await this.repo.save(project);                              // step 3 — DB write
 
-    await this.audit.log({
+    await this.audit.log({                                      // step 4
       action: 'projects.approved',
       actorId: command.actorId,
       resourceId: command.projectId,
       traceId,
     });
 
-    await this.cacheManager.del(`projects-service:project:${command.projectId}`);
-    this.eventEmitter.emit('project.approved', new ProjectApprovedEvent(command.projectId));
+    await this.cache.del(`projects-service:project:${command.projectId}`); // step 5
+    this.eventEmitter.emit('project.approved',                              // step 6
+      new ProjectApprovedEvent(command.projectId));
 
     this.logger.info('ApproveProjectHandler end', { traceId });
   }
 }
 ```
+
+> This is the **canonical CommandHandler example for the whole repo**. The 6-step Canonical Mutation Pattern (load → mutate → save → audit → cache → emit) is detailed in `.windsurf/skills/ARCHITECTURE-NEST/SKILL.md § Canonical Mutation Pattern`. Bulk variant: see § "Bulk Delete / Bulk Restore (Hex/DDD)" in the same file.
 
 ### Query Handlers (read logic)
 
@@ -487,7 +490,7 @@ export class ApproveProjectHandler implements ICommandHandler<ApproveProjectComm
 - Decorated with `@QueryHandler(XxxQuery)` and implements `IQueryHandler<XxxQuery>`.
 
 ```typescript
-// application/queries/impl/get-projects-list.query.ts
+// application/queries/get-projects-list.query.ts
 export class GetProjectsListQuery {
   constructor(public readonly filters: ProjectFilters) {}
 }
@@ -638,6 +641,278 @@ export class ApproveProjectUseCase {
 ```
 
 Use `prisma.$transaction()` directly only when you need the interactive callback form (e.g. branching on intermediate results inside `infrastructure/persistence/`). Never mix both styles in the same Use Case.
+
+---
+
+## §3.5 — Prisma Query Discipline (N+1 & 2026 Best Practices)
+
+> **Authority**: Mandatory baseline for every file that imports `PrismaService` (CRUD `*.repository.ts` and Hex/DDD `infrastructure/persistence/repositories/*.repository.ts`).
+> **Goal**: Eloquent-style ergonomics with N+1-free reads, mobile-first payloads, and explicit cost — no implicit lazy loading, no unbounded result sets.
+> **Why this section exists**: Prisma's default `findMany`/`findUnique` returns *all scalar columns*. Calling them inside a `for`/`Promise.all` loop over parent ids produces the classic N+1 the SQL world has been fighting since ActiveRecord — and TypeScript will not warn you. The rules below codify the eager/select/batch discipline that prevents it.
+
+### Rule 1 — No Prisma calls inside loops over ids (the N+1 cliff)
+
+A `for` / `for…of` / `Promise.all(ids.map(...))` body that issues a Prisma call **once per id** is forbidden. Use a set-based operator (`findMany({ where: { id: { in: ids } } })`, `updateMany`, `deleteMany`) and map in memory.
+
+```typescript
+// ❌ FORBIDDEN — N round-trips
+const users = await Promise.all(
+  ids.map((id) => this.prisma.user.findUnique({ where: { id } })),
+);
+
+// ✅ ONE round-trip
+const rows = await this.prisma.user.findMany({ where: { id: { in: ids } } });
+const usersById = new Map(rows.map((r) => [r.id, r]));
+```
+
+The same rule applies to writes:
+
+```typescript
+// ❌ FORBIDDEN — N statements, N TX boundaries
+await Promise.all(ids.map((id) => this.prisma.widget.update({ where: { id }, data })));
+
+// ✅ ONE statement, ONE TX
+await this.prisma.widget.updateMany({ where: { id: { in: ids } }, data });
+```
+
+> Bulk delete / bulk restore endpoints (`POST /{module}/bulk-delete` and `bulk-restore`) are the canonical application of this rule — see `.windsurf/skills/ARCHITECTURE-NEST-CRUD/SKILL.md` § "Bulk Delete / Bulk Restore" and the matching Hex/DDD section. **One** `updateMany` / `deleteMany` per call — never a loop.
+
+### Rule 2 — Eager-load relations with `include` / `select` (no implicit lazy loading)
+
+Prisma has no lazy-loaded relations: a relation is `undefined` unless you ask for it. The N+1 trap is when code *asks for it later* in a loop. Decide eagerly at the query site.
+
+```typescript
+// ❌ N+1 — relation loaded per row in a follow-up loop
+const posts = await this.prisma.post.findMany();
+for (const post of posts) {
+  post.author = await this.prisma.user.findUnique({ where: { id: post.authorId } });
+}
+
+// ✅ Eager load — ONE round-trip, joined by Prisma
+const posts = await this.prisma.post.findMany({
+  include: { author: true },
+});
+
+// ✅ Even better — only the columns the response actually needs
+const posts = await this.prisma.post.findMany({
+  select: {
+    id: true,
+    title: true,
+    author: { select: { id: true, name: true } },
+  },
+});
+```
+
+### Rule 3 — `select` / `omit` are mandatory on list endpoints and joins
+
+`select` returns only the columns you name. `omit` (Prisma 5.16+) returns every column **except** the ones listed — use it to drop `password`, `totpSecret`, `*Token`, large `Json`, or blob columns on list reads without restating every field.
+
+```typescript
+// ✅ Mobile-first list — small payload, no PII leak
+async listUsers(): Promise<UserListRow[]> {
+  return this.prisma.user.findMany({
+    where: { deletedAt: null },
+    omit:  { password: true, totpSecret: true },
+    orderBy: { createdAt: 'desc' },
+    take: 50,
+  });
+}
+
+// ❌ FORBIDDEN — returns password hash + totp secret to the wire
+return this.prisma.user.findMany();
+```
+
+> **Rule**: any `findMany` for an HTTP response must have **either** `select` **or** `omit` — never neither. Mappers downstream must not be the first line of defense against sensitive fields leaking.
+
+### Rule 4 — Always bound `findMany` with `take` (and pagination)
+
+An unbounded `findMany` is an OWASP API #4 (unrestricted resource consumption) waiting to happen. List endpoints use `take` + `skip` for offset pagination, or `cursor` + `take` for keyset pagination on large/streaming sets.
+
+```typescript
+// ✅ Offset pagination (admin UI tables ≤ 10k rows)
+const rows = await this.prisma.appointment.findMany({
+  where: { deletedAt: null },
+  orderBy: { createdAt: 'desc' },
+  skip: (page - 1) * limit,
+  take: Math.min(limit, 100),    // hard cap, never trust client
+});
+
+// ✅ Keyset / cursor pagination (infinite scroll, exports, big tables)
+const rows = await this.prisma.activityLog.findMany({
+  where: { deletedAt: null },
+  orderBy: { id: 'desc' },        // monotonic field
+  cursor: lastSeenId ? { id: lastSeenId } : undefined,
+  skip:   lastSeenId ? 1 : 0,
+  take:   100,
+});
+```
+
+> Export endpoints (`GET /{module}/export`) are the **only** exception: they stream over a cursor with `take: 1000` page size — they never `findMany()` the whole table into memory.
+
+### Rule 5 — Counts: `count` for totals, never `(await findMany()).length`
+
+```typescript
+// ✅ One SELECT COUNT(*)
+const total = await this.prisma.user.count({ where: { deletedAt: null } });
+
+// ❌ Loads every row into Node memory just to read .length
+const total = (await this.prisma.user.findMany({ where: { deletedAt: null } })).length;
+```
+
+For combined list + total, fire both in one batch with `$transaction([list, count])` so they share a connection round-trip:
+
+```typescript
+const [items, total] = await this.prisma.$transaction([
+  this.prisma.user.findMany({ where, skip, take, orderBy }),
+  this.prisma.user.count({ where }),
+]);
+```
+
+### Rule 6 — Parallelize independent reads with `Promise.all` / `$transaction([...])`
+
+Independent reads (no data dependency between them) must be parallel, not sequential. Same call site, same connection pool, half the wall-clock latency.
+
+```typescript
+// ✅ Both queries in flight at once
+const [user, roles] = await Promise.all([
+  this.prisma.user.findUnique({ where: { id } }),
+  this.prisma.userRole.findMany({ where: { userId: id }, include: { role: true } }),
+]);
+
+// ❌ Sequential — second query waits for the first
+const user = await this.prisma.user.findUnique({ where: { id } });
+const roles = await this.prisma.userRole.findMany({ where: { userId: id } });
+```
+
+> Use `Promise.all` for independent reads. Use `prisma.$transaction([...])` when you also need them to share a snapshot or atomic boundary.
+
+### Rule 7 — `relationLoadStrategy: 'join'` (Prisma 5.7+) for hot joined reads
+
+Prisma defaults to `relationLoadStrategy: 'query'` — separate queries per relation, joined in JS. For hot read paths with 1–2 relations on PostgreSQL, switch to `'join'` (single SQL `LEFT JOIN LATERAL`):
+
+```typescript
+const posts = await this.prisma.post.findMany({
+  relationLoadStrategy: 'join',     // one SQL round-trip, joined in DB
+  include: { author: { select: { id: true, name: true } } },
+  take: 50,
+});
+```
+
+Use `'join'` for **read** paths with ≤2 included relations and bounded `take`. Stick to default `'query'` for deep nested includes (Prisma's lateral-join plan can balloon) — measure with `EXPLAIN ANALYZE` before flipping.
+
+### Rule 8 — No `findFirst` on indexed unique fields
+
+If the column has a unique constraint, use `findUnique`. It's cacheable in the Prisma query engine and signals intent. Reserve `findFirst` for non-unique filters (`deletedAt: null` + a non-unique predicate).
+
+```typescript
+// ✅
+await this.prisma.user.findUnique({ where: { email } });
+
+// ❌ — works but defeats the unique-index plan + Prisma engine caching
+await this.prisma.user.findFirst({ where: { email } });
+```
+
+> Soft-delete exception: `findUnique` ignores `deletedAt` filters by design. Use `findFirst({ where: { id, deletedAt: null } })` for "fetch only if not tombstoned" — this is the **one** place `findFirst` beats `findUnique`.
+
+### Rule 9 — `Prisma.sql` tagged templates only — never string concatenation
+
+Raw SQL is allowed for reporting/exports where Prisma's query API is too rigid, but only via the `Prisma.sql` tag (or TypedSQL in Prisma 5.19+). String concatenation into `$queryRawUnsafe` is forbidden — OWASP A03 (Injection).
+
+```typescript
+// ✅ Parameterized — driver-level escaping
+import { Prisma } from '../../generated/prisma/client';
+const rows = await this.prisma.$queryRaw<{ id: string; cnt: bigint }[]>(
+  Prisma.sql`SELECT id, COUNT(*) AS cnt FROM events WHERE tenant_id = ${tenantId} GROUP BY id`,
+);
+
+// ❌ FORBIDDEN — SQL injection surface
+await this.prisma.$queryRawUnsafe(`SELECT * FROM users WHERE email = '${email}'`);
+```
+
+### Rule 10 — Soft delete: filter `deletedAt: null` at the query site, never in JS
+
+Filtering tombstoned rows in JS (`rows.filter(r => !r.deletedAt)`) still pays the DB cost of reading them. Push the predicate into the `where`:
+
+```typescript
+// ✅ Push the predicate to PostgreSQL — uses the partial index on (deleted_at)
+await this.prisma.blogCategory.findMany({ where: { deletedAt: null } });
+
+// ❌ Reads soft-deleted rows over the wire, then drops them
+const all = await this.prisma.blogCategory.findMany();
+return all.filter((r) => r.deletedAt === null);
+```
+
+> Partial indexes on `(deleted_at) WHERE deleted_at IS NULL` live in `prisma/bootstrap.sql` — the rule above is what makes them payoff.
+
+### Rule 11 — No client-side aggregations of large sets
+
+Prisma exposes `groupBy`, `aggregate`, `count`. Use them. Pulling rows into Node to `reduce()` a sum is N×latency and N×memory.
+
+```typescript
+// ✅ Aggregation runs in PostgreSQL
+const stats = await this.prisma.appointment.groupBy({
+  by: ['statusLead'],
+  where: { deletedAt: null },
+  _count: { _all: true },
+});
+
+// ❌ Same result via 10k row download + reduce()
+const rows = await this.prisma.appointment.findMany({ where: { deletedAt: null } });
+const stats = rows.reduce((acc, r) => { /* ... */ }, {});
+```
+
+### Rule 12 — `findMany` results must be mapped to entity/read-model — never returned raw
+
+The repository layer is the boundary between Prisma row types and the rest of the app. Raw `PrismaClient` row types must not leak into the Service / UseCase / Controller. See PATTERNS.md and the existing `BlogCategoryRepository.mapToEntity()` for the canonical shape.
+
+```typescript
+// ✅
+const rows = await this.prisma.widget.findMany({ where, select });
+return rows.map((r) => this.mapToEntity(r));
+
+// ❌ — leaks Prisma types upward, blocks future schema changes
+return this.prisma.widget.findMany({ where });   // return type is Widget[] from @prisma/client
+```
+
+### Quick reference
+
+| Situation | Rule |
+|---|---|
+| Iterating ids to query Prisma | Rule 1 — use `{ in: ids }` |
+| Need a relation in a response | Rule 2 — `include` / `select` it eagerly |
+| Listing rows for an HTTP response | Rule 3 + 4 — `select`/`omit` + `take` |
+| Need total count alongside list | Rule 5 — `$transaction([list, count])` |
+| Two unrelated reads in same handler | Rule 6 — `Promise.all` |
+| Hot path with 1–2 joins on Postgres | Rule 7 — `relationLoadStrategy: 'join'` |
+| Looking up by unique field | Rule 8 — `findUnique` |
+| Raw SQL for reports | Rule 9 — `Prisma.sql` only |
+| Module with `deletedAt` | Rule 10 — filter in `where`, not JS |
+| Sum / group / count over rows | Rule 11 — `aggregate` / `groupBy` |
+| Repository returning data | Rule 12 — map to entity |
+
+### Rules (NEVER break)
+
+```
+✅ Use { id: { in: ids } } / updateMany / deleteMany — never a Prisma call inside a loop over ids
+✅ Eager-load relations with include/select at the query site — Prisma has no lazy loading
+✅ Every HTTP-bound findMany has select OR omit declared — never raw column dump
+✅ Every findMany has a take limit (≤100 for lists, ≤1000 for export cursors)
+✅ Totals via .count() — never (await findMany()).length
+✅ Independent reads run in parallel — Promise.all or $transaction([...])
+✅ findUnique on unique-indexed columns; findFirst only for soft-delete + non-unique
+✅ $queryRaw via Prisma.sql tagged template — never $queryRawUnsafe with concatenation
+✅ Soft-delete filter (deletedAt: null) lives in where — never in JS .filter()
+✅ Aggregations via groupBy / aggregate — never reduce() over downloaded rows
+✅ Repository maps Prisma rows → entity; never returns Prisma row types to Service
+
+❌ Promise.all(ids.map(id => prisma.x.findUnique({ where: { id } }))) — classic N+1
+❌ findMany() with no select/omit on an HTTP read path — leaks password/token/PII columns
+❌ findMany() with no take — unbounded payload, OWASP API #4
+❌ Calling .count() and findMany() sequentially when both share the same where
+❌ findFirst() on a column with a unique index (except the soft-delete pattern)
+❌ Building SQL strings with template literals into $queryRawUnsafe
+❌ Returning raw PrismaClient row types from the repository
+```
 
 ---
 
@@ -875,11 +1150,11 @@ GET /projects/export?format=xlsx
 | Event Listener       | `*.listener.ts`                         | `project-created.listener.ts`               |
 | Repository interface | `I` prefix + `.repository.interface.ts` | `project.repository.interface.ts`           |
 | Repository impl      | `prisma-*.repository.ts`                | `prisma-project.repository.ts`              |
-| Command (payload)    | `{verb}-{module}.command.ts`            | `commands/impl/create-project.command.ts`   |
+| Command (payload)    | `{verb}-{module}.command.ts`            | `commands/create-project.command.ts`        |
 | Command Handler      | `{verb}-{module}.handler.ts`            | `commands/handlers/create-project.handler.ts` |
-| Query (payload)      | `get-{module}-{qualifier}.query.ts`     | `queries/impl/get-project-by-id.query.ts`   |
+| Query (payload)      | `get-{module}-{qualifier}.query.ts`     | `queries/get-project-by-id.query.ts`        |
 | Query Handler        | `get-{module}-{qualifier}.handler.ts`   | `queries/handlers/get-project-by-id.handler.ts` |
-| Export Command       | `export-{module}.command.ts`            | `commands/impl/export-projects.command.ts`  |
+| Export Command       | `export-{module}.command.ts`            | `commands/export-projects.command.ts`       |
 | Read Model           | `*.read-model.ts`                       | `project.read-model.ts`                     |
 | Input DTO            | `*.dto.ts`                              | `create-project.dto.ts`                     |
 | Presenter            | `*.response.ts`                         | `project.response.ts`                       |

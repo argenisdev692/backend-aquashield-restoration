@@ -31,11 +31,6 @@ export class CompanyDataRepository {
     };
   }
 
-  async existsAny(): Promise<boolean> {
-    const count = await this.prisma.companyData.count();
-    return count > 0;
-  }
-
   async findByUserId(userId: string): Promise<CompanyData | null> {
     const row = await this.prisma.companyData.findUnique({
       where: { userId },
@@ -50,26 +45,11 @@ export class CompanyDataRepository {
     return row ? this.mapToEntity(row) : null;
   }
 
-  async create(data: {
-    companyName: string;
-    userId: string;
-    name?: string | null;
-    email?: string | null;
-    phone?: string | null;
-    address?: string | null;
-    address2?: string | null;
-    website?: string | null;
-    facebookLink?: string | null;
-    instagramLink?: string | null;
-    linkedinLink?: string | null;
-    twitterLink?: string | null;
-    latitude?: number | null;
-    longitude?: number | null;
-  }): Promise<CompanyData> {
-    const row = await this.prisma.companyData.create({
-      data,
+  async findFirst(): Promise<CompanyData | null> {
+    const row = await this.prisma.companyData.findFirst({
+      where: { deletedAt: null },
     });
-    return this.mapToEntity(row);
+    return row ? this.mapToEntity(row) : null;
   }
 
   async update(
@@ -96,11 +76,5 @@ export class CompanyDataRepository {
       data,
     });
     return this.mapToEntity(row);
-  }
-
-  async delete(id: string): Promise<void> {
-    await this.prisma.companyData.delete({
-      where: { id },
-    });
   }
 }

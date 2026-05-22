@@ -4,6 +4,22 @@ import { Resend } from 'resend';
 import { LoggerService } from '../../../../logger/logger.service';
 import type { IEmailPort } from '../../domain/ports/outbound/email.port';
 
+/** `true` when the address is on the example.com domain — never e-mailed. */
+function isExampleDomain(email: string): boolean {
+  const domain = email.toLowerCase().split('@').at(1) ?? '';
+  return domain === 'example.com' || domain.endsWith('.example.com');
+}
+
+/** Minimal HTML escape for user-controlled fields rendered in email bodies. */
+function escapeHtml(value: string): string {
+  return value
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;');
+}
+
 @Injectable()
 export class ResendEmailAdapter implements IEmailPort, OnModuleInit {
   private resend!: Resend;
@@ -27,6 +43,10 @@ export class ResendEmailAdapter implements IEmailPort, OnModuleInit {
     code: string;
     type: 'login' | 'email_verify' | 'password_reset';
   }): Promise<void> {
+    if (isExampleDomain(params.to)) {
+      this.logger.info('Skipping OTP email (example.com address)', { to: params.to });
+      return;
+    }
     const subject = this.otpSubject(params.type);
     const html = this.otpHtml(params.code, params.type, 5);
     await this.send(params.to, subject, html);
@@ -38,6 +58,10 @@ export class ResendEmailAdapter implements IEmailPort, OnModuleInit {
     name: string;
     ttlMinutes: number;
   }): Promise<void> {
+    if (isExampleDomain(params.to)) {
+      this.logger.info('Skipping password reset email (example.com address)', { to: params.to });
+      return;
+    }
     const subject = 'Your password reset code';
     const html = `
       <div style="font-family: Arial, sans-serif; max-width: 480px; margin: 0 auto;">
@@ -62,6 +86,10 @@ export class ResendEmailAdapter implements IEmailPort, OnModuleInit {
     to: string;
     resetLink: string;
   }): Promise<void> {
+    if (isExampleDomain(params.to)) {
+      this.logger.info('Skipping password reset link email (example.com address)', { to: params.to });
+      return;
+    }
     const subject = 'Reset your password';
     const html = `
       <div style="font-family: Arial, sans-serif; max-width: 480px; margin: 0 auto;">
@@ -85,6 +113,10 @@ export class ResendEmailAdapter implements IEmailPort, OnModuleInit {
     verificationLink: string;
     name: string;
   }): Promise<void> {
+    if (isExampleDomain(params.to)) {
+      this.logger.info('Skipping verification link email (example.com address)', { to: params.to });
+      return;
+    }
     const subject = 'Verify your email address';
     const html = `
       <div style="font-family: Arial, sans-serif; max-width: 480px; margin: 0 auto;">
@@ -104,6 +136,10 @@ export class ResendEmailAdapter implements IEmailPort, OnModuleInit {
   }
 
   async sendWelcomeEmail(params: { to: string; name: string }): Promise<void> {
+    if (isExampleDomain(params.to)) {
+      this.logger.info('Skipping welcome email (example.com address)', { to: params.to });
+      return;
+    }
     const subject = 'Welcome!';
     const html = `
       <div style="font-family: Arial, sans-serif; max-width: 480px; margin: 0 auto;">
@@ -119,6 +155,10 @@ export class ResendEmailAdapter implements IEmailPort, OnModuleInit {
     event: 'login_attempts' | 'reset_attempts';
     attemptCount: number;
   }): Promise<void> {
+    if (isExampleDomain(params.to)) {
+      this.logger.info('Skipping security alert email (example.com address)', { to: params.to });
+      return;
+    }
     const subject =
       params.event === 'login_attempts'
         ? 'Suspicious login activity detected'
@@ -139,6 +179,67 @@ export class ResendEmailAdapter implements IEmailPort, OnModuleInit {
         <p><strong>Time:</strong> ${new Date().toUTCString()}</p>
         <p style="color: #666; font-size: 14px;">
           If this was you, no action is needed. Otherwise, secure your account immediately.
+        </p>
+      </div>
+    `;
+    await this.send(params.to, subject, html);
+  }
+
+  async sendNewDeviceAlert(params: {
+    to: string;
+    deviceLabel: string | null;
+    ipAddress: string | null;
+    userAgent: string | null;
+    at: Date;
+  }): Promise<void> {
+    if (isExampleDomain(params.to)) {
+      this.logger.info('Skipping new-device alert (example.com address)', { to: params.to });
+      return;
+    }
+    const subject = 'New device sign-in detected';
+    const html = `
+      <div style="font-family: Arial, sans-serif; max-width: 480px; margin: 0 auto;
+                  border: 2px solid #f59e0b; border-radius: 8px; padding: 24px;">
+        <h2 style="color: #b45309;">New device sign-in</h2>
+        <p>We noticed a sign-in to your account from a device we don't recognise.</p>
+        <ul style="line-height: 1.7;">
+          <li><strong>Device:</strong> ${escapeHtml(params.deviceLabel ?? 'Unknown')}</li>
+          <li><strong>IP address:</strong> ${escapeHtml(params.ipAddress ?? 'Unknown')}</li>
+          <li><strong>User-Agent:</strong> ${escapeHtml(params.userAgent ?? 'Unknown')}</li>
+          <li><strong>When:</strong> ${params.at.toUTCString()}</li>
+        </ul>
+        <p style="color:#666;font-size:14px;">
+          If this was you, no action is needed. Otherwise change your password
+          immediately and revoke this session from the active-devices screen.
+        </p>
+      </div>
+    `;
+    await this.send(params.to, subject, html);
+  }
+
+  async sendPasswordChangedNotification(params: {
+    to: string;
+    at: Date;
+    ipAddress: string | null;
+    deviceLabel: string | null;
+  }): Promise<void> {
+    if (isExampleDomain(params.to)) {
+      this.logger.info('Skipping password-changed notification (example.com address)', { to: params.to });
+      return;
+    }
+    const subject = 'Your password was changed';
+    const html = `
+      <div style="font-family: Arial, sans-serif; max-width: 480px; margin: 0 auto;">
+        <h2>Your password was changed</h2>
+        <p>This is a confirmation that your account password was just updated.</p>
+        <ul style="line-height: 1.7;">
+          <li><strong>When:</strong> ${params.at.toUTCString()}</li>
+          <li><strong>IP address:</strong> ${escapeHtml(params.ipAddress ?? 'Unknown')}</li>
+          <li><strong>Device:</strong> ${escapeHtml(params.deviceLabel ?? 'Unknown')}</li>
+        </ul>
+        <p>All previous sessions have been signed out.</p>
+        <p style="color:#dc2626;font-size:14px;">
+          <strong>Not you?</strong> Reset your password immediately and contact support.
         </p>
       </div>
     `;

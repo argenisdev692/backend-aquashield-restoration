@@ -44,5 +44,6 @@ model Appointment {
   @@index([statusLead], map: "idx_appointments_status_lead")
   @@index([deletedAt], map: "idx_appointments_deleted_at")
   @@index([readed], map: "idx_appointments_readed")
+  @@unique([email], name: "idx_appointments_email_unique", where: { deletedAt: null })
   @@map("appointments")
 }

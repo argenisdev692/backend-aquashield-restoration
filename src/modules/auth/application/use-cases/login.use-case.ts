@@ -16,9 +16,19 @@ import { PASSWORD_HASHER_PORT } from '../../domain/ports/outbound/password-hashe
 import type { ITokenServicePort } from '../../domain/ports/outbound/token-service.port';
 import { TOKEN_SERVICE_PORT } from '../../domain/ports/outbound/token-service.port';
 import { OtpCode } from '../../domain/value-objects/otp-code.vo';
-import { OtpRequestedEvent } from '../../domain/events/auth-events';
+import {
+  NewDeviceLoginEvent,
+  OtpRequestedEvent,
+  UserLoggedInEvent,
+} from '../../domain/events/auth-events';
+import { deviceLabelFromUserAgent } from '../../domain/entities/auth-session.aggregate';
 import type { IAuditPort } from '../../../../shared/activity-log/audit.port';
 import { AUDIT_PORT } from '../../../../shared/activity-log/audit.port';
+import type { ITrustedDeviceRepository } from '../../domain/repositories/trusted-device.repository.interface';
+import { TRUSTED_DEVICE_REPOSITORY } from '../../domain/repositories/trusted-device.repository.interface';
+import { TrustedDeviceToken } from '../../domain/value-objects/trusted-device-token.vo';
+import { CLS_KEYS } from '../../../../shared/cls/cls.constants';
+import { AuthTokenIssuer } from '../services/auth-token-issuer.service';
 import type { LoginInput } from '../dtos/login.dto';
 
 export interface LoginResult {
@@ -29,12 +39,22 @@ export interface LoginResult {
   accessToken?: string;
   refreshToken?: string;
   expiresIn?: number;
+  /** True when a trusted-device cookie shortcut the 2FA challenge. */
+  trustedDevice?: boolean;
+  /** Mirrors AuthTokenIssuer.mustEnroll2fa for admin/superadmin accounts. */
+  mustEnroll2fa?: boolean;
 }
 
 /** Maximum failed-password attempts before a security alert email is sent. */
 const FAILED_LOGIN_ALERT_THRESHOLD = 3;
+/** Failed attempts that trigger a temporary account lockout. */
+const FAILED_LOGIN_LOCKOUT_THRESHOLD = 10;
+/** How long an account stays locked after the threshold is hit (15 min). */
+const ACCOUNT_LOCKOUT_DURATION_MS = 15 * 60 * 1000;
 /** Window in seconds to track consecutive failed logins (15 minutes). */
 const FAILED_LOGIN_WINDOW_SECONDS = 15 * 60;
+/** Shared 401 message — never leak whether the account is locked vs. wrong password. */
+const INVALID_CREDENTIALS_MSG = 'Invalid credentials';
 
 @Injectable()
 export class LoginUseCase {
@@ -53,6 +73,9 @@ export class LoginUseCase {
     private readonly audit: IAuditPort,
     @Inject(CACHE_PORT)
     private readonly cache: ICachePort,
+    @Inject(TRUSTED_DEVICE_REPOSITORY)
+    private readonly trustedDeviceRepo: ITrustedDeviceRepository,
+    private readonly tokenIssuer: AuthTokenIssuer,
     private readonly eventEmitter: EventEmitter2,
     private readonly logger: LoggerService,
     private readonly cls: ClsService,
@@ -69,7 +92,19 @@ export class LoginUseCase {
 
     const user = await this.userRepo.findByEmail(dto.email);
     if (!user || !user.password) {
-      throw new UnauthorizedException('Invalid credentials');
+      throw new UnauthorizedException(INVALID_CREDENTIALS_MSG);
+    }
+
+    // Reject immediately when the account is in a lockout window. The 401
+    // (not 423 Locked) is intentional — exposing lock state would let an
+    // attacker enumerate which accounts they have already targeted.
+    if (user.lockedUntil && user.lockedUntil > new Date()) {
+      this.logger.warn('Login blocked — account locked', {
+        traceId,
+        userId: user.id,
+        lockedUntil: user.lockedUntil.toISOString(),
+      });
+      throw new UnauthorizedException(INVALID_CREDENTIALS_MSG);
     }
 
     const valid = await this.passwordHasher.compare(
@@ -78,11 +113,14 @@ export class LoginUseCase {
     );
     if (!valid) {
       await this.handleFailedLogin(user.id, dto.email, traceId);
-      throw new UnauthorizedException('Invalid credentials');
+      throw new UnauthorizedException(INVALID_CREDENTIALS_MSG);
     }
 
-    // Clear the failure counter on a successful credential check.
+    // Clear the failure counter + any expired lock on a successful check.
     await this.cache.del(this.failedLoginKey(dto.email));
+    if (user.lockedUntil) {
+      await this.userRepo.clearLockedUntil(user.id);
+    }
 
     // Check whether the password is expired or the user must change it.
     const passwordExpired =
@@ -110,6 +148,42 @@ export class LoginUseCase {
         requiresPasswordChange: true,
         passwordChangeToken,
       };
+    }
+
+    // Trusted-device shortcut: when the request carries a valid `td` cookie
+    // we issue tokens immediately and skip the OTP/TOTP step. The cookie was
+    // captured into CLS by the request middleware.
+    const rawTrustedToken = this.cls.get<string>(CLS_KEYS.TRUSTED_DEVICE_TOKEN);
+    if (rawTrustedToken) {
+      const trusted = await this.trustedDeviceRepo.findValidForUser(
+        user.id,
+        TrustedDeviceToken.hashOf(rawTrustedToken),
+      );
+      if (trusted) {
+        const tokens = await this.tokenIssuer.issue(user);
+        await this.trustedDeviceRepo.touch(trusted.id);
+        this.emitNewDeviceIfApplicable(user, tokens.isNewDevice);
+        this.eventEmitter.emit(
+          'auth.login',
+          new UserLoggedInEvent(user.id),
+        );
+        await this.audit.log({
+          action: 'auth.login',
+          resourceType: 'USER',
+          resourceId: user.id,
+          metadata: { method: 'trusted_device', trustedDeviceId: trusted.id },
+        });
+        this.logger.info('User logged in via trusted device', {
+          traceId,
+          userId: user.id,
+        });
+        return {
+          requiresOtp: false,
+          requiresTotp: false,
+          trustedDevice: true,
+          ...tokens,
+        };
+      }
     }
 
     const otp = OtpCode.generate(5);
@@ -190,9 +264,57 @@ export class LoginUseCase {
         metadata: { event: 'login_attempts', attemptCount: updated },
       });
     }
+
+    // Lockout: 10 failures within the 15-minute window → 15-minute lock.
+    // The failure counter is left in place so a flood of pre-lock attempts
+    // cannot reset the threshold by churning new IPs.
+    if (updated >= FAILED_LOGIN_LOCKOUT_THRESHOLD) {
+      const lockedUntil = new Date(Date.now() + ACCOUNT_LOCKOUT_DURATION_MS);
+      await this.userRepo.setLockedUntil(userId, lockedUntil);
+      await this.audit.log({
+        action: 'auth.account_locked',
+        resourceType: 'USER',
+        resourceId: userId,
+        metadata: {
+          attemptCount: updated,
+          lockedUntil: lockedUntil.toISOString(),
+          durationMinutes: ACCOUNT_LOCKOUT_DURATION_MS / 60_000,
+        },
+      });
+      this.logger.warn('Account locked due to failed login threshold', {
+        traceId,
+        userId,
+        attempt: updated,
+        lockedUntil: lockedUntil.toISOString(),
+      });
+    }
   }
 
   private failedLoginKey(email: string): string {
     return `auth:login-failures:${email}`;
+  }
+
+  /**
+   * Fire-and-forget: emits a NewDeviceLoginEvent when the issuer flagged
+   * the session as unrecognised. The listener sends the alert email; any
+   * failure must never block the login response.
+   */
+  private emitNewDeviceIfApplicable(
+    user: { id: string; email: string },
+    isNewDevice: boolean | undefined,
+  ): void {
+    if (!isNewDevice) return;
+    const ua = this.cls.get<string>('userAgent') ?? null;
+    const ip = this.cls.get<string>('ipAddress') ?? null;
+    this.eventEmitter.emit(
+      'auth.new_device_login',
+      new NewDeviceLoginEvent(
+        user.id,
+        user.email,
+        deviceLabelFromUserAgent(ua),
+        ip,
+        ua,
+      ),
+    );
   }
 }

@@ -1,6 +1,13 @@
+jest.mock('@nestjs-cls/transactional', () => ({
+  Transactional:
+    () => (_target: unknown, _key: string, descriptor: PropertyDescriptor) =>
+      descriptor,
+}));
+
 import { Test, TestingModule } from '@nestjs/testing';
 import { EventEmitter2 } from '@nestjs/event-emitter';
-import { MarkAppointmentReadUseCase } from '../../application/use-cases/mark-appointment-read.use-case';
+import { MarkAppointmentReadHandler } from '../../application/commands/handlers/mark-appointment-read.handler';
+import { MarkAppointmentReadCommand } from '../../application/commands/mark-appointment-read.command';
 import {
   IAppointmentRepository,
   APPOINTMENT_REPOSITORY,
@@ -9,14 +16,16 @@ import {
   IAuditPort,
   AUDIT_PORT,
 } from '../../domain/ports/outbound/audit.port.interface';
+import { CACHE_PORT, ICachePort } from '../../../../shared/cache/cache.port';
 import { Appointment } from '../../domain/entities/appointment.aggregate';
 import { LoggerService } from '../../../../logger/logger.service';
 import { ClsService } from 'nestjs-cls';
 
-describe('MarkAppointmentReadUseCase', () => {
-  let useCase: MarkAppointmentReadUseCase;
+describe('MarkAppointmentReadHandler', () => {
+  let handler: MarkAppointmentReadHandler;
   let mockRepo: jest.Mocked<IAppointmentRepository>;
   let mockAudit: jest.Mocked<IAuditPort>;
+  let mockCache: jest.Mocked<ICachePort>;
   let mockEventEmitter: jest.Mocked<EventEmitter2>;
 
   beforeEach(async () => {
@@ -46,22 +55,30 @@ describe('MarkAppointmentReadUseCase', () => {
     mockRepo = {
       findById: jest.fn().mockResolvedValue(appointment),
       findReadModelById: jest.fn(),
+      findIdByEmail: jest.fn(),
       findAll: jest.fn(),
       save: jest.fn(),
       delete: jest.fn(),
       restore: jest.fn(),
       markAsRead: jest.fn().mockResolvedValue(undefined),
+      bulkDelete: jest.fn(),
+      bulkRestore: jest.fn(),
     };
     mockAudit = { log: jest.fn() };
-    mockEventEmitter = {
-      emit: jest.fn(),
-    } as unknown as jest.Mocked<EventEmitter2>;
+    mockCache = {
+      get: jest.fn(),
+      set: jest.fn(),
+      del: jest.fn(),
+      delByPattern: jest.fn(),
+    };
+    mockEventEmitter = { emit: jest.fn() } as unknown as jest.Mocked<EventEmitter2>;
 
     const module: TestingModule = await Test.createTestingModule({
       providers: [
-        MarkAppointmentReadUseCase,
+        MarkAppointmentReadHandler,
         { provide: APPOINTMENT_REPOSITORY, useValue: mockRepo },
         { provide: AUDIT_PORT, useValue: mockAudit },
+        { provide: CACHE_PORT, useValue: mockCache },
         {
           provide: LoggerService,
           useValue: {
@@ -69,6 +86,7 @@ describe('MarkAppointmentReadUseCase', () => {
             warn: jest.fn(),
             error: jest.fn(),
             debug: jest.fn(),
+            setContext: jest.fn(),
           },
         },
         {
@@ -79,20 +97,24 @@ describe('MarkAppointmentReadUseCase', () => {
       ],
     }).compile();
 
-    useCase = module.get(MarkAppointmentReadUseCase);
+    handler = module.get(MarkAppointmentReadHandler);
   });
 
-  it('marks as read, audits and emits appointment.read', async () => {
-    await useCase.execute('appt-1', 'user-9');
+  it('marks as read, audits with appointments.read, invalidates cache, emits', async () => {
+    await handler.execute(new MarkAppointmentReadCommand('appt-1', 'user-9'));
 
     expect(mockRepo.findById).toHaveBeenCalledWith('appt-1');
     expect(mockRepo.markAsRead).toHaveBeenCalledWith('appt-1');
-    expect(mockAudit.log).toHaveBeenCalledWith({
-      action: 'appointments.read',
-      actorId: 'user-9',
-      resourceId: 'appt-1',
-      traceId: 'trace-123',
-    });
+    expect(mockAudit.log).toHaveBeenCalledWith(
+      {
+        action: 'appointments.read',
+        actorId: 'user-9',
+        resourceId: 'appt-1',
+        traceId: 'trace-123',
+      },
+      { strict: true },
+    );
+    expect(mockCache.delByPattern).toHaveBeenCalledWith('http:*:/appointments*');
     expect(mockEventEmitter.emit).toHaveBeenCalledWith(
       'appointment.read',
       expect.any(Object),
@@ -102,9 +124,10 @@ describe('MarkAppointmentReadUseCase', () => {
   it('throws and skips side effects when not found', async () => {
     mockRepo.findById.mockResolvedValue(null);
 
-    await expect(useCase.execute('appt-1', 'user-9')).rejects.toThrow(
-      'Appointment with id appt-1 not found',
-    );
+    await expect(
+      handler.execute(new MarkAppointmentReadCommand('appt-1', 'user-9')),
+    ).rejects.toThrow('Appointment with id appt-1 not found');
+
     expect(mockRepo.markAsRead).not.toHaveBeenCalled();
     expect(mockAudit.log).not.toHaveBeenCalled();
     expect(mockEventEmitter.emit).not.toHaveBeenCalled();

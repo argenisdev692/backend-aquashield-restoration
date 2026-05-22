@@ -75,12 +75,9 @@ const PERMISSIONS: readonly PermissionSeed[] = [
   { name: "contacts:update",  module: "contacts", subject: "CONTACT", action: "update",  description: "Edit contact support entries" },
   { name: "contacts:delete",  module: "contacts", subject: "CONTACT", action: "delete",  description: "Soft-delete contact support entries" },
   { name: "contacts:restore", module: "contacts", subject: "CONTACT", action: "restore", description: "Restore soft-deleted contact support entries" },
-  // company
-  { name: "company:create",  module: "company", subject: "COMPANY", action: "create",  description: "Create company data" },
+  // company (singleton — seeded once; only read/update endpoints exist)
   { name: "company:read",    module: "company", subject: "COMPANY", action: "read",    description: "View company data" },
   { name: "company:update",  module: "company", subject: "COMPANY", action: "update",  description: "Edit company data" },
-  { name: "company:delete",  module: "company", subject: "COMPANY", action: "delete",  description: "Soft-delete company data" },
-  { name: "company:restore", module: "company", subject: "COMPANY", action: "restore", description: "Restore soft-deleted company data" },
   // blog-categories
   { name: "blog-categories:create",  module: "blog-categories", subject: "BLOG_CATEGORY", action: "create",  description: "Create blog categories" },
   { name: "blog-categories:read",    module: "blog-categories", subject: "BLOG_CATEGORY", action: "read",    description: "View blog categories" },
@@ -141,7 +138,7 @@ type UserSeed = Readonly<{
 }>;
 
 const USERS: readonly UserSeed[] = [
-  { name: "Argenis", lastName: "Gonzalez", username: "argenis.gonzalez", email: "argenis@example.com", password: "argenis01=", role: "super-admin" },
+  { name: "Argenis", lastName: "Gonzalez", username: "argenis.gonzalez", email: "argenis692@gmail.com", password: "argenis01=", role: "super-admin" },
   { name: "Admin",   lastName: "User",     username: "admin",            email: "admin@example.com",   password: "admin123=",   role: "admin"       },
   { name: "Editor",  lastName: "User",     username: "editor",           email: "editor@example.com",  password: "editor123=",  role: "editor"      },
   { name: "Viewer",  lastName: "User",     username: "viewer",           email: "viewer@example.com",  password: "viewer123=",  role: "viewer"      },

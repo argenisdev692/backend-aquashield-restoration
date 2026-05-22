@@ -9,21 +9,42 @@ import {
   AppointmentReadModel,
 } from '../../../domain/repositories/appointment-repository.interface';
 import { Appointment } from '../../../domain/entities/appointment.aggregate';
+import { buildTrashedWhere } from '../../../../../shared/crud/trashed.util';
 
 @Injectable()
 export class PrismaAppointmentRepository implements IAppointmentRepository {
   constructor(private readonly prisma: PrismaService) {}
 
-  async findById(id: string): Promise<Appointment | null> {
-    const row = await this.prisma.appointment.findUnique({ where: { id } });
+  async findById(
+    id: string,
+    trashed: boolean = false,
+  ): Promise<Appointment | null> {
+    const where: Prisma.AppointmentWhereInput = trashed
+      ? { id }
+      : { id, deletedAt: null };
+    const row = await this.prisma.appointment.findFirst({ where });
     if (!row) return null;
     return AppointmentMapper.toDomain(row);
   }
 
-  async findReadModelById(id: string): Promise<AppointmentReadModel | null> {
-    const row = await this.prisma.appointment.findUnique({ where: { id } });
+  async findReadModelById(
+    id: string,
+    trashed: boolean = false,
+  ): Promise<AppointmentReadModel | null> {
+    const where: Prisma.AppointmentWhereInput = trashed
+      ? { id }
+      : { id, deletedAt: null };
+    const row = await this.prisma.appointment.findFirst({ where });
     if (!row) return null;
     return AppointmentMapper.toReadModel(row);
+  }
+
+  async findIdByEmail(email: string): Promise<string | null> {
+    const row = await this.prisma.appointment.findFirst({
+      where: { email, deletedAt: null },
+      select: { id: true },
+    });
+    return row?.id ?? null;
   }
 
   async findAll(
@@ -37,10 +58,11 @@ export class PrismaAppointmentRepository implements IAppointmentRepository {
       owner,
       page = 1,
       limit = 20,
+      trashed = 'exclude',
     } = filters;
 
     const where: Prisma.AppointmentWhereInput = {
-      deletedAt: null,
+      ...buildTrashedWhere(trashed),
     };
 
     if (statusLead) {
@@ -99,5 +121,21 @@ export class PrismaAppointmentRepository implements IAppointmentRepository {
       where: { id },
       data: { readed: true },
     });
+  }
+
+  async bulkDelete(ids: string[]): Promise<{ count: number }> {
+    const result = await this.prisma.appointment.updateMany({
+      where: { id: { in: ids }, deletedAt: null },
+      data: { deletedAt: new Date() },
+    });
+    return { count: result.count };
+  }
+
+  async bulkRestore(ids: string[]): Promise<{ count: number }> {
+    const result = await this.prisma.appointment.updateMany({
+      where: { id: { in: ids }, deletedAt: { not: null } },
+      data: { deletedAt: null },
+    });
+    return { count: result.count };
   }
 }

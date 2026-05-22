@@ -43,6 +43,8 @@ function build(opts: { valid?: boolean; user?: typeof user | null }) {
     getPasswordConfirmedAt: jest.fn(),
     setGoogleId: jest.fn(),
     updateProfile: jest.fn(),
+    setLockedUntil: jest.fn(),
+    clearLockedUntil: jest.fn(),
   };
   const totp = {
     generateSecret: jest.fn(),

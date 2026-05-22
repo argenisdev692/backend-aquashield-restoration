@@ -26,7 +26,12 @@ import { VerifyTotpUseCase } from './application/use-cases/verify-totp.use-case'
 import { Enable2faUseCase } from './application/use-cases/enable-2fa.use-case';
 import { Confirm2faUseCase } from './application/use-cases/confirm-2fa.use-case';
 import { Disable2faUseCase } from './application/use-cases/disable-2fa.use-case';
+import { Regenerate2faBackupCodesUseCase } from './application/use-cases/regenerate-2fa-backup-codes.use-case';
 import { ChangeExpiredPasswordUseCase } from './application/use-cases/change-expired-password.use-case';
+import { ListSessionsUseCase } from './application/use-cases/list-sessions.use-case';
+import { RevokeSessionUseCase } from './application/use-cases/revoke-session.use-case';
+import { ListTrustedDevicesUseCase } from './application/use-cases/list-trusted-devices.use-case';
+import { RevokeTrustedDeviceUseCase } from './application/use-cases/revoke-trusted-device.use-case';
 
 // ─── Application Services ─────────────────────────────────────────────────────
 import { AuthTokenIssuer } from './application/services/auth-token-issuer.service';
@@ -37,6 +42,8 @@ import { PrismaOtpRepository } from './infrastructure/persistence/repositories/p
 import { PrismaUserAuthRepository } from './infrastructure/persistence/repositories/prisma-user-auth.repository';
 import { PrismaPasswordResetRepository } from './infrastructure/persistence/repositories/prisma-password-reset.repository';
 import { PrismaPasswordHistoryRepository } from './infrastructure/persistence/repositories/prisma-password-history.repository';
+import { PrismaBackupCodeRepository } from './infrastructure/persistence/repositories/prisma-backup-code.repository';
+import { PrismaTrustedDeviceRepository } from './infrastructure/persistence/repositories/prisma-trusted-device.repository';
 
 // ─── Infrastructure Adapters ──────────────────────────────────────────────────
 import { ResendEmailAdapter } from './infrastructure/adapters/resend-email.adapter';
@@ -57,6 +64,8 @@ import { OTP_REPOSITORY } from './domain/repositories/otp.repository.interface';
 import { USER_AUTH_REPOSITORY } from './domain/repositories/user-auth.repository.interface';
 import { PASSWORD_RESET_REPOSITORY } from './domain/repositories/password-reset.repository.interface';
 import { PASSWORD_HISTORY_REPOSITORY } from './domain/repositories/password-history.repository.interface';
+import { BACKUP_CODE_REPOSITORY } from './domain/repositories/backup-code.repository.interface';
+import { TRUSTED_DEVICE_REPOSITORY } from './domain/repositories/trusted-device.repository.interface';
 import { EMAIL_PORT } from './domain/ports/outbound/email.port';
 import { TOTP_PORT } from './domain/ports/outbound/totp.port';
 import { PASSWORD_HASHER_PORT } from './domain/ports/outbound/password-hasher.port';
@@ -101,7 +110,12 @@ import { GOOGLE_AUTH_PORT } from './domain/ports/outbound/google-auth.port';
     Enable2faUseCase,
     Confirm2faUseCase,
     Disable2faUseCase,
+    Regenerate2faBackupCodesUseCase,
     ChangeExpiredPasswordUseCase,
+    ListSessionsUseCase,
+    RevokeSessionUseCase,
+    ListTrustedDevicesUseCase,
+    RevokeTrustedDeviceUseCase,
 
     // ─── Services ────────────────────────────────────────────────────────────
     AuthTokenIssuer,
@@ -114,6 +128,8 @@ import { GOOGLE_AUTH_PORT } from './domain/ports/outbound/google-auth.port';
     PrismaUserAuthRepository,
     PrismaPasswordResetRepository,
     PrismaPasswordHistoryRepository,
+    PrismaBackupCodeRepository,
+    PrismaTrustedDeviceRepository,
     {
       provide: AUTH_SESSION_REPOSITORY,
       useExisting: PrismaAuthSessionRepository,
@@ -127,6 +143,14 @@ import { GOOGLE_AUTH_PORT } from './domain/ports/outbound/google-auth.port';
     {
       provide: PASSWORD_HISTORY_REPOSITORY,
       useExisting: PrismaPasswordHistoryRepository,
+    },
+    {
+      provide: BACKUP_CODE_REPOSITORY,
+      useExisting: PrismaBackupCodeRepository,
+    },
+    {
+      provide: TRUSTED_DEVICE_REPOSITORY,
+      useExisting: PrismaTrustedDeviceRepository,
     },
 
     // ─── Adapters (concrete classes + symbol bindings) ───────────────────────

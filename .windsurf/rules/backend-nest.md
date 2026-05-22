@@ -49,36 +49,66 @@ trigger: always_on
 
 ---
 
+# [MUST] Transactional writes
+
+Every write path that mutates state across **more than one statement** (entity update + audit row, two repo writes, repo + token revocation, etc.) MUST be wrapped in a transaction so a partial failure rolls back cleanly.
+
+- **Mechanism:** the project ships with `@nestjs-cls/transactional` + `TransactionalAdapterPrisma`, configured globally with `enableTransactionProxy: true` in `AppModule`. Inside a transactional boundary, every call that goes through `PrismaService` is automatically routed to the active tx — repositories do NOT need a `tx?` parameter.
+- **Hex/DDD use cases / CQRS handlers:** apply `@Transactional()` from `@nestjs-cls/transactional` to the `execute()` method.
+- **Flat CRUD services:** inject `TRANSACTION_MANAGER` (`ITransactionManager`) and wrap the multi-step mutation with `await this.tx.runInTx(async () => { ... })`. Do NOT use `@Transactional()` on CRUD service methods — keep the explicit `runInTx` block so the boundary is visible in the diff.
+- **Audit inside the tx:** call `audit.log({...}, { strict: true })` so a failure to persist the audit row aborts the surrounding write. Without `strict: true` audit failures are swallowed and the mutation commits without trace.
+- **Outside the tx:** cache invalidation (`cache.del`, `cache.delByPattern`), `EventEmitter2.emit`, email sends, R2 uploads. Side-effects must NEVER live inside the transactional block — Postgres cannot un-send an email.
+- **R2 + DB compound writes:** upload the new blob FIRST → run the tx → on tx failure delete the freshly-uploaded blob in a best-effort try/catch. Delete the old blob ONLY after the tx commits. See `companydata.service.ts uploadSignature` and `blog-category.service.ts uploadImage` for the canonical pattern.
+- **Read paths and login audit:** keep the default (`strict: false`) — read audit and login audit are fire-and-forget and must never abort the user flow.
+- **Testing:** every spec for a method that uses `@Transactional()` must include `jest.mock('@nestjs-cls/transactional', () => ({ Transactional: () => (_t, _k, d) => d }))` at the top so the decorator becomes a no-op in unit tests. Specs for `runInTx`-based services pass a fake `tx` that just invokes the callback: `{ runInTx: async (fn) => fn() }`.
+- **Spec assertions:** when asserting `audit.log` calls, include the second arg `, { strict: true }` — Jest matches all positional arguments.
+
+> **Why the split (decorator vs `runInTx`)?** Hex/DDD use cases have a single `execute()` entrypoint, so the decorator is invisible noise-free. CRUD services expose many small methods; an explicit `runInTx` block keeps the transactional boundary readable in the diff and prevents accidentally wrapping non-write methods.
+
+---
+
 # [MUST] Architecture
 
 - Every module lives in `src/modules/{name}/`. Two layouts are allowed; pick ONE per module and never mix them inside the same module.
-
-## CRUD layout (DEFAULT)
-
-- Follow `.windsurf/skills/ARCHITECTURE-NEST-CRUD/SKILL.md` strictly.
-- Use for: lookups, configs, tags/categories/statuses, any module with ≤8 fields and no business rules beyond "validate + save".
-- Files: `{module}.module.ts`, `{module}.controller.ts`, `{module}.service.ts`, `{module}.repository.ts`, `{module}.entity.ts`, `dto/`, optional `{module}.gateway.ts`. No `domain/`, no `application/`, no `infrastructure/` folders.
-- Repository is the ONLY file that imports `PrismaService` / generated Prisma types. Service throws `NotFoundException` on `null`. Controller only handles HTTP concerns.
-- Shared infra (`shared/export`, `shared/websockets`, `shared/activity-log`, `shared/external/*`, `shared/messaging`) is allowed and does NOT force an upgrade.
-
-## Hex/DDD layout (UPGRADE ONLY)
-
-- Follow `.windsurf/skills/ARCHITECTURE-NEST/SKILL.md` strictly.
-- Use ONLY when at least one upgrade trigger is met: domain events with real listeners, cross-context coordination via ACL, state machines / multi-step workflows, invariants that must live in one place (Value Objects, aggregate factories), or any service method exceeding ~20 lines of business logic.
-- Layout: `domain/`, `application/`, `infrastructure/`.
-- `domain/` imports NOTHING from NestJS, Prisma, or any infrastructure package.
-- `application/use-cases/` imports ONLY from `domain/` and port interfaces — never from `infrastructure/`.
-- `infrastructure/` is the ONLY layer allowed to import NestJS decorators, Prisma, or external services.
-- Mapper is the ONLY contact point between domain entities and Prisma rows (the row type comes from `src/generated/prisma`).
-- Port interfaces use `I` prefix: `IUserRepository`, `IAuditPort`, `IEmailPort`.
-- Symbol tokens for DI: `USER_REPOSITORY`, `AUDIT_PORT`, `EMAIL_PORT`.
-- Domain events are plain TypeScript classes in `domain/events/` — no framework dependency.
-- Event listeners live in `infrastructure/event-listeners/` — decorated with `@OnEvent()`.
+- **DEFAULT — flat CRUD:** Service/Repository pattern. Full file layout, contracts, and Canonical Mutation Pattern live in `.windsurf/skills/ARCHITECTURE-NEST-CRUD/SKILL.md`.
+- **UPGRADE — Hex/DDD + CQRS:** allowed ONLY when an Upgrade Trigger is met. The canonical Upgrade Trigger list lives in `.windsurf/skills/ARCHITECTURE-NEST-CRUD/SKILL.md § Upgrade Triggers` (single source of truth — do not restate here). Full Hex/DDD layout, ports, mappers, and CommandHandler/QueryHandler structure live in `.windsurf/skills/ARCHITECTURE-NEST/SKILL.md`.
 
 ## Migration rule
 
 - Starting CRUD and upgrading later is the expected path. Do NOT pre-emptively scaffold `domain/application/infrastructure` for modules that have not yet hit an upgrade trigger.
-- The repository and DTO layers migrate as-is — no rewrite needed.
+- The repository and DTO layers migrate as-is — only the Service splits into Command/Query Handlers.
+
+## Bulk operations (delete / restore)
+
+- Any module with a list view that exposes multi-select must implement `POST /{module}/bulk-delete` and (when soft delete is enabled) `POST /{module}/bulk-restore` — never N single-id calls from the client.
+- Method is **POST** (never `DELETE` with body). Response is `200 { count: number }` (never `204`).
+- Repository uses **one** `updateMany` / `deleteMany` per call — never `Promise.all(ids.map(...))` over single-row methods.
+- Audit: **one** row per bulk call (`{module}.bulk_deleted` / `{module}.bulk_restored`), with `ids[]` and `count` in `metadata`. No per-id audit rows.
+- Cache: **one** `delByPattern` call (same pattern as the single-row mutation). Hex/DDD may additionally pipeline `del` for item keys.
+- Domain events (Hex/DDD only): **one** `{Module}BulkDeletedEvent(ids)` per call — never one event per id.
+- Zod DTO: `ids: z.array(z.string().uuid()).min(1).max(100)` — DoS bound (OWASP API #4).
+- CASL: `Action.Restore` (distinct from `Action.Delete`) gates bulk-restore.
+- Soft vs hard delete: pick **one** strategy per module/context and stick with it. Mixing is forbidden.
+- Full spec: `.windsurf/skills/ARCHITECTURE-NEST-CRUD/SKILL.md` § "Bulk Delete / Bulk Restore (flat CRUD)" and `.windsurf/skills/ARCHITECTURE-NEST/SKILL.md` § "Bulk Delete / Bulk Restore (Hex/DDD)".
+
+## Soft-delete visibility (`withTrashed` / `onlyTrashed`)
+
+- Every list / single-get / export route of a soft-delete-aware module MUST accept `?withTrashed=true` and `?onlyTrashed=true`, defaulting to "active rows only". Sending both at the same time → 400.
+- DTO MUST spread `trashedFlagsShape` and `.refine(rejectBothTrashedFlags, BOTH_TRASHED_FLAGS_ERROR)` from `src/shared/crud/trashed.util.ts` — never re-roll the schema, never use `z.coerce.boolean()`.
+- Repository takes `TrashedMode` (`'exclude' | 'include' | 'only'`) and calls `buildTrashedWhere(mode)` once; the single-get variant takes a `boolean withTrashed`.
+- `?onlyTrashed=true` (or a dedicated `GET /{module}/trash` route) MUST be gated by `Action.Restore`, not `Action.Read` — prevents enumeration of tombstoned rows via the read permission.
+- Response shape MUST expose `deletedAt: string | null` when the entity is soft-delete-aware; otherwise `withTrashed` is useless on the client.
+- Full spec: `.windsurf/skills/ARCHITECTURE-NEST-CRUD/SKILL.md` § "Soft-delete visibility — withTrashed / onlyTrashed (flat CRUD)" and `.windsurf/skills/ARCHITECTURE-NEST/SKILL.md` § "Soft-delete visibility — withTrashed / onlyTrashed (Hex/DDD)".
+
+## Identity responses — `roles[]` + `permissions[]`
+
+- `GET /auth/me`, `GET /users`, `GET /users/:id`, `POST /users`, `PATCH /users/:id` MUST emit `roles[]` and effective (deduplicated) `permissions[]`. Empty arrays — never `null`, never absent.
+- `permissions[]` is a **flat** list of `{ action, subject }`; the frontend must not walk `role.permissions[]`. Deduplication happens at the read-model / mapper, not in the controller.
+- `MeRoleSchema` and `MePermissionSchema` (in `modules/auth/.../presenters/auth.response.ts`) are the single source of truth — import, never redefine per module.
+- Token-issuing endpoints (`POST /auth/login`, `POST /auth/refresh`) MUST NOT include these arrays — clients call `/auth/me` after login.
+- Never echo `passwordHash`, `totpSecret`, `backupCodes`, `mfaSecret`, or any refresh/session token in a user projection. `UserResponseSchema` is a strict allowlist.
+- `GET /auth/me` MUST use `@SkipCache()` or per-user TTL ≤ 60s — permissions change mid-session. Every ACL mutation MUST `cache.delByPattern` both the `users` and `auth/me` cache keys.
+- Full spec: `.windsurf/skills/ARCHITECTURE-NEST-CRUD/SKILL.md` § "Users & Auth response shape — roles + permissions" and `.windsurf/skills/ARCHITECTURE-NEST/SKILL.md` § "Users & Auth response shape — roles + permissions (Hex/DDD)".
 
 ---
 

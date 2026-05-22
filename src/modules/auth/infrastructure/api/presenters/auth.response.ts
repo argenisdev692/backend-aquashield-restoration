@@ -86,7 +86,7 @@ export class PasswordConfirmationStatusResponse extends createZodDto(
 
 export const TwoFactorChallengeInfoResponseSchema = z.object({
   email: z.string().email(),
-  challengeType: z.enum(['otp', 'totp', 'none']),
+  challengeType: z.enum(['otp', 'totp', 'backup_code', 'none']),
   message: z.string(),
 });
 
@@ -98,7 +98,60 @@ export const TwoFactorChallengeResponseSchema = z.object({
   accessToken: z.string(),
   refreshToken: z.string(),
   expiresIn: z.number(),
+  usedBackupCode: z.boolean().optional(),
+  backupCodesRemaining: z.number().optional(),
 });
+
+export const Confirm2faResponseSchema = z.object({
+  message: z.string(),
+  /** Plaintext backup codes — shown EXACTLY ONCE. Store somewhere safe. */
+  backupCodes: z.array(z.string()).length(8),
+});
+
+export class Confirm2faResponse extends createZodDto(Confirm2faResponseSchema) {}
+
+export const RegenerateBackupCodesResponseSchema = z.object({
+  backupCodes: z.array(z.string()).length(8),
+});
+
+export class RegenerateBackupCodesResponse extends createZodDto(
+  RegenerateBackupCodesResponseSchema,
+) {}
+
+export const SessionItemSchema = z.object({
+  id: z.string().uuid(),
+  ipAddress: z.string().nullable(),
+  userAgent: z.string().nullable(),
+  deviceLabel: z.string().nullable(),
+  lastActivityAt: z.string().datetime(),
+  createdAt: z.string().datetime(),
+  expiresAt: z.string().datetime(),
+  isCurrent: z.boolean(),
+});
+
+export const SessionsResponseSchema = z.object({
+  sessions: z.array(SessionItemSchema),
+});
+
+export class SessionsResponse extends createZodDto(SessionsResponseSchema) {}
+
+export const TrustedDeviceItemSchema = z.object({
+  id: z.string().uuid(),
+  label: z.string().nullable(),
+  ipAddress: z.string().nullable(),
+  userAgent: z.string().nullable(),
+  lastUsedAt: z.string().datetime(),
+  createdAt: z.string().datetime(),
+  expiresAt: z.string().datetime(),
+});
+
+export const TrustedDevicesResponseSchema = z.object({
+  trustedDevices: z.array(TrustedDeviceItemSchema),
+});
+
+export class TrustedDevicesResponse extends createZodDto(
+  TrustedDevicesResponseSchema,
+) {}
 
 export class TwoFactorChallengeResponse extends createZodDto(
   TwoFactorChallengeResponseSchema,

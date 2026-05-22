@@ -1,6 +1,13 @@
+jest.mock('@nestjs-cls/transactional', () => ({
+  Transactional:
+    () => (_target: unknown, _key: string, descriptor: PropertyDescriptor) =>
+      descriptor,
+}));
+
 import { Test, TestingModule } from '@nestjs/testing';
 import { EventEmitter2 } from '@nestjs/event-emitter';
-import { UpdateAppointmentUseCase } from '../../application/use-cases/update-appointment.use-case';
+import { UpdateAppointmentHandler } from '../../application/commands/handlers/update-appointment.handler';
+import { UpdateAppointmentCommand } from '../../application/commands/update-appointment.command';
 import {
   IAppointmentRepository,
   APPOINTMENT_REPOSITORY,
@@ -9,20 +16,20 @@ import {
   IAuditPort,
   AUDIT_PORT,
 } from '../../domain/ports/outbound/audit.port.interface';
+import { CACHE_PORT, ICachePort } from '../../../../shared/cache/cache.port';
 import { Appointment } from '../../domain/entities/appointment.aggregate';
 import { LoggerService } from '../../../../logger/logger.service';
 import { ClsService } from 'nestjs-cls';
 
-describe('UpdateAppointmentUseCase', () => {
-  let useCase: UpdateAppointmentUseCase;
+describe('UpdateAppointmentHandler', () => {
+  let handler: UpdateAppointmentHandler;
   let mockRepo: jest.Mocked<IAppointmentRepository>;
   let mockAudit: jest.Mocked<IAuditPort>;
-  let mockLogger: jest.Mocked<LoggerService>;
-  let mockCls: jest.Mocked<ClsService>;
+  let mockCache: jest.Mocked<ICachePort>;
   let mockEventEmitter: jest.Mocked<EventEmitter2>;
 
   beforeEach(async () => {
-    const mockAppointment = Appointment.create({
+    const appointment = Appointment.create({
       firstName: 'John',
       lastName: 'Doe',
       phone: '+1234567890',
@@ -46,108 +53,83 @@ describe('UpdateAppointmentUseCase', () => {
     });
 
     mockRepo = {
-      findById: jest.fn().mockResolvedValue(mockAppointment),
+      findById: jest.fn().mockResolvedValue(appointment),
       findReadModelById: jest.fn(),
+      findIdByEmail: jest.fn(),
       findAll: jest.fn(),
       save: jest.fn(),
       delete: jest.fn(),
       restore: jest.fn(),
       markAsRead: jest.fn(),
+      bulkDelete: jest.fn(),
+      bulkRestore: jest.fn(),
     };
-
-    mockAudit = {
-      log: jest.fn(),
-    };
-
-    mockLogger = {
-      info: jest.fn(),
-      warn: jest.fn(),
-      error: jest.fn(),
-      debug: jest.fn(),
-    } as any;
-
-    mockCls = {
+    mockAudit = { log: jest.fn() };
+    mockCache = {
       get: jest.fn(),
-    } as any;
-
-    mockEventEmitter = {
-      emit: jest.fn(),
-    } as any;
+      set: jest.fn(),
+      del: jest.fn(),
+      delByPattern: jest.fn(),
+    };
+    mockEventEmitter = { emit: jest.fn() } as unknown as jest.Mocked<EventEmitter2>;
 
     const module: TestingModule = await Test.createTestingModule({
       providers: [
-        UpdateAppointmentUseCase,
-        {
-          provide: APPOINTMENT_REPOSITORY,
-          useValue: mockRepo,
-        },
-        {
-          provide: AUDIT_PORT,
-          useValue: mockAudit,
-        },
+        UpdateAppointmentHandler,
+        { provide: APPOINTMENT_REPOSITORY, useValue: mockRepo },
+        { provide: AUDIT_PORT, useValue: mockAudit },
+        { provide: CACHE_PORT, useValue: mockCache },
         {
           provide: LoggerService,
-          useValue: mockLogger,
+          useValue: {
+            info: jest.fn(),
+            warn: jest.fn(),
+            error: jest.fn(),
+            debug: jest.fn(),
+            setContext: jest.fn(),
+          },
         },
         {
           provide: ClsService,
-          useValue: mockCls,
+          useValue: { get: jest.fn().mockReturnValue('trace-123') },
         },
-        {
-          provide: EventEmitter2,
-          useValue: mockEventEmitter,
-        },
+        { provide: EventEmitter2, useValue: mockEventEmitter },
       ],
     }).compile();
 
-    useCase = module.get<UpdateAppointmentUseCase>(UpdateAppointmentUseCase);
+    handler = module.get(UpdateAppointmentHandler);
   });
 
-  it('should be defined', () => {
-    expect(useCase).toBeDefined();
-  });
+  it('updates, audits, invalidates cache, and emits', async () => {
+    await handler.execute(
+      new UpdateAppointmentCommand('appt-1', { firstName: 'Jane' }, 'user-123'),
+    );
 
-  it('should update an appointment and log audit', async () => {
-    mockCls.get.mockReturnValue('trace-123');
-    mockRepo.save.mockResolvedValue(undefined);
-
-    const dto = {
-      firstName: 'Jane',
-    };
-
-    await useCase.execute('appointment-123', dto, 'user-123');
-
-    expect(mockRepo.findById).toHaveBeenCalledWith('appointment-123');
+    expect(mockRepo.findById).toHaveBeenCalledWith('appt-1');
     expect(mockRepo.save).toHaveBeenCalled();
-    expect(mockAudit.log).toHaveBeenCalledWith({
-      action: 'appointments.updated',
-      actorId: 'user-123',
-      resourceId: 'appointment-123',
-      traceId: 'trace-123',
-    });
+    expect(mockAudit.log).toHaveBeenCalledWith(
+      {
+        action: 'appointments.updated',
+        actorId: 'user-123',
+        resourceId: 'appt-1',
+        traceId: 'trace-123',
+      },
+      { strict: true },
+    );
+    expect(mockCache.delByPattern).toHaveBeenCalledWith('http:*:/appointments*');
     expect(mockEventEmitter.emit).toHaveBeenCalledWith(
       'appointment.updated',
       expect.any(Object),
     );
-    expect(mockLogger.info).toHaveBeenCalledWith(
-      'UpdateAppointmentUseCase start',
-      expect.any(Object),
-    );
-    expect(mockLogger.info).toHaveBeenCalledWith(
-      'UpdateAppointmentUseCase end',
-      expect.any(Object),
-    );
   });
 
-  it('should throw error when appointment not found', async () => {
+  it('throws when appointment not found', async () => {
     mockRepo.findById.mockResolvedValue(null);
 
-    const dto = {
-      firstName: 'Jane',
-    };
-
     await expect(
-      useCase.execute('appointment-123', dto, 'user-123'),
-    ).rejects.toThrow('Appointment with id appointment-123 not found');
+      handler.execute(
+        new UpdateAppointmentCommand('missing', { firstName: 'Jane' }, 'user-123'),
+      ),
+    ).rejects.toThrow('Appointment with id missing not found');
   });
 });

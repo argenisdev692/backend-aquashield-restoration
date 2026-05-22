@@ -1,8 +1,14 @@
+jest.mock('@nestjs-cls/transactional', () => ({
+  Transactional:
+    () => (_target: unknown, _key: string, descriptor: PropertyDescriptor) =>
+      descriptor,
+}));
+
 import { Test, TestingModule } from '@nestjs/testing';
 import { EventEmitter2 } from '@nestjs/event-emitter';
 import { ClsService } from 'nestjs-cls';
 import { CreateContactSupportHandler } from '../../application/commands/handlers/create-contact-support.handler';
-import { CreateContactSupportCommand } from '../../application/commands/impl/create-contact-support.command';
+import { CreateContactSupportCommand } from '../../application/commands/create-contact-support.command';
 import { CONTACT_SUPPORT_REPOSITORY } from '../../domain/ports/contact-support.repository.interface';
 import { AUDIT_PORT } from '../../../../shared/activity-log/audit.port';
 import { CACHE_PORT } from '../../../../shared/cache/cache.port';
@@ -73,6 +79,7 @@ describe('CreateContactSupportHandler', () => {
         actorId: 'actor-uuid',
         resourceId: id,
       }),
+      { strict: true },
     );
     expect(cache.delByPattern).toHaveBeenCalledWith('http:*:/contact-support*');
     expect(events.emit).toHaveBeenCalledWith(

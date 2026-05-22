@@ -117,7 +117,50 @@ async create(dto: CreateWidgetDto): Promise<Widget> {
 
 ---
 
-## Pattern 4 — `deleteFile` side effects: always wrapped in try-catch
+## Pattern 4 — N+1-free repository methods (set-based reads)
+
+**Rule:** Any repository method that operates on a collection of ids — for `findMany` lookups, hydration, bulk mutations — runs in **one** Prisma statement. A Prisma call inside a `for` / `Promise.all(ids.map(...))` loop is the N+1 cliff and is forbidden.
+**Reference**: full rationale + the eleven sibling rules (select/omit, take limits, parallel reads, `relationLoadStrategy`, `Prisma.sql`, soft-delete filters) live in `.claude/skills/BACKEND-NEST/SKILL.md` § §3.5 — Prisma Query Discipline. This pattern is the concrete repository-layer expression of those rules.
+
+### ✅ CORRECT — `{ id: { in: ids } }` + map in memory
+
+```typescript
+async findByIds(ids: string[]): Promise<Widget[]> {
+  const rows = await this.prisma.widget.findMany({
+    where: { id: { in: ids }, deletedAt: null },
+    select: { id: true, name: true, createdAt: true, updatedAt: true },
+  });
+  return rows.map((r) => this.mapToEntity(r));
+}
+
+async bulkDelete(ids: string[]): Promise<{ count: number }> {
+  const result = await this.prisma.widget.updateMany({
+    where: { id: { in: ids }, deletedAt: null },
+    data:  { deletedAt: new Date() },
+  });
+  return { count: result.count };
+}
+```
+
+### ❌ FORBIDDEN — Prisma call per id
+
+```typescript
+async findByIds(ids: string[]): Promise<Widget[]> {
+  // N round-trips, no DB-level optimization possible
+  return Promise.all(ids.map((id) => this.findById(id)));
+}
+
+async bulkDelete(ids: string[]): Promise<void> {
+  // N statements, N TX boundaries, N audit cascades
+  await Promise.all(ids.map((id) => this.delete(id)));
+}
+```
+
+**When the service needs entities by id list:** if hydration is for *display only* (read), `findMany({ where: { id: { in: ids } } })` with `select` is enough. If hydration is to *enforce a per-aggregate invariant before a bulk mutation*, that is an upgrade trigger — the operation is no longer a bulk and belongs in a Saga (see `.claude/skills/ARCHITECTURE-NEST/SKILL.md` § Bulk Delete / Bulk Restore).
+
+---
+
+## Pattern 5 — `deleteFile` side effects: always wrapped in try-catch
 
 **Rule:** Storage/file deletion is a best-effort operation. If it fails the entity record must still be cleaned up. Wrap every file-deletion helper in a try-catch that logs but does NOT rethrow.
 
@@ -142,7 +185,8 @@ private async deleteStorageFile(url: string): Promise<void> {
 | Any service method that reads a record and needs it to exist | `findOrFail` (#1) |
 | Repository `update()` return type | `Promise<Entity>` — never nullable (#2) |
 | Entity that must be unique platform-wide (e.g. company, config) | `existsAny()` + `ConflictException` (#3) |
-| Delete entity that has an associated storage file | try-catch wrapper (#4) |
+| Repository method receiving a list of ids | `{ id: { in: ids } }` set-based query (#4) |
+| Delete entity that has an associated storage file | try-catch wrapper (#5) |
 
 ---
 
@@ -152,10 +196,12 @@ private async deleteStorageFile(url: string): Promise<void> {
 ✅ ONE findOrFail per service — never repeat the null-check block
 ✅ repository.update() returns Promise<Entity>, not Promise<Entity | null>
 ✅ existsAny() for singleton guards — not raw DB unique constraint error
+✅ One Prisma statement per ids[] input — findMany/updateMany/deleteMany with { in: ids }
 ✅ Storage deletion always wrapped in try-catch — never rethrows
 
 ❌ Copy-pasting if (!result) throw new NotFoundException(...) across methods
 ❌ Returning null from repository.update() — Prisma throws P2025 instead
 ❌ Catching P2025 Prisma errors in the service to produce NotFoundException — use findOrFail pre-check
+❌ Promise.all(ids.map(id => this.findById(id))) or .delete(id) — N+1 cliff (see BACKEND-NEST §3.5)
 ❌ Letting a failed file delete block the entity operation
 ```

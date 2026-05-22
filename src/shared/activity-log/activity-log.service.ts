@@ -4,7 +4,11 @@ import { LoggerService } from '../../logger/logger.service';
 import { PrismaService } from '../database/prisma.service';
 import { CLS_KEYS } from '../cls/cls.constants';
 import type { Prisma } from '../../generated/prisma/client';
-import type { IAuditEntry, IAuditPort } from './audit.port';
+import type {
+  IAuditEntry,
+  IAuditLogOptions,
+  IAuditPort,
+} from './audit.port';
 
 const SENSITIVE_KEYS = new Set([
   'password',
@@ -37,7 +41,7 @@ export class ActivityLogService implements IAuditPort {
     this.logger.setContext(ActivityLogService.name);
   }
 
-  async log(entry: IAuditEntry): Promise<void> {
+  async log(entry: IAuditEntry, options?: IAuditLogOptions): Promise<void> {
     const traceId = this.clsGet(CLS_KEYS.TRACE_ID);
     const correlationId = this.clsGet(CLS_KEYS.CORRELATION_ID);
     const actorId = entry.actorId ?? this.clsGet(CLS_KEYS.USER_ID) ?? null;
@@ -57,12 +61,15 @@ export class ActivityLogService implements IAuditPort {
         },
       });
     } catch (err) {
-      // Audit must never break the business path; surface as ERROR + move on.
       this.logger.error('Failed to persist audit entry', {
         layer: 'audit',
         action: entry.action,
         error: (err as Error).message,
       });
+      // In `strict` mode the caller wraps this call in a transaction and
+      // wants the surrounding write to roll back when the audit row cannot
+      // be persisted. Default mode preserves legacy fire-and-forget audit.
+      if (options?.strict) throw err;
     }
   }
 

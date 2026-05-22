@@ -39,6 +39,8 @@ function build(opts: { valid?: boolean; totpSecret?: string | null }) {
     getPasswordConfirmedAt: jest.fn(),
     setGoogleId: jest.fn(),
     updateProfile: jest.fn(),
+    setLockedUntil: jest.fn(),
+    clearLockedUntil: jest.fn(),
   };
   const totp = {
     generateSecret: jest.fn(),
@@ -47,16 +49,31 @@ function build(opts: { valid?: boolean; totpSecret?: string | null }) {
   };
   const audit = { log: jest.fn().mockResolvedValue(undefined) };
   const eventEmitter = { emit: jest.fn() };
+  const backupCodeRepo = {
+    replaceAllForUser: jest.fn().mockResolvedValue(undefined),
+    findUnusedByUserId: jest.fn(),
+    markUsed: jest.fn(),
+    deleteAllForUser: jest.fn(),
+    countUnusedByUserId: jest.fn(),
+  };
+  const passwordHasher = {
+    hash: jest.fn().mockResolvedValue('hashed'),
+    compare: jest.fn(),
+  };
+  const tx = { runInTx: async (fn: () => Promise<unknown>) => fn() };
 
   const useCase = new Confirm2faUseCase(
     userRepo,
     totp,
+    backupCodeRepo,
+    passwordHasher,
     audit,
+    tx as never,
     eventEmitter as never,
     logger as never,
     cls as never,
   );
-  return { useCase, userRepo, audit, eventEmitter };
+  return { useCase, userRepo, audit, eventEmitter, backupCodeRepo };
 }
 
 describe('Confirm2faUseCase', () => {
@@ -74,9 +91,13 @@ describe('Confirm2faUseCase', () => {
     );
     expect(audit.log).toHaveBeenCalledWith(
       expect.objectContaining({ action: 'auth.2fa_enabled' }),
+      { strict: true },
     );
     expect(logger.info).toHaveBeenCalledWith('Confirm 2FA', expect.any(Object));
-    expect(logger.info).toHaveBeenCalledWith('2FA enabled', expect.any(Object));
+    expect(logger.info).toHaveBeenCalledWith(
+      '2FA enabled with backup codes',
+      expect.any(Object),
+    );
   });
 
   it('throws on an invalid TOTP code', async () => {

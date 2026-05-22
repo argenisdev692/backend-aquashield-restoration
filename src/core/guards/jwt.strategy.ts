@@ -8,6 +8,8 @@ interface JwtPayload {
   sub: string;
   email?: string;
   roleIds?: string[];
+  /** Lowercase role names; absent for legacy tokens issued before phase 3. */
+  roleNames?: string[];
 }
 
 /**
@@ -36,6 +38,7 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
       id: payload.sub,
       email: payload.email,
       roleIds: payload.roleIds ?? [],
+      roleNames: payload.roleNames ?? [],
     };
   }
 }

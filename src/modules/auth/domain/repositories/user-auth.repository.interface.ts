@@ -5,16 +5,21 @@ export interface UserAuthRow {
   totpSecret: string | null;
   totpEnabled: boolean;
   roleIds: string[];
+  /** Lowercased role names (e.g. "admin", "superadmin"). Drives 2FA-mandatory and token-TTL rules. */
+  roleNames: string[];
   googleId: string | null;
   emailVerifiedAt: Date | null;
   mustChangePassword: boolean;
   passwordExpiresAt: Date | null;
+  lockedUntil: Date | null;
 }
 
 export interface CreateUserData {
   name: string;
   lastName?: string;
   email: string;
+  /** Optional E.164 phone (e.g. `+351912345678`). Validated upstream. */
+  phone?: string;
   hashedPassword: string;
   termsAndConditions: boolean;
 }
@@ -81,6 +86,10 @@ export interface IUserAuthRepository {
   getPasswordConfirmedAt(userId: string): Promise<Date | null>;
   setGoogleId(userId: string, googleId: string): Promise<void>;
   updateProfile(userId: string, data: UpdateProfileData): Promise<void>;
+  /** Locks the account until the given timestamp. */
+  setLockedUntil(userId: string, until: Date): Promise<void>;
+  /** Clears any active lockout. Idempotent. */
+  clearLockedUntil(userId: string): Promise<void>;
 }
 
 export const USER_AUTH_REPOSITORY = Symbol('IUserAuthRepository');

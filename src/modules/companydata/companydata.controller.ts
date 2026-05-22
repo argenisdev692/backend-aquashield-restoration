@@ -8,10 +8,10 @@ import {
   Param,
   UseGuards,
   ParseUUIDPipe,
-  HttpCode,
+  ParseFilePipeBuilder,
+  HttpStatus,
   UseInterceptors,
   UploadedFile,
-  BadRequestException,
 } from '@nestjs/common';
 import { FileInterceptor } from '@nestjs/platform-express';
 import { ZodValidationPipe } from 'nestjs-zod';
@@ -20,12 +20,9 @@ import { TTL_SECONDS } from '../../shared/cache/cache-ttl.constants';
 import {
   ApiTags,
   ApiBearerAuth,
-  ApiCreatedResponse,
   ApiOkResponse,
-  ApiNoContentResponse,
   ApiNotFoundResponse,
   ApiBadRequestResponse,
-  ApiConflictResponse,
   ApiParam,
   ApiConsumes,
   ApiBody,
@@ -37,11 +34,12 @@ import { CurrentUser } from '../../core/decorators/current-user.decorator';
 import { Action } from '../../core/access/actions.enum';
 import type { AuthenticatedUser } from '../../core/access/actions.enum';
 import { CompanyDataService } from './companydata.service';
-import { CreateCompanyDataSchema } from './dto/create-companydata.dto';
-import type { CreateCompanyDataDto } from './dto/create-companydata.dto';
 import { UpdateCompanyDataSchema } from './dto/update-companydata.dto';
 import type { UpdateCompanyDataDto } from './dto/update-companydata.dto';
 import { CompanyDataResponse } from './dto/companydata.response';
+
+const SIGNATURE_MIME_REGEX = /^(image\/png|image\/jpeg|image\/webp)$/;
+const SIGNATURE_MAX_BYTES = 2 * 1024 * 1024;
 
 @ApiTags('company-data')
 @ApiBearerAuth()
@@ -49,6 +47,15 @@ import { CompanyDataResponse } from './dto/companydata.response';
 @UseGuards(JwtAuthGuard, CaslGuard)
 export class CompanyDataController {
   constructor(private readonly service: CompanyDataService) {}
+
+  @Get()
+  @ApiOkResponse({ type: CompanyDataResponse })
+  @ApiNotFoundResponse({ description: 'Company data not found' })
+  @CacheTTL(TTL_SECONDS.LONG)
+  @CheckAbilities({ action: Action.Read, subject: 'COMPANY' })
+  async findSingleton(): Promise<CompanyDataResponse> {
+    return this.service.findSingletonOrFail();
+  }
 
   @Get('me')
   @ApiOkResponse({ type: CompanyDataResponse })
@@ -59,19 +66,6 @@ export class CompanyDataController {
     @CurrentUser() user: AuthenticatedUser,
   ): Promise<CompanyDataResponse> {
     return this.service.findByUserIdOrFail(user.id);
-  }
-
-  @Post()
-  @ApiCreatedResponse({ type: CompanyDataResponse })
-  @ApiBadRequestResponse({ description: 'Validation failed' })
-  @ApiConflictResponse({ description: 'Company data already exists' })
-  @CheckAbilities({ action: Action.Create, subject: 'COMPANY' })
-  async create(
-    @CurrentUser() user: AuthenticatedUser,
-    @Body(new ZodValidationPipe(CreateCompanyDataSchema))
-    dto: CreateCompanyDataDto,
-  ): Promise<CompanyDataResponse> {
-    return this.service.create(user.id, dto);
   }
 
   @Get(':id')
@@ -100,16 +94,6 @@ export class CompanyDataController {
     return this.service.update(id, dto);
   }
 
-  @Delete(':id')
-  @ApiNoContentResponse()
-  @ApiNotFoundResponse()
-  @ApiParam({ name: 'id', type: String, format: 'uuid' })
-  @HttpCode(204)
-  @CheckAbilities({ action: Action.Delete, subject: 'COMPANY' })
-  async remove(@Param('id', ParseUUIDPipe) id: string): Promise<void> {
-    return this.service.delete(id);
-  }
-
   @Post(':id/signature')
   @ApiOkResponse({ type: CompanyDataResponse })
   @ApiNotFoundResponse()
@@ -123,25 +107,18 @@ export class CompanyDataController {
     },
   })
   @ApiParam({ name: 'id', type: String, format: 'uuid' })
-  @UseInterceptors(
-    FileInterceptor('file', {
-      limits: { fileSize: 2 * 1024 * 1024 },
-      fileFilter: (_req, file: Express.Multer.File, cb) => {
-        const allowed = ['image/png', 'image/jpeg', 'image/webp'];
-        cb(null, allowed.includes(file.mimetype));
-      },
-    }),
-  )
+  @UseInterceptors(FileInterceptor('file'))
   @CheckAbilities({ action: Action.Update, subject: 'COMPANY' })
   async uploadSignature(
     @Param('id', ParseUUIDPipe) id: string,
-    @UploadedFile() file: Express.Multer.File,
+    @UploadedFile(
+      new ParseFilePipeBuilder()
+        .addFileTypeValidator({ fileType: SIGNATURE_MIME_REGEX })
+        .addMaxSizeValidator({ maxSize: SIGNATURE_MAX_BYTES })
+        .build({ errorHttpStatusCode: HttpStatus.UNPROCESSABLE_ENTITY }),
+    )
+    file: Express.Multer.File,
   ): Promise<CompanyDataResponse> {
-    if (!file) {
-      throw new BadRequestException(
-        'No file provided or invalid file type. Allowed: png, jpeg, webp (max 2 MB)',
-      );
-    }
     return this.service.uploadSignature(id, {
       buffer: file.buffer,
       mimeType: file.mimetype,

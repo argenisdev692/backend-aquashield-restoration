@@ -34,7 +34,7 @@ export class PrismaAuthSessionRepository implements IAuthSessionRepository {
   async findByUserId(userId: string): Promise<AuthSession[]> {
     const rows = await this.prisma.authSession.findMany({
       where: { userId, revokedAt: null },
-      orderBy: { createdAt: 'desc' },
+      orderBy: { lastActivityAt: 'desc' },
     });
     return rows.map((r) => AuthSessionMapper.toDomain(r));
   }
@@ -51,5 +51,47 @@ export class PrismaAuthSessionRepository implements IAuthSessionRepository {
       where: { id: sessionId },
       data: { revokedAt: new Date() },
     });
+  }
+
+  async revokeByIdForUser(
+    sessionId: string,
+    userId: string,
+  ): Promise<boolean> {
+    const result = await this.prisma.authSession.updateMany({
+      where: { id: sessionId, userId, revokedAt: null },
+      data: { revokedAt: new Date() },
+    });
+    return result.count > 0;
+  }
+
+  async touch(sessionId: string, at: Date = new Date()): Promise<void> {
+    await this.prisma.authSession.updateMany({
+      where: { id: sessionId, revokedAt: null },
+      data: { lastActivityAt: at },
+    });
+  }
+
+  async hasMatchingActiveSession(
+    userId: string,
+    userAgent: string | null,
+    ipAddress: string | null,
+  ): Promise<boolean> {
+    // Either UA OR IP match is enough — switching networks should not trigger
+    // an alert when the device fingerprint is recognised, and vice versa.
+    const ors: Array<{ userAgent?: string; ipAddress?: string }> = [];
+    if (userAgent) ors.push({ userAgent });
+    if (ipAddress) ors.push({ ipAddress });
+    if (ors.length === 0) return true; // Nothing to compare against → treat as known.
+
+    const match = await this.prisma.authSession.findFirst({
+      where: {
+        userId,
+        revokedAt: null,
+        expiresAt: { gt: new Date() },
+        OR: ors,
+      },
+      select: { id: true },
+    });
+    return match !== null;
   }
 }

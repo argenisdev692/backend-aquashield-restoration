@@ -3,12 +3,15 @@ import {
   ContactSupportReadModel,
   PaginatedContactSupport,
 } from '../read-models/contact-support.read-model';
+import type { TrashedMode } from '../../../../shared/crud/trashed.util';
 
 export interface ListContactSupportFilters {
   page: number;
   limit: number;
   /** When defined, filters by the `readed` flag. */
   readed?: boolean;
+  /** Soft-delete visibility — Laravel-style. Defaults to `exclude`. */
+  trashed?: TrashedMode;
 }
 
 export interface IContactSupportRepository {
@@ -17,12 +20,23 @@ export interface IContactSupportRepository {
   /** Aggregate load including soft-deleted rows — used by restore. */
   findByIdWithDeleted(id: string): Promise<ContactSupport | null>;
   save(entity: ContactSupport): Promise<void>;
-  /** Read model for a single active row. */
-  findReadModelById(id: string): Promise<ContactSupportReadModel | null>;
-  /** Paginated read models — excludes soft-deleted rows. */
+  /**
+   * Read model for a single row.
+   * @param trashed when `true`, soft-deleted requests are returned too
+   *                (Laravel `withTrashed()->find()`).
+   */
+  findReadModelById(
+    id: string,
+    trashed?: boolean,
+  ): Promise<ContactSupportReadModel | null>;
+  /** Paginated read models, with optional soft-delete visibility. */
   findMany(
     filters: ListContactSupportFilters,
   ): Promise<PaginatedContactSupport>;
+  /** Set-based soft delete — single SQL statement, idempotent. */
+  bulkDelete(ids: string[]): Promise<{ count: number }>;
+  /** Set-based restore — single SQL statement, idempotent. */
+  bulkRestore(ids: string[]): Promise<{ count: number }>;
 }
 
 export const CONTACT_SUPPORT_REPOSITORY = Symbol('IContactSupportRepository');

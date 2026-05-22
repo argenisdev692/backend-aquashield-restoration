@@ -69,5 +69,21 @@ export class PasswordChangedEvent {
   constructor(
     public readonly userId: string,
     public readonly timestamp: Date = new Date(),
+    public readonly context: {
+      email?: string;
+      ipAddress?: string | null;
+      deviceLabel?: string | null;
+    } = {},
+  ) {}
+}
+
+export class NewDeviceLoginEvent {
+  constructor(
+    public readonly userId: string,
+    public readonly email: string,
+    public readonly deviceLabel: string | null,
+    public readonly ipAddress: string | null,
+    public readonly userAgent: string | null,
+    public readonly timestamp: Date = new Date(),
   ) {}
 }

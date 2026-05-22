@@ -35,6 +35,11 @@ model User {
   mustChangePassword   Boolean   @default(false) @map("must_change_password")
   passwordExpiresAt    DateTime? @map("password_expires_at") @db.Timestamp(6)
   passwordChangedAt    DateTime? @map("password_changed_at") @db.Timestamp(6)
+  // Account lockout: when set and in the future, login attempts are rejected
+  // regardless of credentials. Cleared on successful credential check or
+  // manual unlock. Bumped to now+15min after FAILED_LOGIN_LOCKOUT_THRESHOLD
+  // (10) consecutive failures within FAILED_LOGIN_WINDOW_SECONDS.
+  lockedUntil          DateTime? @map("locked_until") @db.Timestamp(6)
   createdAt            DateTime  @default(now()) @map("created_at") @db.Timestamp(6)
   updatedAt            DateTime  @default(now()) @map("updated_at") @db.Timestamp(6)
   deletedAt            DateTime? @map("deleted_at") @db.Timestamp(6)
@@ -51,6 +56,8 @@ model User {
   passwordSetupTokens  PasswordSetupToken[]
   blogCategories       BlogCategory[]
   passwordHistory      PasswordHistory[]
+  backupCodes          BackupCode[]
+  trustedDevices       TrustedDevice[]
 
   @@index([email], map: "idx_users_email")
   @@index([deletedAt], map: "idx_users_deleted_at")

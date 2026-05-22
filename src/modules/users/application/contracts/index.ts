@@ -18,4 +18,4 @@ export type { UsersListQuery } from '../dtos/users-list-query.dto';
 export type { UserReadModel } from '../read-models/user.read-model';
 
 // ── Paginated response ───────────────────────────────────────────
-export type { PaginatedUsers } from '../use-cases/get-users-list.use-case';
+export type { PaginatedUsers } from '../queries/handlers/get-users-list.handler';

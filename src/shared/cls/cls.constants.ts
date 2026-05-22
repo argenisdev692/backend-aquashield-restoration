@@ -9,6 +9,12 @@ export const CLS_KEYS = {
   TRACE_ID: 'traceId',
   CORRELATION_ID: 'correlationId',
   USER_ID: 'userId',
+  /** Client IP captured by the CLS middleware (`req.ip`). */
+  IP_ADDRESS: 'ipAddress',
+  /** Raw User-Agent header captured by the CLS middleware. */
+  USER_AGENT: 'userAgent',
+  /** Raw cookie header value of the trusted-device token (`td`), if any. */
+  TRUSTED_DEVICE_TOKEN: 'trustedDeviceToken',
 } as const;
 
 export type ClsKey = (typeof CLS_KEYS)[keyof typeof CLS_KEYS];

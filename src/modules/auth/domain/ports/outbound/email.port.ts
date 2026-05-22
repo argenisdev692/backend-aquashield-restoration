@@ -25,6 +25,19 @@ export interface IEmailPort {
     event: 'login_attempts' | 'reset_attempts';
     attemptCount: number;
   }): Promise<void>;
+  sendNewDeviceAlert(params: {
+    to: string;
+    deviceLabel: string | null;
+    ipAddress: string | null;
+    userAgent: string | null;
+    at: Date;
+  }): Promise<void>;
+  sendPasswordChangedNotification(params: {
+    to: string;
+    at: Date;
+    ipAddress: string | null;
+    deviceLabel: string | null;
+  }): Promise<void>;
 }
 
 export const EMAIL_PORT = Symbol('IEmailPort');

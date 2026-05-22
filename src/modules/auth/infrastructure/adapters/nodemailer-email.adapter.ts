@@ -142,6 +142,31 @@ export class NodemailerEmailAdapter implements IEmailPort {
     await Promise.resolve();
   }
 
+  async sendNewDeviceAlert(params: {
+    to: string;
+    deviceLabel: string | null;
+    ipAddress: string | null;
+    userAgent: string | null;
+    at: Date;
+  }): Promise<void> {
+    const subject = 'New device sign-in detected';
+    const body = `Device: ${params.deviceLabel ?? 'Unknown'} · IP: ${params.ipAddress ?? 'Unknown'} · UA: ${params.userAgent ?? 'Unknown'} · ${params.at.toUTCString()}`;
+    this.logStub('sendNewDeviceAlert', params.to, subject, body);
+    await Promise.resolve();
+  }
+
+  async sendPasswordChangedNotification(params: {
+    to: string;
+    at: Date;
+    ipAddress: string | null;
+    deviceLabel: string | null;
+  }): Promise<void> {
+    const subject = 'Your password was changed';
+    const body = `When: ${params.at.toUTCString()} · IP: ${params.ipAddress ?? 'Unknown'} · Device: ${params.deviceLabel ?? 'Unknown'}`;
+    this.logStub('sendPasswordChangedNotification', params.to, subject, body);
+    await Promise.resolve();
+  }
+
   private logStub(
     method: string,
     to: string,

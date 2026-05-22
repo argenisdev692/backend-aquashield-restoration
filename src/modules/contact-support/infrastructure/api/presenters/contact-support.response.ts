@@ -13,6 +13,11 @@ export const ContactSupportResponseSchema = z.object({
   readed: z.boolean(),
   createdAt: z.string().datetime(),
   updatedAt: z.string().datetime(),
+  /**
+   * Soft-delete tombstone. `null` for active requests; ISO timestamp when
+   * the request has been suspended.
+   */
+  deletedAt: z.string().datetime().nullable(),
 });
 
 export class ContactSupportResponse extends createZodDto(

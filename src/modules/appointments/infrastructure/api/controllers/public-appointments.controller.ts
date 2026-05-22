@@ -1,4 +1,5 @@
 import { Body, Controller, Post, UseGuards } from '@nestjs/common';
+import { CommandBus } from '@nestjs/cqrs';
 import {
   ApiBadRequestResponse,
   ApiCreatedResponse,
@@ -13,7 +14,7 @@ import {
   PublicCreateAppointmentDto,
   PublicCreateAppointmentSchema,
 } from '../../../application/dtos/public-create-appointment.dto';
-import { CreateAppointmentUseCase } from '../../../application/use-cases/create-appointment.use-case';
+import { CreateAppointmentCommand } from '../../../application/commands/create-appointment.command';
 import { CreateAppointmentResponse } from '../presenters/create-appointment.response';
 
 /**
@@ -27,10 +28,10 @@ import { CreateAppointmentResponse } from '../presenters/create-appointment.resp
 @ApiTags('public')
 @Controller('public/appointments')
 export class PublicAppointmentsController {
-  constructor(private readonly createAppointment: CreateAppointmentUseCase) {}
+  constructor(private readonly commandBus: CommandBus) {}
 
   @Post()
-  @Throttle({ default: { ttl: 60_000, limit: 3 } })
+  @Throttle({ short: { limit: 3, ttl: 1000 } })
   @UseGuards(SpamFilterGuard)
   @ApiCreatedResponse({
     type: CreateAppointmentResponse,
@@ -47,28 +48,30 @@ export class PublicAppointmentsController {
     @Body(new ZodValidationPipe(PublicCreateAppointmentSchema))
     dto: PublicCreateAppointmentDto,
   ): Promise<CreateAppointmentResponse> {
-    const id = await this.createAppointment.execute({
-      firstName: dto.firstName,
-      lastName: dto.lastName,
-      phone: dto.phone,
-      email: dto.email ?? null,
-      address: dto.address,
-      address2: dto.address2 ?? null,
-      city: dto.city,
-      state: dto.state,
-      zipcode: dto.zipcode,
-      country: dto.country,
-      message: dto.message ?? null,
-      smsConsent: dto.smsConsent,
-      latitude: dto.latitude ?? null,
-      longitude: dto.longitude ?? null,
-      registrationDate: null,
-      statusLead: null,
-      followUpCalls: null,
-      notes: null,
-      owner: null,
-      additionalNote: null,
-    });
+    const id = await this.commandBus.execute(
+      new CreateAppointmentCommand({
+        firstName: dto.firstName,
+        lastName: dto.lastName,
+        phone: dto.phone,
+        email: dto.email ?? null,
+        address: dto.address,
+        address2: dto.address2 ?? null,
+        city: dto.city,
+        state: dto.state,
+        zipcode: dto.zipcode,
+        country: dto.country,
+        message: dto.message ?? null,
+        smsConsent: dto.smsConsent,
+        latitude: dto.latitude ?? null,
+        longitude: dto.longitude ?? null,
+        registrationDate: null,
+        statusLead: null,
+        followUpCalls: null,
+        notes: null,
+        owner: null,
+        additionalNote: null,
+      }),
+    );
     return { id };
   }
 }

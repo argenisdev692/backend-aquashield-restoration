@@ -1,8 +1,14 @@
+jest.mock('@nestjs-cls/transactional', () => ({
+  Transactional:
+    () => (_target: unknown, _key: string, descriptor: PropertyDescriptor) =>
+      descriptor,
+}));
+
 import { Test, TestingModule } from '@nestjs/testing';
 import { NotFoundException } from '@nestjs/common';
 import { ClsService } from 'nestjs-cls';
 import { DeleteContactSupportHandler } from '../../application/commands/handlers/delete-contact-support.handler';
-import { DeleteContactSupportCommand } from '../../application/commands/impl/delete-contact-support.command';
+import { DeleteContactSupportCommand } from '../../application/commands/delete-contact-support.command';
 import { CONTACT_SUPPORT_REPOSITORY } from '../../domain/ports/contact-support.repository.interface';
 import { AUDIT_PORT } from '../../../../shared/activity-log/audit.port';
 import { CACHE_PORT } from '../../../../shared/cache/cache.port';
@@ -74,6 +80,7 @@ describe('DeleteContactSupportHandler', () => {
         resourceType: 'CONTACT',
         resourceId: ID,
       }),
+      { strict: true },
     );
     expect(cache.delByPattern).toHaveBeenCalledWith('http:*:/contact-support*');
   });

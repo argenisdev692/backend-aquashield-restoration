@@ -23,7 +23,9 @@ export class PrismaUserAuthRepository implements IUserAuthRepository {
   async findByEmail(email: string): Promise<UserAuthRow | null> {
     const row = await this.prisma.user.findUnique({
       where: { email },
-      include: { roles: { select: { roleId: true } } },
+      include: {
+        roles: { include: { role: { select: { id: true, name: true } } } },
+      },
     });
     return row ? this.toAuthRow(row) : null;
   }
@@ -31,7 +33,9 @@ export class PrismaUserAuthRepository implements IUserAuthRepository {
   async findById(id: string): Promise<UserAuthRow | null> {
     const row = await this.prisma.user.findUnique({
       where: { id },
-      include: { roles: { select: { roleId: true } } },
+      include: {
+        roles: { include: { role: { select: { id: true, name: true } } } },
+      },
     });
     return row ? this.toAuthRow(row) : null;
   }
@@ -39,7 +43,9 @@ export class PrismaUserAuthRepository implements IUserAuthRepository {
   async findByGoogleId(googleId: string): Promise<UserAuthRow | null> {
     const row = await this.prisma.user.findFirst({
       where: { googleId, deletedAt: null },
-      include: { roles: { select: { roleId: true } } },
+      include: {
+        roles: { include: { role: { select: { id: true, name: true } } } },
+      },
     });
     return row ? this.toAuthRow(row) : null;
   }
@@ -50,10 +56,21 @@ export class PrismaUserAuthRepository implements IUserAuthRepository {
       include: {
         roles: {
           include: {
-            role: { select: { id: true, name: true } },
+            role: {
+              select: {
+                id: true,
+                name: true,
+                permissions: {
+                  select: {
+                    permission: { select: { action: true, subject: true } },
+                  },
+                },
+              },
+            },
           },
         },
         permissions: {
+          where: { isGranted: true },
           include: {
             permission: { select: { action: true, subject: true } },
           },
@@ -61,6 +78,21 @@ export class PrismaUserAuthRepository implements IUserAuthRepository {
       },
     });
     if (!row) return null;
+
+    // Effective permissions = role-inherited + direct grants, deduplicated
+    // by `${action}:${subject}`. Mirrors UserMapper-style projection used
+    // by GET /users so /auth/me and GET /users/:id agree.
+    const dedupe = new Map<string, { action: string; subject: string }>();
+    for (const ur of row.roles) {
+      for (const rp of ur.role.permissions) {
+        const { action, subject } = rp.permission;
+        dedupe.set(`${action}:${subject}`, { action, subject });
+      }
+    }
+    for (const up of row.permissions) {
+      const { action, subject } = up.permission;
+      dedupe.set(`${action}:${subject}`, { action, subject });
+    }
 
     return {
       id: row.id,
@@ -86,10 +118,7 @@ export class PrismaUserAuthRepository implements IUserAuthRepository {
         id: ur.role.id,
         name: ur.role.name,
       })),
-      permissions: row.permissions.map((up) => ({
-        action: up.permission.action,
-        subject: up.permission.subject,
-      })),
+      permissions: [...dedupe.values()],
       createdAt: row.createdAt,
     };
   }
@@ -100,10 +129,13 @@ export class PrismaUserAuthRepository implements IUserAuthRepository {
         name: data.name,
         lastName: data.lastName,
         email: data.email,
+        phone: data.phone,
         password: data.hashedPassword,
         termsAndConditions: data.termsAndConditions,
       },
-      include: { roles: { select: { roleId: true } } },
+      include: {
+        roles: { include: { role: { select: { id: true, name: true } } } },
+      },
     });
     return this.toAuthRow(row);
   }
@@ -190,6 +222,20 @@ export class PrismaUserAuthRepository implements IUserAuthRepository {
     });
   }
 
+  async setLockedUntil(userId: string, until: Date): Promise<void> {
+    await this.prisma.user.update({
+      where: { id: userId },
+      data: { lockedUntil: until },
+    });
+  }
+
+  async clearLockedUntil(userId: string): Promise<void> {
+    await this.prisma.user.update({
+      where: { id: userId },
+      data: { lockedUntil: null },
+    });
+  }
+
   async updateProfile(userId: string, data: UpdateProfileData): Promise<void> {
     await this.prisma.user.update({
       where: { id: userId },
@@ -222,7 +268,8 @@ export class PrismaUserAuthRepository implements IUserAuthRepository {
     emailVerifiedAt: Date | null;
     mustChangePassword: boolean;
     passwordExpiresAt: Date | null;
-    roles: Array<{ roleId: string }>;
+    lockedUntil: Date | null;
+    roles: Array<{ role: { id: string; name: string } }>;
   }): UserAuthRow {
     return {
       id: row.id,
@@ -234,7 +281,9 @@ export class PrismaUserAuthRepository implements IUserAuthRepository {
       emailVerifiedAt: row.emailVerifiedAt,
       mustChangePassword: row.mustChangePassword,
       passwordExpiresAt: row.passwordExpiresAt,
-      roleIds: row.roles.map((r) => r.roleId),
+      lockedUntil: row.lockedUntil,
+      roleIds: row.roles.map((r) => r.role.id),
+      roleNames: row.roles.map((r) => r.role.name.toLowerCase()),
     };
   }
 }

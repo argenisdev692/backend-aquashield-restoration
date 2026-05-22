@@ -17,6 +17,7 @@ model BlogCategory {
 
   user User @relation(fields: [userId], references: [id], onDelete: Cascade)
 
+  @@unique([userId, name], map: "uq_blog_categories_user_name")
   @@index([deletedAt], map: "idx_blog_categories_deleted_at")
   @@map("blog_categories")
 }

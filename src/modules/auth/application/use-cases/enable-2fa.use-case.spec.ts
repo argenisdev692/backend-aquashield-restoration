@@ -30,6 +30,8 @@ describe('Enable2faUseCase', () => {
       getPasswordConfirmedAt: jest.fn(),
       setGoogleId: jest.fn(),
       updateProfile: jest.fn(),
+    setLockedUntil: jest.fn(),
+    clearLockedUntil: jest.fn(),
     };
     const totp = {
       generateSecret: jest.fn().mockReturnValue('ABCDEFGHIJKLMNOP'),

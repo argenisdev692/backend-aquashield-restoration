@@ -26,6 +26,5 @@ model CompanyData {
 
   user User @relation(fields: [userId], references: [id], onDelete: Cascade)
 
-  @@index([userId], map: "idx_company_data_user_id")
   @@map("company_data")
 }

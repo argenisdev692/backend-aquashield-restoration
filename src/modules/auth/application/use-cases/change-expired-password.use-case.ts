@@ -27,6 +27,8 @@ import {
   type IssuedTokens,
 } from '../services/auth-token-issuer.service';
 import { PasswordChangedEvent } from '../../domain/events/auth-events';
+import { deviceLabelFromUserAgent } from '../../domain/entities/auth-session.aggregate';
+import { CLS_KEYS } from '../../../../shared/cls/cls.constants';
 import type { IBreachedPasswordPort } from '../../../../shared/security/breached-password.port';
 import {
   BREACHED_PASSWORD_PORT,
@@ -124,9 +126,15 @@ export class ChangeExpiredPasswordUseCase {
       return this.tokenIssuer.issue(user);
     });
 
+    const ua = this.cls.get<string>(CLS_KEYS.USER_AGENT) ?? null;
+    const ip = this.cls.get<string>(CLS_KEYS.IP_ADDRESS) ?? null;
     this.eventEmitter.emit(
       'auth.password_changed',
-      new PasswordChangedEvent(userId),
+      new PasswordChangedEvent(userId, new Date(), {
+        email: user.email,
+        ipAddress: ip,
+        deviceLabel: deviceLabelFromUserAgent(ua),
+      }),
     );
 
     await this.audit.log({

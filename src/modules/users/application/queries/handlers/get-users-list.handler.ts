@@ -1,0 +1,74 @@
+import { QueryHandler, IQueryHandler } from '@nestjs/cqrs';
+import { Inject } from '@nestjs/common';
+import { ClsService } from 'nestjs-cls';
+import { LoggerService } from '../../../../../logger/logger.service';
+import type { IUserRepository } from '../../../domain/repositories/user.repository.interface';
+import { USER_REPOSITORY } from '../../../domain/repositories/user.repository.interface';
+import type { UserReadModel } from '../../../application/read-models/user.read-model';
+import { resolveTrashedMode } from '../../../../../shared/crud/trashed.util';
+import { GetUsersListQuery } from '../get-users-list.query';
+
+export interface PaginatedUsers {
+  data: UserReadModel[];
+  total: number;
+  page: number;
+  limit: number;
+}
+
+@QueryHandler(GetUsersListQuery)
+export class GetUsersListHandler implements IQueryHandler<GetUsersListQuery> {
+  constructor(
+    @Inject(USER_REPOSITORY)
+    private readonly userRepo: IUserRepository,
+    private readonly logger: LoggerService,
+    private readonly cls: ClsService,
+  ) {}
+
+  async execute(query: GetUsersListQuery): Promise<PaginatedUsers> {
+    const traceId = this.cls.get<string>('traceId');
+    const trashed = resolveTrashedMode({
+      withTrashed: query.query.withTrashed,
+      onlyTrashed: query.query.onlyTrashed,
+    });
+    this.logger.info('GetUsersListHandler', { traceId, trashed });
+
+    const skip = (query.query.page - 1) * query.query.limit;
+    const { users, total } = await this.userRepo.findAll({
+      skip,
+      take: query.query.limit,
+      search: query.query.search,
+      trashed,
+    });
+
+    // Batched access fetch — 2 SQL total regardless of page size.
+    const accessByUserId = await this.userRepo.findAccessByUserIds(
+      users.map((u) => u.id.value),
+    );
+
+    return {
+      data: users.map((user) => {
+        const access = accessByUserId.get(user.id.value) ?? {
+          roles: [],
+          permissions: [],
+        };
+        return {
+          id: user.id.value,
+          name: user.name,
+          lastName: user.lastName,
+          email: user.email.value,
+          phone: user.phone,
+          emailVerifiedAt: user.emailVerifiedAt,
+          passwordConfirmedAt: user.passwordConfirmedAt,
+          createdAt: user.createdAt,
+          updatedAt: user.updatedAt,
+          deletedAt: user.deletedAt,
+          roles: access.roles,
+          permissions: access.permissions,
+        };
+      }),
+      total,
+      page: query.query.page,
+      limit: query.query.limit,
+    };
+  }
+}

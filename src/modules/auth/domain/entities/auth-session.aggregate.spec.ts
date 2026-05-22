@@ -31,14 +31,18 @@ describe('AuthSession (domain aggregate)', () => {
   });
 
   it('reconstitutes a revoked session from persistence', () => {
+    const now = new Date();
     const session = AuthSession.reconstitute({
       id: 's',
       userId: 'u',
       refreshTokenHash: RefreshToken.generate().hash,
       deviceInfo: null,
+      userAgent: null,
+      deviceLabel: null,
       ipAddress: null,
       expiresAt: new Date(Date.now() + 60_000),
-      createdAt: new Date(),
+      createdAt: now,
+      lastActivityAt: now,
       revokedAt: new Date(),
     });
     expect(session.isActive).toBe(false);

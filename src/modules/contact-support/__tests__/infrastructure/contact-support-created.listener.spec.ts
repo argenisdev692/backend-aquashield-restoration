@@ -21,6 +21,8 @@ function deps() {
     save: jest.fn(),
     findReadModelById: jest.fn(),
     findMany: jest.fn(),
+    bulkDelete: jest.fn(),
+    bulkRestore: jest.fn(),
   };
   const email = {
     notifyAdminsNewRequest: jest.fn().mockResolvedValue(undefined),

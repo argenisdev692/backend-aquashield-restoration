@@ -1,7 +1,14 @@
 import { Injectable } from '@nestjs/common';
 import { PrismaService } from '../../shared/database/prisma.service';
 import type { BlogCategory } from './blog-category.entity';
-import type { BlogCategory as PrismaBlogCategory } from '../../generated/prisma/client';
+import type {
+  BlogCategory as PrismaBlogCategory,
+  Prisma,
+} from '../../generated/prisma/client';
+import {
+  buildTrashedWhere,
+  type TrashedMode,
+} from '../../shared/crud/trashed.util';
 
 @Injectable()
 export class BlogCategoryRepository {
@@ -20,17 +27,52 @@ export class BlogCategoryRepository {
     };
   }
 
-  async findAll(): Promise<BlogCategory[]> {
+  async findAll(
+    limit = 50,
+    skip = 0,
+    trashed: TrashedMode = 'exclude',
+  ): Promise<BlogCategory[]> {
+    const where: Prisma.BlogCategoryWhereInput = buildTrashedWhere(trashed);
     const rows = await this.prisma.blogCategory.findMany({
-      where: { deletedAt: null },
+      where,
       orderBy: { createdAt: 'desc' },
+      take: Math.min(limit, 100),
+      skip,
+      select: {
+        id: true,
+        name: true,
+        description: true,
+        image: true,
+        userId: true,
+        createdAt: true,
+        updatedAt: true,
+        deletedAt: true,
+      },
     });
     return rows.map((r) => this.mapToEntity(r));
   }
 
-  async findById(id: string): Promise<BlogCategory | null> {
+  /**
+   * @param trashed when `true`, soft-deleted categories are returned too
+   *                (Laravel `withTrashed()->find()`).
+   */
+  async findById(
+    id: string,
+    trashed: boolean = false,
+  ): Promise<BlogCategory | null> {
+    const where: Prisma.BlogCategoryWhereInput = trashed
+      ? { id }
+      : { id, deletedAt: null };
+    const row = await this.prisma.blogCategory.findFirst({ where });
+    return row ? this.mapToEntity(row) : null;
+  }
+
+  async findByName(
+    userId: string,
+    name: string,
+  ): Promise<BlogCategory | null> {
     const row = await this.prisma.blogCategory.findFirst({
-      where: { id, deletedAt: null },
+      where: { userId, name, deletedAt: null },
     });
     return row ? this.mapToEntity(row) : null;
   }
@@ -79,5 +121,21 @@ export class BlogCategoryRepository {
       data: { deletedAt: null },
     });
     return this.mapToEntity(row);
+  }
+
+  async bulkDelete(ids: string[]): Promise<{ count: number }> {
+    const result = await this.prisma.blogCategory.updateMany({
+      where: { id: { in: ids }, deletedAt: null },
+      data: { deletedAt: new Date() },
+    });
+    return { count: result.count };
+  }
+
+  async bulkRestore(ids: string[]): Promise<{ count: number }> {
+    const result = await this.prisma.blogCategory.updateMany({
+      where: { id: { in: ids }, deletedAt: { not: null } },
+      data: { deletedAt: null },
+    });
+    return { count: result.count };
   }
 }

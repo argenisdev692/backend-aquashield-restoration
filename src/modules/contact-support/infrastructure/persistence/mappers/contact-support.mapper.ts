@@ -51,6 +51,7 @@ export class ContactSupportMapper {
       readed: row.readed,
       createdAt: row.createdAt.toISOString(),
       updatedAt: row.updatedAt.toISOString(),
+      deletedAt: row.deletedAt?.toISOString() ?? null,
     };
   }
 }

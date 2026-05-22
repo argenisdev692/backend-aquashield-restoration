@@ -39,6 +39,24 @@ export class CaslAbilityFactory {
   }
 
   async createForUser(user: AuthenticatedUser): Promise<AppAbility> {
+    // super-admin bypass — single `manage all` rule, no DB hit, no cache
+    // round-trip. JWT carries lowercase role names (`super-admin` is the
+    // canonical seeded system role). Absent for legacy tokens, in which
+    // case we fall through to the regular DB-backed path.
+    //
+    // `'all'` (lowercase) is the CASL subject wildcard — matches every
+    // subject. `'ALL'` would be a literal subject named ALL and would NOT
+    // grant access to other subjects. Cast through `unknown` because the
+    // `Subjects` union is the typed catalog, while `'all'` is CASL-internal.
+    if (user.roleNames?.includes('super-admin')) {
+      return createMongoAbility<AppAbility>([
+        {
+          action: Action.Manage,
+          subject: 'all' as unknown as Subjects,
+        },
+      ]);
+    }
+
     const cacheKey = `casl:ability:${user.id}`;
     const cached = await this.cache.get<AppRule[]>(cacheKey);
     if (cached) {

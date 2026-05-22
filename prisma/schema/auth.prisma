@@ -43,21 +43,71 @@ model OtpCode {
 }
 
 model AuthSession {
-  id           String    @id @default(dbgenerated("uuid_generate_v7()")) @db.Uuid
-  userId       String    @map("user_id") @db.Uuid
+  id             String    @id @default(dbgenerated("uuid_generate_v7()")) @db.Uuid
+  userId         String    @map("user_id") @db.Uuid
   // Stores SHA-256 hex hash (64 chars) of the raw refresh token, NOT the raw
   // value. VarChar(512) is kept for forward-compat with longer hash schemes.
-  refreshToken String    @unique @map("refresh_token") @db.VarChar(512)
-  deviceInfo   Json?     @map("device_info") @db.JsonB
-  ipAddress    String?   @map("ip_address") @db.Inet
-  revokedAt    DateTime? @map("revoked_at") @db.Timestamp(6)
-  expiresAt    DateTime  @map("expires_at") @db.Timestamp(6)
-  createdAt    DateTime  @default(now()) @map("created_at") @db.Timestamp(6)
-  updatedAt    DateTime  @default(now()) @map("updated_at") @db.Timestamp(6)
+  refreshToken   String    @unique @map("refresh_token") @db.VarChar(512)
+  deviceInfo     Json?     @map("device_info") @db.JsonB
+  // Raw User-Agent string captured at session creation. Kept separately from
+  // deviceInfo for cheap indexed lookups when detecting "new device" logins.
+  userAgent      String?   @map("user_agent") @db.VarChar(512)
+  // Optional human-friendly label parsed from user-agent (e.g. "Chrome on macOS").
+  deviceLabel    String?   @map("device_label") @db.VarChar(255)
+  ipAddress      String?   @map("ip_address") @db.Inet
+  // Last time the session was used (refresh, /me, etc.). Drives the "active
+  // sessions" UI's last-activity column.
+  lastActivityAt DateTime  @default(now()) @map("last_activity_at") @db.Timestamp(6)
+  revokedAt      DateTime? @map("revoked_at") @db.Timestamp(6)
+  expiresAt      DateTime  @map("expires_at") @db.Timestamp(6)
+  createdAt      DateTime  @default(now()) @map("created_at") @db.Timestamp(6)
+  updatedAt      DateTime  @default(now()) @map("updated_at") @db.Timestamp(6)
 
   user User @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@index([userId], map: "idx_auth_sessions_user_id")
   @@index([refreshToken], map: "idx_auth_sessions_refresh_token")
   @@map("auth_sessions")
+}
+
+// ============================================================
+//  BackupCode — single-use 2FA recovery codes (8 per user).
+//  Plaintext shown ONCE at generation; only bcrypt hashes stored.
+//  Each code is invalidated on first use (`usedAt IS NOT NULL`).
+// ============================================================
+
+model BackupCode {
+  id        String    @id @default(dbgenerated("uuid_generate_v7()")) @db.Uuid
+  userId    String    @map("user_id") @db.Uuid
+  codeHash  String    @map("code_hash") @db.VarChar(255)
+  usedAt    DateTime? @map("used_at") @db.Timestamp(6)
+  createdAt DateTime  @default(now()) @map("created_at") @db.Timestamp(6)
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId], map: "idx_backup_codes_user_id")
+  @@map("backup_codes")
+}
+
+// ============================================================
+//  TrustedDevice — devices that may skip the 2FA challenge for up
+//  to 30 days. The cookie sent to the client carries the raw token;
+//  only the SHA-256 hash is persisted.
+// ============================================================
+
+model TrustedDevice {
+  id              String   @id @default(dbgenerated("uuid_generate_v7()")) @db.Uuid
+  userId          String   @map("user_id") @db.Uuid
+  deviceTokenHash String   @unique @map("device_token_hash") @db.VarChar(128)
+  label           String?  @db.VarChar(255)
+  userAgent       String?  @map("user_agent") @db.VarChar(512)
+  ipAddress       String?  @map("ip_address") @db.Inet
+  expiresAt       DateTime @map("expires_at") @db.Timestamp(6)
+  lastUsedAt      DateTime @default(now()) @map("last_used_at") @db.Timestamp(6)
+  createdAt       DateTime @default(now()) @map("created_at") @db.Timestamp(6)
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId], map: "idx_trusted_devices_user_id")
+  @@map("trusted_devices")
 }

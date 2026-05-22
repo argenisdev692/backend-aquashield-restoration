@@ -8,8 +8,9 @@
 // ============================================================
 
 generator client {
-  provider     = "prisma-client"
-  output       = "../../src/generated/prisma"
+  provider        = "prisma-client"
+  output          = "../../src/generated/prisma"
+  previewFeatures = ["partialIndexes"]
   // Project is CommonJS (no "type":"module"; tsc module=nodenext). Without
   // this the generator emits ESM (import.meta.url / .js paths) which tsc
   // cannot compile under CJS. "cjs" makes the client build-compatible.

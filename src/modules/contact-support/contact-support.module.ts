@@ -7,6 +7,8 @@ import { CreateContactSupportHandler } from './application/commands/handlers/cre
 import { MarkContactSupportReadHandler } from './application/commands/handlers/mark-contact-support-read.handler';
 import { DeleteContactSupportHandler } from './application/commands/handlers/delete-contact-support.handler';
 import { RestoreContactSupportHandler } from './application/commands/handlers/restore-contact-support.handler';
+import { BulkDeleteContactSupportHandler } from './application/commands/handlers/bulk-delete-contact-support.handler';
+import { BulkRestoreContactSupportHandler } from './application/commands/handlers/bulk-restore-contact-support.handler';
 import { GetContactSupportByIdHandler } from './application/queries/handlers/get-contact-support-by-id.handler';
 import { ListContactSupportHandler } from './application/queries/handlers/list-contact-support.handler';
 import { PrismaContactSupportRepository } from './infrastructure/persistence/repositories/prisma-contact-support.repository';
@@ -25,6 +27,8 @@ const CommandHandlers: Provider[] = [
   MarkContactSupportReadHandler,
   DeleteContactSupportHandler,
   RestoreContactSupportHandler,
+  BulkDeleteContactSupportHandler,
+  BulkRestoreContactSupportHandler,
 ];
 
 const QueryHandlers: Provider[] = [

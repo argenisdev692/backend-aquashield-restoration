@@ -9,8 +9,6 @@ import {
 } from '@nestjs/websockets';
 import { Server, Socket } from 'socket.io';
 import type { DefaultEventsMap } from 'socket.io';
-import { UseGuards } from '@nestjs/common';
-import { JwtAuthGuard } from '../../../../core/guards/jwt-auth.guard';
 import { WsJwtMiddleware } from '../../../../shared/websockets/ws-jwt.middleware';
 
 interface AppointmentSocketData {
@@ -40,7 +38,6 @@ function wsCorsOrigin(): boolean | string[] {
   },
   namespace: '/appointments',
 })
-@UseGuards(JwtAuthGuard)
 export class AppointmentsGateway
   implements OnGatewayConnection, OnGatewayDisconnect
 {
@@ -102,11 +99,27 @@ export class AppointmentsGateway
   }
 
   broadcastAppointmentUpdated(appointmentId: string) {
-    this.server.emit('appointment:updated', { appointmentId });
+    this.server
+      .to('appointments:admin')
+      .emit('appointment:updated', { appointmentId });
   }
 
   broadcastAppointmentDeleted(appointmentId: string) {
-    this.server.emit('appointment:deleted', { appointmentId });
+    this.server
+      .to('appointments:admin')
+      .emit('appointment:deleted', { appointmentId });
+  }
+
+  broadcastAppointmentsBulkDeleted(ids: readonly string[]) {
+    this.server
+      .to('appointments:admin')
+      .emit('appointments:bulk_deleted', { ids });
+  }
+
+  broadcastAppointmentsBulkRestored(ids: readonly string[]) {
+    this.server
+      .to('appointments:admin')
+      .emit('appointments:bulk_restored', { ids });
   }
 
   broadcastStatusChanged(
@@ -114,7 +127,7 @@ export class AppointmentsGateway
     oldStatus: string | null,
     newStatus: string,
   ) {
-    this.server.emit('appointment:status_changed', {
+    this.server.to('appointments:admin').emit('appointment:status_changed', {
       appointmentId,
       oldStatus,
       newStatus,

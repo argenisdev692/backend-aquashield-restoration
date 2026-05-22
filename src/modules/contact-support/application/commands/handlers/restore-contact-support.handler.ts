@@ -1,12 +1,13 @@
 import { CommandHandler, ICommandHandler } from '@nestjs/cqrs';
 import { Inject, NotFoundException } from '@nestjs/common';
+import { Transactional } from '@nestjs-cls/transactional';
 import { ClsService } from 'nestjs-cls';
 import { LoggerService } from '../../../../../logger/logger.service';
 import { AUDIT_PORT } from '../../../../../shared/activity-log/audit.port';
 import type { IAuditPort } from '../../../../../shared/activity-log/audit.port';
 import { CACHE_PORT } from '../../../../../shared/cache/cache.port';
 import type { ICachePort } from '../../../../../shared/cache/cache.port';
-import { RestoreContactSupportCommand } from '../impl/restore-contact-support.command';
+import { RestoreContactSupportCommand } from '../restore-contact-support.command';
 import { CONTACT_SUPPORT_REPOSITORY } from '../../../domain/ports/contact-support.repository.interface';
 import type { IContactSupportRepository } from '../../../domain/ports/contact-support.repository.interface';
 
@@ -25,6 +26,7 @@ export class RestoreContactSupportHandler implements ICommandHandler<RestoreCont
 
   private static readonly CACHE_PATTERN = 'http:*:/contact-support*';
 
+  @Transactional()
   async execute(command: RestoreContactSupportCommand): Promise<void> {
     const traceId = this.cls.get<string>('traceId');
     this.logger.info('RestoreContactSupportHandler start', {
@@ -38,12 +40,15 @@ export class RestoreContactSupportHandler implements ICommandHandler<RestoreCont
     entity.restore();
     await this.repo.save(entity);
 
-    await this.audit.log({
-      action: 'contact_support.restored',
-      actorId: command.actorId,
-      resourceType: 'CONTACT',
-      resourceId: command.id,
-    });
+    await this.audit.log(
+      {
+        action: 'contact_support.restored',
+        actorId: command.actorId,
+        resourceType: 'CONTACT',
+        resourceId: command.id,
+      },
+      { strict: true },
+    );
 
     await this.cache.delByPattern(RestoreContactSupportHandler.CACHE_PATTERN);
 

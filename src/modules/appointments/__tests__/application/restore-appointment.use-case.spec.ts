@@ -1,5 +1,12 @@
+jest.mock('@nestjs-cls/transactional', () => ({
+  Transactional:
+    () => (_target: unknown, _key: string, descriptor: PropertyDescriptor) =>
+      descriptor,
+}));
+
 import { Test, TestingModule } from '@nestjs/testing';
-import { RestoreAppointmentUseCase } from '../../application/use-cases/restore-appointment.use-case';
+import { RestoreAppointmentHandler } from '../../application/commands/handlers/restore-appointment.handler';
+import { RestoreAppointmentCommand } from '../../application/commands/restore-appointment.command';
 import {
   IAppointmentRepository,
   APPOINTMENT_REPOSITORY,
@@ -8,14 +15,16 @@ import {
   IAuditPort,
   AUDIT_PORT,
 } from '../../domain/ports/outbound/audit.port.interface';
+import { CACHE_PORT, ICachePort } from '../../../../shared/cache/cache.port';
 import { Appointment } from '../../domain/entities/appointment.aggregate';
 import { LoggerService } from '../../../../logger/logger.service';
 import { ClsService } from 'nestjs-cls';
 
-describe('RestoreAppointmentUseCase', () => {
-  let useCase: RestoreAppointmentUseCase;
+describe('RestoreAppointmentHandler', () => {
+  let handler: RestoreAppointmentHandler;
   let mockRepo: jest.Mocked<IAppointmentRepository>;
   let mockAudit: jest.Mocked<IAuditPort>;
+  let mockCache: jest.Mocked<ICachePort>;
 
   beforeEach(async () => {
     const appointment = Appointment.create({
@@ -44,19 +53,29 @@ describe('RestoreAppointmentUseCase', () => {
     mockRepo = {
       findById: jest.fn().mockResolvedValue(appointment),
       findReadModelById: jest.fn(),
+      findIdByEmail: jest.fn(),
       findAll: jest.fn(),
       save: jest.fn(),
       delete: jest.fn(),
       restore: jest.fn().mockResolvedValue(undefined),
       markAsRead: jest.fn(),
+      bulkDelete: jest.fn(),
+      bulkRestore: jest.fn(),
     };
     mockAudit = { log: jest.fn() };
+    mockCache = {
+      get: jest.fn(),
+      set: jest.fn(),
+      del: jest.fn(),
+      delByPattern: jest.fn(),
+    };
 
     const module: TestingModule = await Test.createTestingModule({
       providers: [
-        RestoreAppointmentUseCase,
+        RestoreAppointmentHandler,
         { provide: APPOINTMENT_REPOSITORY, useValue: mockRepo },
         { provide: AUDIT_PORT, useValue: mockAudit },
+        { provide: CACHE_PORT, useValue: mockCache },
         {
           provide: LoggerService,
           useValue: {
@@ -64,6 +83,7 @@ describe('RestoreAppointmentUseCase', () => {
             warn: jest.fn(),
             error: jest.fn(),
             debug: jest.fn(),
+            setContext: jest.fn(),
           },
         },
         {
@@ -73,27 +93,32 @@ describe('RestoreAppointmentUseCase', () => {
       ],
     }).compile();
 
-    useCase = module.get(RestoreAppointmentUseCase);
+    handler = module.get(RestoreAppointmentHandler);
   });
 
-  it('restores and audits', async () => {
-    await useCase.execute('appt-1', 'user-9');
+  it('restores, audits, invalidates cache', async () => {
+    await handler.execute(new RestoreAppointmentCommand('appt-1', 'user-9'));
 
     expect(mockRepo.restore).toHaveBeenCalledWith('appt-1');
-    expect(mockAudit.log).toHaveBeenCalledWith({
-      action: 'appointments.restored',
-      actorId: 'user-9',
-      resourceId: 'appt-1',
-      traceId: 'trace-123',
-    });
+    expect(mockAudit.log).toHaveBeenCalledWith(
+      {
+        action: 'appointments.restored',
+        actorId: 'user-9',
+        resourceId: 'appt-1',
+        traceId: 'trace-123',
+      },
+      { strict: true },
+    );
+    expect(mockCache.delByPattern).toHaveBeenCalledWith('http:*:/appointments*');
   });
 
   it('throws and skips side effects when not found', async () => {
     mockRepo.findById.mockResolvedValue(null);
 
-    await expect(useCase.execute('appt-1', 'user-9')).rejects.toThrow(
-      'Appointment with id appt-1 not found',
-    );
+    await expect(
+      handler.execute(new RestoreAppointmentCommand('missing', 'user-9')),
+    ).rejects.toThrow('Appointment with id missing not found');
+
     expect(mockRepo.restore).not.toHaveBeenCalled();
     expect(mockAudit.log).not.toHaveBeenCalled();
   });

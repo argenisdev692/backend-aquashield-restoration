@@ -78,6 +78,7 @@ export class RegisterUseCase {
       name: dto.name,
       lastName: dto.lastName,
       email: dto.email,
+      phone: dto.phone,
       hashedPassword,
       termsAndConditions: dto.termsAndConditions,
     });

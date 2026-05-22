@@ -1,4 +1,4 @@
-import { ConflictException, NotFoundException } from '@nestjs/common';
+import { NotFoundException } from '@nestjs/common';
 import { CompanyDataService } from '../companydata.service';
 
 const logger = {
@@ -19,6 +19,10 @@ const cache = {
 };
 
 const makeAudit = () => ({ log: jest.fn().mockResolvedValue(undefined) });
+
+const makeTx = () => ({
+  runInTx: jest.fn(async <T>(fn: () => Promise<T>): Promise<T> => fn()),
+});
 
 const baseRow = {
   id: '018f0000-0000-7000-8000-000000000001',
@@ -43,12 +47,10 @@ const baseRow = {
 };
 
 const makeRepo = (overrides: Record<string, jest.Mock> = {}) => ({
-  existsAny: jest.fn().mockResolvedValue(false),
   findByUserId: jest.fn().mockResolvedValue(baseRow),
   findById: jest.fn().mockResolvedValue(baseRow),
-  create: jest.fn().mockResolvedValue(baseRow),
+  findFirst: jest.fn().mockResolvedValue(baseRow),
   update: jest.fn().mockResolvedValue(baseRow),
-  delete: jest.fn().mockResolvedValue(undefined),
   ...overrides,
 });
 
@@ -65,21 +67,34 @@ const makeStorage = (overrides: Record<string, jest.Mock> = {}) => ({
   ...overrides,
 });
 
+const makeService = (
+  repo: ReturnType<typeof makeRepo>,
+  storage: ReturnType<typeof makeStorage> = makeStorage(),
+  audit: ReturnType<typeof makeAudit> = makeAudit(),
+  tx: ReturnType<typeof makeTx> = makeTx(),
+) =>
+  ({
+    svc: new CompanyDataService(
+      repo as never,
+      storage as never,
+      cache as never,
+      logger as never,
+      cls as never,
+      audit,
+      tx as never,
+    ),
+    storage,
+    audit,
+    tx,
+  }) as const;
+
 describe('CompanyDataService', () => {
   beforeEach(() => jest.clearAllMocks());
 
   describe('findByUserId', () => {
     it('returns the company data row for the user', async () => {
       const repo = makeRepo();
-      const audit = makeAudit();
-      const svc = new CompanyDataService(
-        repo as never,
-        makeStorage() as never,
-        cache as never,
-        logger as never,
-        cls as never,
-        audit,
-      );
+      const { svc, audit } = makeService(repo);
 
       const result = await svc.findByUserId(baseRow.userId);
 
@@ -92,114 +107,45 @@ describe('CompanyDataService', () => {
       const repo = makeRepo({
         findByUserId: jest.fn().mockResolvedValue(null),
       });
-      const audit = makeAudit();
-      const svc = new CompanyDataService(
-        repo as never,
-        makeStorage() as never,
-        cache as never,
-        logger as never,
-        cls as never,
-        audit,
-      );
+      const { svc } = makeService(repo);
 
-      const result = await svc.findByUserId(baseRow.userId);
+      expect(await svc.findByUserId(baseRow.userId)).toBeNull();
+    });
+  });
 
-      expect(result).toBeNull();
-      expect(audit.log).not.toHaveBeenCalled();
+  describe('findSingletonOrFail', () => {
+    it('returns the singleton company row', async () => {
+      const repo = makeRepo();
+      const { svc } = makeService(repo);
+
+      const result = await svc.findSingletonOrFail();
+
+      expect(repo.findFirst).toHaveBeenCalled();
+      expect(result).toEqual(baseRow);
+    });
+
+    it('throws NotFoundException when no company exists', async () => {
+      const repo = makeRepo({ findFirst: jest.fn().mockResolvedValue(null) });
+      const { svc } = makeService(repo);
+
+      await expect(svc.findSingletonOrFail()).rejects.toThrow(NotFoundException);
     });
   });
 
   describe('findById', () => {
     it('returns the company data when found', async () => {
       const repo = makeRepo();
-      const audit = makeAudit();
-      const svc = new CompanyDataService(
-        repo as never,
-        makeStorage() as never,
-        cache as never,
-        logger as never,
-        cls as never,
-        audit,
-      );
+      const { svc } = makeService(repo);
 
       const result = await svc.findById(baseRow.id);
-
       expect(result).toEqual(baseRow);
-      expect(audit.log).not.toHaveBeenCalled();
     });
 
     it('throws NotFoundException when not found', async () => {
       const repo = makeRepo({ findById: jest.fn().mockResolvedValue(null) });
-      const audit = makeAudit();
-      const svc = new CompanyDataService(
-        repo as never,
-        makeStorage() as never,
-        cache as never,
-        logger as never,
-        cls as never,
-        audit,
-      );
+      const { svc } = makeService(repo);
 
       await expect(svc.findById(baseRow.id)).rejects.toThrow(NotFoundException);
-      expect(audit.log).not.toHaveBeenCalled();
-    });
-  });
-
-  describe('create', () => {
-    it('creates a company when none exists and logs audit + info at start and end', async () => {
-      const repo = makeRepo({ existsAny: jest.fn().mockResolvedValue(false) });
-      const audit = makeAudit();
-      const svc = new CompanyDataService(
-        repo as never,
-        makeStorage() as never,
-        cache as never,
-        logger as never,
-        cls as never,
-        audit,
-      );
-      const dto = { companyName: 'New Corp' };
-
-      await svc.create(baseRow.userId, dto);
-
-      expect(repo.existsAny).toHaveBeenCalled();
-      expect(repo.create).toHaveBeenCalledWith({
-        ...dto,
-        userId: baseRow.userId,
-      });
-      expect(audit.log).toHaveBeenCalledWith(
-        expect.objectContaining({
-          action: 'companydata.created',
-          actorId: baseRow.userId,
-        }),
-      );
-      expect(logger.info).toHaveBeenCalledWith(
-        'CompanyDataService.create start',
-        expect.objectContaining({ traceId: 'trace-test' }),
-      );
-      expect(logger.info).toHaveBeenCalledWith(
-        'CompanyDataService.create end',
-        expect.objectContaining({ traceId: 'trace-test' }),
-      );
-      expect(cache.delByPattern).toHaveBeenCalledWith('http:*:/company-data*');
-    });
-
-    it('throws ConflictException when a company already exists', async () => {
-      const repo = makeRepo({ existsAny: jest.fn().mockResolvedValue(true) });
-      const audit = makeAudit();
-      const svc = new CompanyDataService(
-        repo as never,
-        makeStorage() as never,
-        cache as never,
-        logger as never,
-        cls as never,
-        audit,
-      );
-
-      await expect(
-        svc.create(baseRow.userId, { companyName: 'Duplicate' }),
-      ).rejects.toThrow(ConflictException);
-      expect(repo.create).not.toHaveBeenCalled();
-      expect(audit.log).not.toHaveBeenCalled();
     });
   });
 
@@ -207,15 +153,7 @@ describe('CompanyDataService', () => {
     it('returns updated entity and logs audit + info at start and end', async () => {
       const updated = { ...baseRow, companyName: 'Updated Corp' };
       const repo = makeRepo({ update: jest.fn().mockResolvedValue(updated) });
-      const audit = makeAudit();
-      const svc = new CompanyDataService(
-        repo as never,
-        makeStorage() as never,
-        cache as never,
-        logger as never,
-        cls as never,
-        audit,
-      );
+      const { svc, audit } = makeService(repo);
 
       const result = await svc.update(baseRow.id, {
         companyName: 'Updated Corp',
@@ -227,6 +165,7 @@ describe('CompanyDataService', () => {
           action: 'companydata.updated',
           resourceId: baseRow.id,
         }),
+        { strict: true },
       );
       expect(logger.info).toHaveBeenCalledWith(
         'CompanyDataService.update start',
@@ -236,128 +175,48 @@ describe('CompanyDataService', () => {
         'CompanyDataService.update end',
         expect.objectContaining({ traceId: 'trace-test' }),
       );
+      expect(cache.delByPattern).toHaveBeenCalledWith('http:*:/company-data*');
     });
 
     it('throws NotFoundException when record is missing', async () => {
       const repo = makeRepo({ findById: jest.fn().mockResolvedValue(null) });
-      const audit = makeAudit();
-      const svc = new CompanyDataService(
-        repo as never,
-        makeStorage() as never,
-        cache as never,
-        logger as never,
-        cls as never,
-        audit,
-      );
+      const { svc, audit } = makeService(repo);
 
-      await expect(svc.update(baseRow.id, {})).rejects.toThrow(
-        NotFoundException,
-      );
+      await expect(svc.update(baseRow.id, {})).rejects.toThrow(NotFoundException);
       expect(repo.update).not.toHaveBeenCalled();
       expect(audit.log).not.toHaveBeenCalled();
     });
   });
 
-  describe('delete', () => {
-    it('deletes a record without signature and logs audit + info at start and end', async () => {
-      const repo = makeRepo();
-      const storage = makeStorage();
-      const audit = makeAudit();
-      const svc = new CompanyDataService(
-        repo as never,
-        storage as never,
-        cache as never,
-        logger as never,
-        cls as never,
-        audit,
-      );
-
-      await svc.delete(baseRow.id);
-
-      expect(repo.delete).toHaveBeenCalledWith(baseRow.id);
-      expect(storage.delete).not.toHaveBeenCalled();
-      expect(audit.log).toHaveBeenCalledWith(
-        expect.objectContaining({
-          action: 'companydata.deleted',
-          resourceId: baseRow.id,
-        }),
-      );
-      expect(logger.info).toHaveBeenCalledWith(
-        'CompanyDataService.delete start',
-        expect.objectContaining({ traceId: 'trace-test' }),
-      );
-      expect(logger.info).toHaveBeenCalledWith(
-        'CompanyDataService.delete end',
-        expect.objectContaining({ traceId: 'trace-test' }),
-      );
-    });
-
-    it('removes the signature file before deleting the record', async () => {
-      const rowWithSig = {
-        ...baseRow,
-        signaturePath: 'https://cdn.example.com/company-signatures/sig.png',
-      };
+  describe('uploadSignature', () => {
+    it('uploads, updates DB, then deletes the previous signature (replace order)', async () => {
+      const oldUrl = 'https://cdn.example.com/company-signatures/old.png';
+      const rowWithSig = { ...baseRow, signaturePath: oldUrl };
       const repo = makeRepo({
         findById: jest.fn().mockResolvedValue(rowWithSig),
       });
       const storage = makeStorage();
-      const audit = makeAudit();
-      const svc = new CompanyDataService(
-        repo as never,
-        storage as never,
-        cache as never,
-        logger as never,
-        cls as never,
-        audit,
-      );
+      const order: string[] = [];
+      storage.upload.mockImplementation(async () => {
+        order.push('upload');
+      });
+      repo.update.mockImplementation(async () => {
+        order.push('db-update');
+        return baseRow;
+      });
+      storage.delete.mockImplementation(async () => {
+        order.push('delete-old');
+      });
 
-      await svc.delete(baseRow.id);
-
-      expect(storage.delete).toHaveBeenCalledWith('company-signatures/sig.png');
-      expect(repo.delete).toHaveBeenCalledWith(baseRow.id);
-    });
-
-    it('throws NotFoundException when record does not exist', async () => {
-      const repo = makeRepo({ findById: jest.fn().mockResolvedValue(null) });
-      const audit = makeAudit();
-      const svc = new CompanyDataService(
-        repo as never,
-        makeStorage() as never,
-        cache as never,
-        logger as never,
-        cls as never,
-        audit,
-      );
-
-      await expect(svc.delete(baseRow.id)).rejects.toThrow(NotFoundException);
-      expect(audit.log).not.toHaveBeenCalled();
-    });
-  });
-
-  describe('uploadSignature', () => {
-    it('uploads new file, updates signaturePath, and logs audit + info at start and end', async () => {
-      const repo = makeRepo();
-      const storage = makeStorage();
-      const audit = makeAudit();
-      const svc = new CompanyDataService(
-        repo as never,
-        storage as never,
-        cache as never,
-        logger as never,
-        cls as never,
-        audit,
-      );
+      const { svc, audit } = makeService(repo, storage);
 
       await svc.uploadSignature(baseRow.id, {
         buffer: Buffer.from('img'),
         mimeType: 'image/png',
       });
 
-      expect(storage.upload).toHaveBeenCalledWith(
-        expect.stringMatching(/^company-signatures\/.+\.png$/),
-        expect.any(Buffer),
-        'image/png',
-      );
+      expect(order).toEqual(['upload', 'db-update', 'delete-old']);
+      expect(storage.delete).toHaveBeenCalledWith('company-signatures/old.png');
       expect(repo.update).toHaveBeenCalledWith(
         baseRow.id,
         expect.objectContaining({
@@ -369,42 +228,45 @@ describe('CompanyDataService', () => {
           action: 'companydata.signature_uploaded',
           resourceId: baseRow.id,
         }),
-      );
-      expect(logger.info).toHaveBeenCalledWith(
-        'CompanyDataService.uploadSignature start',
-        expect.objectContaining({ traceId: 'trace-test' }),
-      );
-      expect(logger.info).toHaveBeenCalledWith(
-        'CompanyDataService.uploadSignature end',
-        expect.objectContaining({ traceId: 'trace-test' }),
+        { strict: true },
       );
     });
 
-    it('deletes the previous signature before uploading the new one', async () => {
-      const oldUrl = 'https://cdn.example.com/company-signatures/old.png';
-      const rowWithSig = { ...baseRow, signaturePath: oldUrl };
-      const repo = makeRepo({
-        findById: jest.fn().mockResolvedValue(rowWithSig),
-      });
+    it('uses the right extension for image/jpeg (jpg, not jpeg)', async () => {
+      const repo = makeRepo();
       const storage = makeStorage();
-      const audit = makeAudit();
-      const svc = new CompanyDataService(
-        repo as never,
-        storage as never,
-        cache as never,
-        logger as never,
-        cls as never,
-        audit,
-      );
+      const { svc } = makeService(repo, storage);
 
       await svc.uploadSignature(baseRow.id, {
         buffer: Buffer.from('img'),
-        mimeType: 'image/png',
+        mimeType: 'image/jpeg',
       });
 
-      // Old file removed BEFORE new upload
-      expect(storage.delete).toHaveBeenCalledWith('company-signatures/old.png');
+      expect(storage.upload).toHaveBeenCalledWith(
+        expect.stringMatching(/^company-signatures\/.+\.jpg$/),
+        expect.any(Buffer),
+        'image/jpeg',
+      );
+    });
+
+    it('rolls back the uploaded file when the DB update fails', async () => {
+      const repo = makeRepo({
+        update: jest.fn().mockRejectedValue(new Error('db down')),
+      });
+      const storage = makeStorage();
+      const { svc } = makeService(repo, storage);
+
+      await expect(
+        svc.uploadSignature(baseRow.id, {
+          buffer: Buffer.from('img'),
+          mimeType: 'image/png',
+        }),
+      ).rejects.toThrow('db down');
+
       expect(storage.upload).toHaveBeenCalled();
+      expect(storage.delete).toHaveBeenCalledWith(
+        expect.stringMatching(/^company-signatures\/.+\.png$/),
+      );
     });
 
     it('logs an error (does not throw) when old-signature deletion fails', async () => {
@@ -416,15 +278,7 @@ describe('CompanyDataService', () => {
       const storage = makeStorage({
         delete: jest.fn().mockRejectedValue(new Error('R2 unavailable')),
       });
-      const audit = makeAudit();
-      const svc = new CompanyDataService(
-        repo as never,
-        storage as never,
-        cache as never,
-        logger as never,
-        cls as never,
-        audit,
-      );
+      const { svc } = makeService(repo, storage);
 
       await expect(
         svc.uploadSignature(baseRow.id, {
@@ -437,15 +291,7 @@ describe('CompanyDataService', () => {
 
     it('throws NotFoundException when company data is not found', async () => {
       const repo = makeRepo({ findById: jest.fn().mockResolvedValue(null) });
-      const audit = makeAudit();
-      const svc = new CompanyDataService(
-        repo as never,
-        makeStorage() as never,
-        cache as never,
-        logger as never,
-        cls as never,
-        audit,
-      );
+      const { svc, audit } = makeService(repo);
 
       await expect(
         svc.uploadSignature(baseRow.id, {
@@ -458,7 +304,7 @@ describe('CompanyDataService', () => {
   });
 
   describe('deleteSignature', () => {
-    it('removes the file from storage, clears signaturePath, and logs audit + info at start and end', async () => {
+    it('removes the file from storage, clears signaturePath, and logs audit', async () => {
       const rowWithSig = {
         ...baseRow,
         signaturePath: 'https://cdn.example.com/company-signatures/sig.png',
@@ -467,15 +313,7 @@ describe('CompanyDataService', () => {
         findById: jest.fn().mockResolvedValue(rowWithSig),
       });
       const storage = makeStorage();
-      const audit = makeAudit();
-      const svc = new CompanyDataService(
-        repo as never,
-        storage as never,
-        cache as never,
-        logger as never,
-        cls as never,
-        audit,
-      );
+      const { svc, audit } = makeService(repo, storage);
 
       await svc.deleteSignature(baseRow.id);
 
@@ -488,28 +326,13 @@ describe('CompanyDataService', () => {
           action: 'companydata.signature_deleted',
           resourceId: baseRow.id,
         }),
-      );
-      expect(logger.info).toHaveBeenCalledWith(
-        'CompanyDataService.deleteSignature start',
-        expect.objectContaining({ traceId: 'trace-test' }),
-      );
-      expect(logger.info).toHaveBeenCalledWith(
-        'CompanyDataService.deleteSignature end',
-        expect.objectContaining({ traceId: 'trace-test' }),
+        { strict: true },
       );
     });
 
     it('throws NotFoundException when company data is not found', async () => {
       const repo = makeRepo({ findById: jest.fn().mockResolvedValue(null) });
-      const audit = makeAudit();
-      const svc = new CompanyDataService(
-        repo as never,
-        makeStorage() as never,
-        cache as never,
-        logger as never,
-        cls as never,
-        audit,
-      );
+      const { svc, audit } = makeService(repo);
 
       await expect(svc.deleteSignature(baseRow.id)).rejects.toThrow(
         NotFoundException,

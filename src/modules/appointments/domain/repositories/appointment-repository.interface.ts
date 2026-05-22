@@ -1,4 +1,5 @@
 import { Appointment } from '../entities/appointment.aggregate';
+import type { TrashedMode } from '../../../../shared/crud/trashed.util';
 
 export interface AppointmentReadModel {
   id: string;
@@ -36,6 +37,8 @@ export interface AppointmentFilters {
   owner?: string;
   page?: number;
   limit?: number;
+  /** Soft-delete visibility — Laravel-style. Defaults to `exclude`. */
+  trashed?: TrashedMode;
 }
 
 export interface PaginatedResult<T> {
@@ -46,8 +49,14 @@ export interface PaginatedResult<T> {
 }
 
 export interface IAppointmentRepository {
-  findById(id: string): Promise<Appointment | null>;
-  findReadModelById(id: string): Promise<AppointmentReadModel | null>;
+  /** @param trashed when `true`, include soft-deleted rows in the lookup. */
+  findById(id: string, trashed?: boolean): Promise<Appointment | null>;
+  findReadModelById(
+    id: string,
+    trashed?: boolean,
+  ): Promise<AppointmentReadModel | null>;
+  /** Returns the id of an active (non-deleted) appointment with this email, or null. */
+  findIdByEmail(email: string): Promise<string | null>;
   findAll(
     filters: AppointmentFilters,
   ): Promise<PaginatedResult<AppointmentReadModel>>;
@@ -57,6 +66,10 @@ export interface IAppointmentRepository {
   restore(id: string): Promise<void>;
   /** Sets the `readed` flag (admin marked the lead as read). */
   markAsRead(id: string): Promise<void>;
+  /** Set-based soft delete — single SQL statement, idempotent. */
+  bulkDelete(ids: string[]): Promise<{ count: number }>;
+  /** Set-based restore — single SQL statement, idempotent. */
+  bulkRestore(ids: string[]): Promise<{ count: number }>;
 }
 
 export const APPOINTMENT_REPOSITORY = Symbol('IAppointmentRepository');

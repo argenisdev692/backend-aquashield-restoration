@@ -2,7 +2,7 @@ import { QueryHandler, IQueryHandler } from '@nestjs/cqrs';
 import { Inject } from '@nestjs/common';
 import { ClsService } from 'nestjs-cls';
 import { LoggerService } from '../../../../../logger/logger.service';
-import { ListContactSupportQuery } from '../impl/list-contact-support.query';
+import { ListContactSupportQuery } from '../list-contact-support.query';
 import { CONTACT_SUPPORT_REPOSITORY } from '../../../domain/ports/contact-support.repository.interface';
 import type { IContactSupportRepository } from '../../../domain/ports/contact-support.repository.interface';
 import type { PaginatedContactSupport } from '../../../domain/read-models/contact-support.read-model';
@@ -32,6 +32,7 @@ export class ListContactSupportHandler implements IQueryHandler<ListContactSuppo
       page: query.page,
       limit: query.limit,
       readed: query.readed,
+      trashed: query.trashed,
     });
   }
 }
