@@ -13,6 +13,7 @@ import { EMAIL_PORT } from '../../../domain/ports/outbound/email.port';
 import type { IAuditPort } from '../../../../../shared/activity-log/audit.port';
 import { AUDIT_PORT } from '../../../../../shared/activity-log/audit.port';
 import { SetupToken } from '../../../domain/value-objects/setup-token.vo';
+import { maskEmail } from '../../../../../shared/utils/mask.util';
 import { RequestPasswordChangeCommand } from '../request-password-change.command';
 
 const CHANGE_TOKEN_TTL_MS = 72 * 60 * 60 * 1_000;
@@ -46,7 +47,7 @@ export class RequestPasswordChangeHandler
     const traceId = this.cls.get<string>('traceId');
     this.logger.info('RequestPasswordChangeHandler start', {
       traceId,
-      email: dto.email,
+      email: maskEmail(dto.email),
     });
 
     const result = await this.runWrite(command);

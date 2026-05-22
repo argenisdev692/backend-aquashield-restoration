@@ -4,7 +4,7 @@ import { LoggerService } from '../../../../../logger/logger.service';
 import { Prisma } from '../../../../../generated/prisma/client';
 import type { IUserRepository } from '../../../domain/repositories/user.repository.interface';
 import type { User } from '../../../domain/entities/user.aggregate';
-import type { UserAccess } from '../../../application/read-models/user.read-model';
+import type { UserAccess } from '../../../domain/projections/user-access.projection';
 import { UserMapper } from '../mappers/user.mapper';
 import {
   buildTrashedWhere,

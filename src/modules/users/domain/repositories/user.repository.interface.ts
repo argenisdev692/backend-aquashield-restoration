@@ -1,6 +1,6 @@
 import type { User } from '../entities/user.aggregate';
 import type { TrashedMode } from '../../../../shared/crud/trashed.util';
-import type { UserAccess } from '../../application/read-models/user.read-model';
+import type { UserAccess } from '../projections/user-access.projection';
 
 export interface UserRow {
   id: string;

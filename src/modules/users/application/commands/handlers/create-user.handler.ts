@@ -20,6 +20,7 @@ import { UserId } from '../../../domain/value-objects/user-id.vo';
 import { SetupToken } from '../../../domain/value-objects/setup-token.vo';
 import { UserCreatedEvent } from '../../../domain/events/user-created.domain-event';
 import { EmailAlreadyExistsException } from '../../../domain/exceptions/user-domain.exception';
+import { maskEmail } from '../../../../../shared/utils/mask.util';
 import { CreateUserCommand } from '../create-user.command';
 
 const SETUP_TOKEN_TTL_MS = 72 * 60 * 60 * 1_000;
@@ -50,7 +51,10 @@ export class CreateUserHandler implements ICommandHandler<CreateUserCommand> {
   async execute(command: CreateUserCommand): Promise<string> {
     const { dto } = command;
     const traceId = this.cls.get<string>('traceId');
-    this.logger.info('CreateUserHandler start', { traceId, email: dto.email });
+    this.logger.info('CreateUserHandler start', {
+      traceId,
+      email: maskEmail(dto.email),
+    });
 
     const { userId, rawToken } = await this.runWrite(command);
 

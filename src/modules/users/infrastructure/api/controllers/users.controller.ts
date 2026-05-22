@@ -33,6 +33,7 @@ import {
 import { Throttle } from '@nestjs/throttler';
 import { ZodValidationPipe } from 'nestjs-zod';
 import { CacheTTL } from '@nestjs/cache-manager';
+import { permittedFieldsOf } from '@casl/ability/extra';
 import type { Response } from 'express';
 import { SkipCache } from '../../../../../core/decorators/skip-cache.decorator';
 import { JwtAuthGuard } from '../../../../../core/guards/jwt-auth.guard';
@@ -41,7 +42,10 @@ import { CheckAbilities } from '../../../../../core/decorators/check-abilities.d
 import { Action } from '../../../../../core/access/actions.enum';
 import { CaslAbilityFactory } from '../../../../../core/access/casl-ability.factory';
 import { CurrentUser } from '../../../../../core/decorators/current-user.decorator';
-import type { AuthenticatedUser } from '../../../../../core/access/actions.enum';
+import type {
+  AppAbility,
+  AuthenticatedUser,
+} from '../../../../../core/access/actions.enum';
 import { TTL_SECONDS } from '../../../../../shared/cache/cache-ttl.constants';
 
 import { CommandBus, QueryBus } from '@nestjs/cqrs';
@@ -99,6 +103,26 @@ import {
   UserListResponse,
 } from '../presenters/user.response';
 
+/**
+ * Field allowlist for `UserResponse`. Used by `permittedFieldsOf` so a CASL
+ * rule with a `fields[]` constraint can narrow what the actor sees, while
+ * rules without `fields[]` fall back to "every field allowed".
+ */
+const USER_RESPONSE_FIELDS = [
+  'id',
+  'name',
+  'lastName',
+  'email',
+  'phone',
+  'emailVerifiedAt',
+  'passwordConfirmedAt',
+  'createdAt',
+  'updatedAt',
+  'deletedAt',
+  'roles',
+  'permissions',
+] as const;
+
 @ApiTags('users')
 @Controller('users')
 export class UsersController {
@@ -127,6 +151,78 @@ export class UsersController {
     }
   }
 
+  /**
+   * Tombstone-list enumeration is gated by `Action.Restore`, not `Action.Read`
+   * — otherwise any `Read USER` viewer could list suspended accounts.
+   */
+  private async assertCanViewTombstones(
+    actor: AuthenticatedUser,
+    query: { onlyTrashed?: boolean },
+  ): Promise<void> {
+    if (!query.onlyTrashed) return;
+    const ability = await this.abilityFactory.createForUser(actor);
+    if (!ability.can(Action.Restore, 'USER')) {
+      throw new ForbiddenException(
+        'Viewing suspended users requires the Restore USER ability',
+      );
+    }
+  }
+
+  private toResponse(u: UserReadModel): UserResponse {
+    return {
+      id: u.id,
+      name: u.name,
+      lastName: u.lastName,
+      email: u.email,
+      phone: formatPhonePretty(u.phone),
+      emailVerifiedAt: u.emailVerifiedAt?.toISOString() ?? null,
+      passwordConfirmedAt: u.passwordConfirmedAt?.toISOString() ?? null,
+      createdAt: u.createdAt.toISOString(),
+      updatedAt: u.updatedAt.toISOString(),
+      deletedAt: u.deletedAt?.toISOString() ?? null,
+      roles: u.roles,
+      permissions: u.permissions,
+    };
+  }
+
+  /**
+   * Field-level CASL filter. If the actor's `Read USER` rules carry a
+   * `fields[]` allowlist, anything outside it is stripped; `id` always
+   * stays so the client can correlate the row. Rules without `fields[]`
+   * yield the full response.
+   */
+  private filterReadableFields(
+    response: UserResponse,
+    ability: AppAbility,
+  ): UserResponse {
+    const allowed = permittedFieldsOf(ability, Action.Read, 'USER', {
+      fieldsFrom: (rule) => rule.fields ?? [...USER_RESPONSE_FIELDS],
+    });
+    if (allowed.length === USER_RESPONSE_FIELDS.length) return response;
+
+    const filtered: Record<string, unknown> = { id: response.id };
+    for (const field of USER_RESPONSE_FIELDS) {
+      if (field === 'id' || allowed.includes(field)) {
+        filtered[field] = (response as unknown as Record<string, unknown>)[
+          field
+        ];
+      }
+    }
+    // `as unknown as`: `UserResponse` is the strict zod-derived shape, but a
+    // CASL `fields[]` rule may legitimately omit non-`id` fields. The runtime
+    // value is a partial — only the keys CASL approved — which TypeScript
+    // cannot prove from the loop above.
+    return filtered as unknown as UserResponse;
+  }
+
+  private async present(
+    actor: AuthenticatedUser,
+    u: UserReadModel,
+  ): Promise<UserResponse> {
+    const ability = await this.abilityFactory.createForUser(actor);
+    return this.filterReadableFields(this.toResponse(u), ability);
+  }
+
   @Post()
   @UseGuards(JwtAuthGuard, CaslGuard)
   @CheckAbilities({ action: Action.Create, subject: 'USER' })
@@ -151,20 +247,7 @@ export class UsersController {
     if (!user) {
       throw new NotFoundException(`User with id ${id} not found`);
     }
-    return {
-      id: user.id,
-      name: user.name,
-      lastName: user.lastName,
-      email: user.email,
-      phone: formatPhonePretty(user.phone),
-      emailVerifiedAt: user.emailVerifiedAt?.toISOString() ?? null,
-      passwordConfirmedAt: user.passwordConfirmedAt?.toISOString() ?? null,
-      createdAt: user.createdAt.toISOString(),
-      updatedAt: user.updatedAt.toISOString(),
-      deletedAt: user.deletedAt?.toISOString() ?? null,
-      roles: user.roles,
-      permissions: user.permissions,
-    };
+    return this.present(actor, user);
   }
 
   @Post('setup-password')
@@ -233,31 +316,23 @@ export class UsersController {
     required: false,
     type: Boolean,
     description:
-      'Return ONLY suspended users — useful for audit reports. Laravel-style `onlyTrashed()`. Cannot be combined with `withTrashed`.',
+      'Return ONLY suspended users — useful for audit reports. Laravel-style `onlyTrashed()`. Cannot be combined with `withTrashed`. Requires the `Restore USER` ability.',
   })
   async findAll(
     @Query(new ZodValidationPipe(UsersListQuerySchema))
     query: UsersListQueryDto,
+    @CurrentUser() actor: AuthenticatedUser,
   ): Promise<UserListResponse> {
+    await this.assertCanViewTombstones(actor, query);
     const result = await this.queryBus.execute<
       GetUsersListQuery,
       PaginatedUsers
     >(new GetUsersListQuery(query));
+    const ability = await this.abilityFactory.createForUser(actor);
     return {
-      data: result.data.map((u: UserReadModel) => ({
-        id: u.id,
-        name: u.name,
-        lastName: u.lastName,
-        email: u.email,
-        phone: formatPhonePretty(u.phone),
-        emailVerifiedAt: u.emailVerifiedAt?.toISOString() ?? null,
-        passwordConfirmedAt: u.passwordConfirmedAt?.toISOString() ?? null,
-        createdAt: u.createdAt.toISOString(),
-        updatedAt: u.updatedAt.toISOString(),
-        deletedAt: u.deletedAt?.toISOString() ?? null,
-        roles: u.roles,
-        permissions: u.permissions,
-      })),
+      data: result.data.map((u) =>
+        this.filterReadableFields(this.toResponse(u), ability),
+      ),
       total: result.total,
       page: result.page,
       limit: result.limit,
@@ -287,7 +362,7 @@ export class UsersController {
     required: false,
     type: Boolean,
     description:
-      'Export ONLY suspended users (audit report of deactivated accounts).',
+      'Export ONLY suspended users (audit report of deactivated accounts). Requires the `Restore USER` ability.',
   })
   async export(
     @Query(new ZodValidationPipe(UsersListQuerySchema))
@@ -296,6 +371,7 @@ export class UsersController {
     @CurrentUser() actor: AuthenticatedUser,
     @Res({ passthrough: true }) res: Response,
   ): Promise<StreamableFile> {
+    await this.assertCanViewTombstones(actor, query);
     const fmt: 'xlsx' | 'pdf' = format === 'pdf' ? 'pdf' : 'xlsx';
     const buffer = await this.commandBus.execute(
       new ExportUsersCommand(query, fmt, actor.id),
@@ -314,7 +390,8 @@ export class UsersController {
   }
 
   @Get('check/email')
-  @UseGuards(JwtAuthGuard)
+  @UseGuards(JwtAuthGuard, CaslGuard)
+  @CheckAbilities({ action: Action.Read, subject: 'USER' })
   @ApiBearerAuth()
   @Throttle({ default: { limit: 20, ttl: 60_000 } })
   @CacheTTL(TTL_SECONDS.SHORT)
@@ -329,6 +406,7 @@ export class UsersController {
     format: 'uuid',
   })
   @ApiUnauthorizedResponse()
+  @ApiForbiddenResponse({ description: 'Insufficient permissions' })
   async checkEmail(
     @Query('value') value: string,
     @Query('excludeId') excludeId?: string,
@@ -342,7 +420,8 @@ export class UsersController {
   }
 
   @Get('check/username')
-  @UseGuards(JwtAuthGuard)
+  @UseGuards(JwtAuthGuard, CaslGuard)
+  @CheckAbilities({ action: Action.Read, subject: 'USER' })
   @ApiBearerAuth()
   @Throttle({ default: { limit: 20, ttl: 60_000 } })
   @CacheTTL(TTL_SECONDS.SHORT)
@@ -357,6 +436,7 @@ export class UsersController {
     format: 'uuid',
   })
   @ApiUnauthorizedResponse()
+  @ApiForbiddenResponse({ description: 'Insufficient permissions' })
   async checkUsername(
     @Query('value') value: string,
     @Query('excludeId') excludeId?: string,
@@ -388,6 +468,7 @@ export class UsersController {
   })
   async findOne(
     @Param('id', ParseUUIDPipe) id: string,
+    @CurrentUser() actor: AuthenticatedUser,
     @Query('withTrashed') withTrashedRaw?: string,
   ): Promise<UserResponse> {
     const withTrashed = withTrashedRaw === 'true';
@@ -398,20 +479,7 @@ export class UsersController {
     if (!user) {
       throw new NotFoundException(`User with id ${id} not found`);
     }
-    return {
-      id: user.id,
-      name: user.name,
-      lastName: user.lastName,
-      email: user.email,
-      phone: formatPhonePretty(user.phone),
-      emailVerifiedAt: user.emailVerifiedAt?.toISOString() ?? null,
-      passwordConfirmedAt: user.passwordConfirmedAt?.toISOString() ?? null,
-      createdAt: user.createdAt.toISOString(),
-      updatedAt: user.updatedAt.toISOString(),
-      deletedAt: user.deletedAt?.toISOString() ?? null,
-      roles: user.roles,
-      permissions: user.permissions,
-    };
+    return this.present(actor, user);
   }
 
   @Patch(':id')
@@ -439,20 +507,7 @@ export class UsersController {
     if (!user) {
       throw new NotFoundException(`User with id ${id} not found`);
     }
-    return {
-      id: user.id,
-      name: user.name,
-      lastName: user.lastName,
-      email: user.email,
-      phone: formatPhonePretty(user.phone),
-      emailVerifiedAt: user.emailVerifiedAt?.toISOString() ?? null,
-      passwordConfirmedAt: user.passwordConfirmedAt?.toISOString() ?? null,
-      createdAt: user.createdAt.toISOString(),
-      updatedAt: user.updatedAt.toISOString(),
-      deletedAt: user.deletedAt?.toISOString() ?? null,
-      roles: user.roles,
-      permissions: user.permissions,
-    };
+    return this.present(actor, user);
   }
 
   @Delete(':id')
