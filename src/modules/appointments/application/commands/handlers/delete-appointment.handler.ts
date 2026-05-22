@@ -28,16 +28,36 @@ export class DeleteAppointmentHandler
     private readonly logger: LoggerService,
     private readonly cls: ClsService,
     private readonly eventEmitter: EventEmitter2,
-  ) {}
+  ) {
+    this.logger.setContext(DeleteAppointmentHandler.name);
+  }
 
-  @Transactional()
   async execute(command: DeleteAppointmentCommand): Promise<void> {
-    const { id, actorId } = command;
+    const { id } = command;
     const traceId = this.cls.get<string>('traceId');
     this.logger.info('DeleteAppointmentHandler start', {
       traceId,
       appointmentId: id,
     });
+
+    await this.persist(command);
+
+    await this.cache.delByPattern(DeleteAppointmentHandler.CACHE_PATTERN);
+    this.eventEmitter.emit(
+      'appointment.deleted',
+      new AppointmentDeletedEvent(id),
+    );
+
+    this.logger.info('DeleteAppointmentHandler end', {
+      traceId,
+      appointmentId: id,
+    });
+  }
+
+  @Transactional()
+  private async persist(command: DeleteAppointmentCommand): Promise<void> {
+    const { id, actorId } = command;
+    const traceId = this.cls.get<string>('traceId');
 
     const appointment = await this.repo.findById(id);
     if (!appointment) {
@@ -55,17 +75,5 @@ export class DeleteAppointmentHandler
       },
       { strict: true },
     );
-
-    await this.cache.delByPattern(DeleteAppointmentHandler.CACHE_PATTERN);
-
-    this.eventEmitter.emit(
-      'appointment.deleted',
-      new AppointmentDeletedEvent(id),
-    );
-
-    this.logger.info('DeleteAppointmentHandler end', {
-      traceId,
-      appointmentId: id,
-    });
   }
 }

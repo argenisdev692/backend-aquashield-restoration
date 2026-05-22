@@ -28,18 +28,42 @@ export class BulkDeleteAppointmentsHandler
     private readonly logger: LoggerService,
     private readonly cls: ClsService,
     private readonly eventEmitter: EventEmitter2,
-  ) {}
+  ) {
+    this.logger.setContext(BulkDeleteAppointmentsHandler.name);
+  }
 
-  @Transactional()
   async execute(
     command: BulkDeleteAppointmentsCommand,
   ): Promise<{ count: number }> {
-    const { ids, actorId } = command;
+    const { ids } = command;
     const traceId = this.cls.get<string>('traceId');
     this.logger.info('BulkDeleteAppointmentsHandler start', {
       traceId,
       ids,
     });
+
+    const result = await this.persist(command);
+
+    await this.cache.delByPattern(BulkDeleteAppointmentsHandler.CACHE_PATTERN);
+    this.eventEmitter.emit(
+      'appointments.bulk_deleted',
+      new AppointmentsBulkDeletedEvent(ids),
+    );
+
+    this.logger.info('BulkDeleteAppointmentsHandler end', {
+      traceId,
+      count: result.count,
+    });
+
+    return result;
+  }
+
+  @Transactional()
+  private async persist(
+    command: BulkDeleteAppointmentsCommand,
+  ): Promise<{ count: number }> {
+    const { ids, actorId } = command;
+    const traceId = this.cls.get<string>('traceId');
 
     const result = await this.repo.bulkDelete(ids);
 
@@ -52,18 +76,6 @@ export class BulkDeleteAppointmentsHandler
       },
       { strict: true },
     );
-
-    await this.cache.delByPattern(BulkDeleteAppointmentsHandler.CACHE_PATTERN);
-
-    this.eventEmitter.emit(
-      'appointments.bulk_deleted',
-      new AppointmentsBulkDeletedEvent(ids),
-    );
-
-    this.logger.info('BulkDeleteAppointmentsHandler end', {
-      traceId,
-      count: result.count,
-    });
 
     return result;
   }

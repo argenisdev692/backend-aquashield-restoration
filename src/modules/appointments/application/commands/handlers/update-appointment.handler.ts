@@ -14,6 +14,8 @@ import { StatusChangedEvent } from '../../../domain/events/status-changed.domain
 import { LoggerService } from '../../../../../logger/logger.service';
 import { ClsService } from 'nestjs-cls';
 
+type StatusChange = { oldStatus: string | null; newStatus: string };
+
 @Injectable()
 @CommandHandler(UpdateAppointmentCommand)
 export class UpdateAppointmentHandler
@@ -29,51 +31,28 @@ export class UpdateAppointmentHandler
     private readonly logger: LoggerService,
     private readonly cls: ClsService,
     private readonly eventEmitter: EventEmitter2,
-  ) {}
+  ) {
+    this.logger.setContext(UpdateAppointmentHandler.name);
+  }
 
-  @Transactional()
   async execute(command: UpdateAppointmentCommand): Promise<void> {
-    const { id, dto, actorId } = command;
+    const { id } = command;
     const traceId = this.cls.get<string>('traceId');
     this.logger.info('UpdateAppointmentHandler start', {
       traceId,
       appointmentId: id,
     });
 
-    const appointment = await this.repo.findById(id);
-    if (!appointment) {
-      throw new NotFoundException(`Appointment with id ${id} not found`);
-    }
+    const statusChange = await this.persist(command);
 
-    const { statusLead, ...otherProps } = dto;
-    let statusChange: { oldStatus: string | null; newStatus: string } | null =
-      null;
-
-    if (statusLead) {
-      statusChange = appointment.updateStatus(statusLead);
-    }
-
-    appointment.updateDetails(otherProps);
-
-    await this.repo.save(appointment);
-
-    await this.audit.log(
-      {
-        action: 'appointments.updated',
-        actorId,
-        resourceId: id,
-        traceId,
-      },
-      { strict: true },
-    );
-
+    // Side-effects MUST live outside the tx — Postgres cannot un-send a
+    // websocket emit and cache invalidation must only run on commit.
     await this.cache.delByPattern(UpdateAppointmentHandler.CACHE_PATTERN);
 
     this.eventEmitter.emit(
       'appointment.updated',
       new AppointmentUpdatedEvent(id),
     );
-
     if (statusChange) {
       this.eventEmitter.emit(
         'appointment.status_changed',
@@ -89,5 +68,39 @@ export class UpdateAppointmentHandler
       traceId,
       appointmentId: id,
     });
+  }
+
+  @Transactional()
+  private async persist(
+    command: UpdateAppointmentCommand,
+  ): Promise<StatusChange | null> {
+    const { id, dto, actorId } = command;
+    const traceId = this.cls.get<string>('traceId');
+
+    const appointment = await this.repo.findById(id);
+    if (!appointment) {
+      throw new NotFoundException(`Appointment with id ${id} not found`);
+    }
+
+    const { statusLead, ...otherProps } = dto;
+    let statusChange: StatusChange | null = null;
+    if (statusLead) {
+      statusChange = appointment.updateStatus(statusLead);
+    }
+    appointment.updateDetails(otherProps);
+
+    await this.repo.save(appointment);
+
+    await this.audit.log(
+      {
+        action: 'appointments.updated',
+        actorId,
+        resourceId: id,
+        traceId,
+      },
+      { strict: true },
+    );
+
+    return statusChange;
   }
 }

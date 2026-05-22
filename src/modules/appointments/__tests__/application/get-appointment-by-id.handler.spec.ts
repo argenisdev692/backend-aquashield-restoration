@@ -1,4 +1,5 @@
 import { Test, TestingModule } from '@nestjs/testing';
+import { NotFoundException } from '@nestjs/common';
 import { ClsService } from 'nestjs-cls';
 import { GetAppointmentByIdHandler } from '../../application/queries/handlers/get-appointment-by-id.handler';
 import { GetAppointmentByIdQuery } from '../../application/queries/get-appointment-by-id.query';
@@ -95,11 +96,10 @@ describe('GetAppointmentByIdHandler — withTrashed', () => {
     expect(result?.deletedAt).toBe('2026-05-01T10:00:00.000Z');
   });
 
-  it('returns null when the row is missing', async () => {
+  it('throws NotFoundException when the row is missing', async () => {
     mockRepo.findReadModelById.mockResolvedValueOnce(null);
-    const result = await handler.execute(
-      new GetAppointmentByIdQuery(ID, true),
-    );
-    expect(result).toBeNull();
+    await expect(
+      handler.execute(new GetAppointmentByIdQuery(ID, true)),
+    ).rejects.toBeInstanceOf(NotFoundException);
   });
 });

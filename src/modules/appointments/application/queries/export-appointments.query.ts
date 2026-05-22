@@ -1,9 +1,17 @@
-import type { AppointmentFiltersInput } from '../dtos/appointment-filters.dto';
+import type { ExportAppointmentsInput } from '../dtos/export-appointments.dto';
+
+export type ExportFormat = 'csv' | 'xlsx' | 'pdf';
 
 export class ExportAppointmentsQuery {
   constructor(
-    public readonly dto: AppointmentFiltersInput,
-    public readonly format: 'xlsx' | 'pdf',
+    public readonly dto: ExportAppointmentsInput,
+    public readonly format: ExportFormat,
     public readonly userId: string,
   ) {}
+}
+
+export interface ExportAppointmentsResult {
+  buffer: Buffer;
+  filename: string;
+  contentType: string;
 }

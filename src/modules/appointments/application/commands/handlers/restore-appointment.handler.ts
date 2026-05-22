@@ -25,18 +25,35 @@ export class RestoreAppointmentHandler
     @Inject(CACHE_PORT) private readonly cache: ICachePort,
     private readonly logger: LoggerService,
     private readonly cls: ClsService,
-  ) {}
+  ) {
+    this.logger.setContext(RestoreAppointmentHandler.name);
+  }
 
-  @Transactional()
   async execute(command: RestoreAppointmentCommand): Promise<void> {
-    const { id, actorId } = command;
+    const { id } = command;
     const traceId = this.cls.get<string>('traceId');
     this.logger.info('RestoreAppointmentHandler start', {
       traceId,
       appointmentId: id,
     });
 
-    const appointment = await this.repo.findById(id);
+    await this.persist(command);
+
+    await this.cache.delByPattern(RestoreAppointmentHandler.CACHE_PATTERN);
+
+    this.logger.info('RestoreAppointmentHandler end', {
+      traceId,
+      appointmentId: id,
+    });
+  }
+
+  @Transactional()
+  private async persist(command: RestoreAppointmentCommand): Promise<void> {
+    const { id, actorId } = command;
+    const traceId = this.cls.get<string>('traceId');
+
+    // Use `withTrashed=true` so we can find a soft-deleted row to restore.
+    const appointment = await this.repo.findById(id, true);
     if (!appointment) {
       throw new NotFoundException(`Appointment with id ${id} not found`);
     }
@@ -52,12 +69,5 @@ export class RestoreAppointmentHandler
       },
       { strict: true },
     );
-
-    await this.cache.delByPattern(RestoreAppointmentHandler.CACHE_PATTERN);
-
-    this.logger.info('RestoreAppointmentHandler end', {
-      traceId,
-      appointmentId: id,
-    });
   }
 }

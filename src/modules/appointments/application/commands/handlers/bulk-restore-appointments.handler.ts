@@ -28,18 +28,42 @@ export class BulkRestoreAppointmentsHandler
     private readonly logger: LoggerService,
     private readonly cls: ClsService,
     private readonly eventEmitter: EventEmitter2,
-  ) {}
+  ) {
+    this.logger.setContext(BulkRestoreAppointmentsHandler.name);
+  }
 
-  @Transactional()
   async execute(
     command: BulkRestoreAppointmentsCommand,
   ): Promise<{ count: number }> {
-    const { ids, actorId } = command;
+    const { ids } = command;
     const traceId = this.cls.get<string>('traceId');
     this.logger.info('BulkRestoreAppointmentsHandler start', {
       traceId,
       ids,
     });
+
+    const result = await this.persist(command);
+
+    await this.cache.delByPattern(BulkRestoreAppointmentsHandler.CACHE_PATTERN);
+    this.eventEmitter.emit(
+      'appointments.bulk_restored',
+      new AppointmentsBulkRestoredEvent(ids),
+    );
+
+    this.logger.info('BulkRestoreAppointmentsHandler end', {
+      traceId,
+      count: result.count,
+    });
+
+    return result;
+  }
+
+  @Transactional()
+  private async persist(
+    command: BulkRestoreAppointmentsCommand,
+  ): Promise<{ count: number }> {
+    const { ids, actorId } = command;
+    const traceId = this.cls.get<string>('traceId');
 
     const result = await this.repo.bulkRestore(ids);
 
@@ -52,18 +76,6 @@ export class BulkRestoreAppointmentsHandler
       },
       { strict: true },
     );
-
-    await this.cache.delByPattern(BulkRestoreAppointmentsHandler.CACHE_PATTERN);
-
-    this.eventEmitter.emit(
-      'appointments.bulk_restored',
-      new AppointmentsBulkRestoredEvent(ids),
-    );
-
-    this.logger.info('BulkRestoreAppointmentsHandler end', {
-      traceId,
-      count: result.count,
-    });
 
     return result;
   }

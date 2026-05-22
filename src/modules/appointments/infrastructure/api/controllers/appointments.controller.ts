@@ -10,8 +10,11 @@ import {
   HttpCode,
   UseGuards,
   ParseUUIDPipe,
-  NotFoundException,
+  ForbiddenException,
+  Res,
+  StreamableFile,
 } from '@nestjs/common';
+import type { Response } from 'express';
 import { CommandBus, QueryBus } from '@nestjs/cqrs';
 import {
   ApiTags,
@@ -22,6 +25,7 @@ import {
   ApiNotFoundResponse,
   ApiBadRequestResponse,
   ApiUnauthorizedResponse,
+  ApiForbiddenResponse,
   ApiParam,
   ApiQuery,
   ApiProduces,
@@ -41,12 +45,19 @@ import {
   UpdateAppointmentSchema,
 } from '../../../application/dtos/update-appointment.dto';
 import { AppointmentFiltersDto } from '../../../application/dtos/appointment-filters.dto';
+import {
+  ExportAppointmentsDto,
+  ExportAppointmentsSchema,
+} from '../../../application/dtos/export-appointments.dto';
 import { CreateAppointmentCommand } from '../../../application/commands/create-appointment.command';
 import { UpdateAppointmentCommand } from '../../../application/commands/update-appointment.command';
 import { DeleteAppointmentCommand } from '../../../application/commands/delete-appointment.command';
 import { GetAppointmentByIdQuery } from '../../../application/queries/get-appointment-by-id.query';
 import { GetAppointmentsListQuery } from '../../../application/queries/get-appointments-list.query';
-import { ExportAppointmentsQuery } from '../../../application/queries/export-appointments.query';
+import {
+  ExportAppointmentsQuery,
+  type ExportAppointmentsResult,
+} from '../../../application/queries/export-appointments.query';
 import { MarkAppointmentReadCommand } from '../../../application/commands/mark-appointment-read.command';
 import { RestoreAppointmentCommand } from '../../../application/commands/restore-appointment.command';
 import { BulkDeleteAppointmentsCommand } from '../../../application/commands/bulk-delete-appointments.command';
@@ -65,6 +76,8 @@ import { CreateAppointmentResponse } from '../presenters/create-appointment.resp
 import { CurrentUser } from '../../../../../core/decorators/current-user.decorator';
 import { CheckAbilities } from '../../../../../core/decorators/check-abilities.decorator';
 import { Action } from '../../../../../core/access/actions.enum';
+import type { AuthenticatedUser } from '../../../../../core/access/actions.enum';
+import { CaslAbilityFactory } from '../../../../../core/access/casl-ability.factory';
 
 @ApiTags('appointments')
 @ApiBearerAuth()
@@ -74,6 +87,7 @@ export class AppointmentsController {
   constructor(
     private readonly commandBus: CommandBus,
     private readonly queryBus: QueryBus,
+    private readonly abilityFactory: CaslAbilityFactory,
   ) {}
 
   @Post()
@@ -84,17 +98,22 @@ export class AppointmentsController {
   async create(
     @Body(new ZodValidationPipe(CreateAppointmentSchema))
     dto: CreateAppointmentDto,
-    @CurrentUser('userId') userId: string,
+    @CurrentUser() user: AuthenticatedUser,
   ): Promise<CreateAppointmentResponse> {
     const id = await this.commandBus.execute(
-      new CreateAppointmentCommand(dto, userId),
+      new CreateAppointmentCommand(dto, user.id),
     );
     return { id };
   }
 
+  // `?onlyTrashed=true` is additionally gated by `Action.Restore` inside the
+  // handler so a read-only role cannot enumerate tombstoned rows.
   @Get()
   @CheckAbilities({ action: Action.Read, subject: 'APPOINTMENT' })
   @ApiOkResponse({ type: AppointmentListResponse })
+  @ApiForbiddenResponse({
+    description: '`onlyTrashed=true` requires `Action.Restore`',
+  })
   @ApiQuery({
     name: 'statusLead',
     required: false,
@@ -118,19 +137,40 @@ export class AppointmentsController {
     required: false,
     type: Boolean,
     description:
-      'Return ONLY soft-deleted appointments — useful for audit reports. Cannot be combined with `withTrashed`.',
+      'Return ONLY soft-deleted appointments. Cannot be combined with `withTrashed`. Requires `Action.Restore`.',
   })
   @CacheTTL(TTL_SECONDS.SHORT)
   async findAll(
     @Query() query: AppointmentFiltersDto,
+    @CurrentUser() user: AuthenticatedUser,
   ): Promise<PaginatedResult<AppointmentReadModel>> {
+    await this.assertCanReadTrash(query.onlyTrashed, user);
     return this.queryBus.execute(new GetAppointmentsListQuery(query));
   }
 
+  // Registered BEFORE `:id` to avoid route shadowing. Bypasses cache, audited
+  // as `appointments.export`. `?onlyTrashed=true` requires `Action.Restore`.
   @Get('export')
   @CheckAbilities({ action: Action.Read, subject: 'APPOINTMENT' })
-  @ApiOkResponse({ description: 'Exported appointments data' })
-  @ApiQuery({ name: 'format', required: false, enum: ['xlsx', 'pdf'] })
+  @ApiProduces(
+    'text/csv',
+    'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+    'application/pdf',
+  )
+  @ApiOkResponse({
+    description:
+      'CSV, XLSX (default) or PDF report of appointments. Honors filters and trashed flags.',
+    content: {
+      'text/csv': {},
+      'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet': {},
+      'application/pdf': {},
+    },
+  })
+  @ApiBadRequestResponse({ description: 'Validation failed' })
+  @ApiForbiddenResponse({
+    description: '`onlyTrashed=true` requires `Action.Restore`',
+  })
+  @ApiQuery({ name: 'format', required: false, enum: ['csv', 'xlsx', 'pdf'] })
   @ApiQuery({
     name: 'statusLead',
     required: false,
@@ -151,18 +191,27 @@ export class AppointmentsController {
     required: false,
     type: Boolean,
     description:
-      'Export ONLY soft-deleted appointments (audit report of deactivated leads).',
+      'Export ONLY soft-deleted appointments. Cannot be combined with `withTrashed`. Requires `Action.Restore`.',
   })
-  @ApiProduces('application/json')
   @SkipCache()
   async export(
-    @Query() query: AppointmentFiltersDto,
-    @Query('format') format: 'xlsx' | 'pdf' = 'xlsx',
-    @CurrentUser('userId') userId: string,
-  ): Promise<AppointmentReadModel[]> {
-    return this.queryBus.execute(
-      new ExportAppointmentsQuery(query, format, userId),
+    @Query(new ZodValidationPipe(ExportAppointmentsSchema))
+    query: ExportAppointmentsDto,
+    @CurrentUser() user: AuthenticatedUser,
+    @Res({ passthrough: true }) res: Response,
+  ): Promise<StreamableFile> {
+    await this.assertCanReadTrash(query.onlyTrashed, user);
+    const result = await this.queryBus.execute<
+      ExportAppointmentsQuery,
+      ExportAppointmentsResult
+    >(new ExportAppointmentsQuery(query, query.format, user.id));
+
+    res.setHeader('Content-Type', result.contentType);
+    res.setHeader(
+      'Content-Disposition',
+      `attachment; filename="${result.filename}"`,
     );
+    return new StreamableFile(result.buffer);
   }
 
   @Get(':id')
@@ -183,13 +232,9 @@ export class AppointmentsController {
     @Query('withTrashed') withTrashedRaw?: string,
   ): Promise<AppointmentReadModel> {
     const withTrashed = withTrashedRaw === 'true';
-    const appointment = await this.queryBus.execute(
+    return this.queryBus.execute(
       new GetAppointmentByIdQuery(id, withTrashed),
     );
-    if (!appointment) {
-      throw new NotFoundException(`Appointment ${id} not found`);
-    }
-    return appointment;
   }
 
   @Patch(':id')
@@ -202,9 +247,11 @@ export class AppointmentsController {
     @Param('id', ParseUUIDPipe) id: string,
     @Body(new ZodValidationPipe(UpdateAppointmentSchema))
     dto: UpdateAppointmentDto,
-    @CurrentUser('userId') userId: string,
+    @CurrentUser() user: AuthenticatedUser,
   ): Promise<void> {
-    await this.commandBus.execute(new UpdateAppointmentCommand(id, dto, userId));
+    await this.commandBus.execute(
+      new UpdateAppointmentCommand(id, dto, user.id),
+    );
   }
 
   @Patch(':id/read')
@@ -214,9 +261,11 @@ export class AppointmentsController {
   @ApiParam({ name: 'id', type: String, format: 'uuid' })
   async markRead(
     @Param('id', ParseUUIDPipe) id: string,
-    @CurrentUser('userId') userId: string,
+    @CurrentUser() user: AuthenticatedUser,
   ): Promise<{ success: true }> {
-    await this.commandBus.execute(new MarkAppointmentReadCommand(id, userId));
+    await this.commandBus.execute(
+      new MarkAppointmentReadCommand(id, user.id),
+    );
     return { success: true };
   }
 
@@ -227,9 +276,9 @@ export class AppointmentsController {
   @ApiParam({ name: 'id', type: String, format: 'uuid' })
   async restore(
     @Param('id', ParseUUIDPipe) id: string,
-    @CurrentUser('userId') userId: string,
+    @CurrentUser() user: AuthenticatedUser,
   ): Promise<{ success: true }> {
-    await this.commandBus.execute(new RestoreAppointmentCommand(id, userId));
+    await this.commandBus.execute(new RestoreAppointmentCommand(id, user.id));
     return { success: true };
   }
 
@@ -240,10 +289,10 @@ export class AppointmentsController {
   @ApiBadRequestResponse({ description: 'Validation failed' })
   async bulkDelete(
     @Body(new ZodValidationPipe(BulkIdsSchema)) dto: BulkIdsDto,
-    @CurrentUser('userId') userId: string,
+    @CurrentUser() user: AuthenticatedUser,
   ): Promise<{ count: number }> {
     return this.commandBus.execute(
-      new BulkDeleteAppointmentsCommand(dto.ids, userId),
+      new BulkDeleteAppointmentsCommand(dto.ids, user.id),
     );
   }
 
@@ -254,10 +303,10 @@ export class AppointmentsController {
   @ApiBadRequestResponse({ description: 'Validation failed' })
   async bulkRestore(
     @Body(new ZodValidationPipe(BulkIdsSchema)) dto: BulkIdsDto,
-    @CurrentUser('userId') userId: string,
+    @CurrentUser() user: AuthenticatedUser,
   ): Promise<{ count: number }> {
     return this.commandBus.execute(
-      new BulkRestoreAppointmentsCommand(dto.ids, userId),
+      new BulkRestoreAppointmentsCommand(dto.ids, user.id),
     );
   }
 
@@ -269,8 +318,23 @@ export class AppointmentsController {
   @HttpCode(204)
   async delete(
     @Param('id', ParseUUIDPipe) id: string,
-    @CurrentUser('userId') userId: string,
+    @CurrentUser() user: AuthenticatedUser,
   ): Promise<void> {
-    await this.commandBus.execute(new DeleteAppointmentCommand(id, userId));
+    await this.commandBus.execute(new DeleteAppointmentCommand(id, user.id));
+  }
+
+  /**
+   * Enumerating tombstoned rows requires `Action.Restore` (not `Action.Read`)
+   * so the standard read role cannot pivot through `?onlyTrashed=true`.
+   */
+  private async assertCanReadTrash(
+    onlyTrashed: boolean | undefined,
+    user: AuthenticatedUser,
+  ): Promise<void> {
+    if (!onlyTrashed) return;
+    const ability = await this.abilityFactory.createForUser(user);
+    if (!ability.can(Action.Restore, 'APPOINTMENT')) {
+      throw new ForbiddenException('Insufficient permissions');
+    }
   }
 }
