@@ -238,8 +238,9 @@ export class AppointmentsController {
   }
 
   @Patch(':id')
+  @HttpCode(204)
   @CheckAbilities({ action: Action.Update, subject: 'APPOINTMENT' })
-  @ApiOkResponse({ type: AppointmentResponse })
+  @ApiNoContentResponse()
   @ApiNotFoundResponse()
   @ApiBadRequestResponse({ description: 'Validation failed' })
   @ApiParam({ name: 'id', type: String, format: 'uuid' })
@@ -256,7 +257,10 @@ export class AppointmentsController {
 
   @Patch(':id/read')
   @CheckAbilities({ action: Action.Update, subject: 'APPOINTMENT' })
-  @ApiOkResponse({ description: 'Marked as read' })
+  @ApiOkResponse({
+    description: 'Marked as read',
+    schema: { example: { success: true } },
+  })
   @ApiNotFoundResponse()
   @ApiParam({ name: 'id', type: String, format: 'uuid' })
   async markRead(
@@ -271,7 +275,10 @@ export class AppointmentsController {
 
   @Patch(':id/restore')
   @CheckAbilities({ action: Action.Restore, subject: 'APPOINTMENT' })
-  @ApiOkResponse({ description: 'Restored' })
+  @ApiOkResponse({
+    description: 'Restored',
+    schema: { example: { success: true } },
+  })
   @ApiNotFoundResponse()
   @ApiParam({ name: 'id', type: String, format: 'uuid' })
   async restore(

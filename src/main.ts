@@ -6,6 +6,7 @@ import { cleanupOpenApiDoc } from 'nestjs-zod';
 import helmet from 'helmet';
 import hpp from 'hpp';
 import { AppModule } from './app.module';
+import { RedisIoAdapter } from './shared/websockets/redis-io.adapter';
 
 function corsOrigin(raw: string): boolean | string[] {
   if (raw.trim() === '*') return true;
@@ -44,6 +45,11 @@ async function bootstrap(): Promise<void> {
 
   app.setGlobalPrefix(config.get<string>('GLOBAL_PREFIX', 'api/v1'));
   app.enableShutdownHooks();
+
+  // Fan out Socket.IO rooms across pods via the shared Redis connection.
+  const ioAdapter = new RedisIoAdapter(app);
+  await ioAdapter.connect();
+  app.useWebSocketAdapter(ioAdapter);
 
   if (config.get<boolean>('SWAGGER_ENABLED')) {
     const swaggerConfig = new DocumentBuilder()
