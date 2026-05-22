@@ -14,6 +14,13 @@ export interface ListContactSupportFilters {
   trashed?: TrashedMode;
 }
 
+export interface ExportContactSupportFilters {
+  /** When defined, filters by the `readed` flag. */
+  readed?: boolean;
+  /** Soft-delete visibility — Laravel-style. Defaults to `exclude`. */
+  trashed?: TrashedMode;
+}
+
 export interface IContactSupportRepository {
   /** Aggregate load for write paths — excludes soft-deleted rows. */
   findById(id: string): Promise<ContactSupport | null>;
@@ -33,6 +40,13 @@ export interface IContactSupportRepository {
   findMany(
     filters: ListContactSupportFilters,
   ): Promise<PaginatedContactSupport>;
+  /**
+   * All rows matching the filters — never paginated. Hard-capped at
+   * `EXPORT_MAX_ROWS` to prevent runaway memory use (OWASP API #4).
+   */
+  findAllForExport(
+    filters: ExportContactSupportFilters,
+  ): Promise<ContactSupportReadModel[]>;
   /** Set-based soft delete — single SQL statement, idempotent. */
   bulkDelete(ids: string[]): Promise<{ count: number }>;
   /** Set-based restore — single SQL statement, idempotent. */

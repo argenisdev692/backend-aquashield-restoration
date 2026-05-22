@@ -13,6 +13,68 @@ globs: src/**
 
 ---
 
+## ✅ Preflight — BEFORE creating ANY module file (BLOCKING)
+
+> **Rule:** when the user asks for a new Hex/DDD module, do **NOT** create `domain/`, `application/`, or `infrastructure/` files until every preflight check below is green. If a check fails, **fix it first**, commit the fix, then start the module. The order is non-negotiable — a module without its Prisma model + CASL subject + seeded permissions will fail at runtime and leak half-built scaffolding into the repo.
+
+For module `{module}` with CASL subject `{SUBJECT}` (UPPER_SNAKE, e.g. `BLOG_CATEGORY` for `blog-category`):
+
+### 1. Prisma model exists
+
+Check `prisma/schema/{module}.prisma` (multi-file schema layout).
+
+- ✅ File exists AND contains `model {Module} { … }` with at minimum: `id` (uuid v7 via `dbgenerated("uuid_generate_v7()")`), `createdAt`, `updatedAt`, and (when soft-delete is in scope) `deletedAt`.
+- ❌ Missing → create `prisma/schema/{module}.prisma` with the model FIRST. Mirror under `src/modules/{module}/infrastructure/persistence/{module}.prisma` only if the project keeps a per-module copy. Then run:
+  ```bash
+  npx prisma generate
+  npx prisma db push        # or: npx prisma migrate dev --name add_{module}
+  ```
+- The model MUST follow the repo rules from `.claude/rules/backend-nest.md`: no `@updatedAt` when the table has a DB trigger; `@map`/`@@map` for snake_case columns; `@@index` on every FK and on soft-delete (`deletedAt`).
+
+### 2. CASL Subject is declared
+
+Check `src/core/access/actions.enum.ts`.
+
+- ✅ The string `'{SUBJECT}'` appears in the `Subjects` union.
+- ❌ Missing → add it to the union BEFORE writing any controller or guard:
+  ```ts
+  export type Subjects =
+    | 'USER'
+    | …
+    | '{SUBJECT}'   // ← new
+    | 'ALL';
+  ```
+- Without this line, `@CheckAbilities({ action, subject: '{SUBJECT}' })` fails type-check and the guard silently denies every request.
+
+### 3. Permission rows are seeded
+
+Check `prisma/seed.ts`.
+
+- ✅ The permission catalogue contains rows for `{module}:read`, `{module}:create`, `{module}:update`, `{module}:delete`, and (when the model has `deletedAt`) `{module}:restore`. Each row uses `subject: '{SUBJECT}'`.
+- ❌ Missing → append the rows to the catalogue, then run:
+  ```bash
+  npx prisma db seed
+  ```
+- Public endpoints (e.g. an anonymous contact form) do not need an `Action.Create` permission, but the admin-facing routes always do.
+
+### 4. Role → permission mapping exists
+
+Still in `prisma/seed.ts`.
+
+- ✅ At least one non-`super-admin` role grants the new permissions explicitly (e.g. `admin` includes `{module}:read|update|delete|restore`). `super-admin` bypasses CASL via `manage:all`, so it does not need rows — but a real admin role does.
+- ❌ Missing → wire the new permission names into the relevant role's `permissions[]` in the seed, re-run `npx prisma db seed`.
+- For modules that should NOT be visible to a given role, do nothing — deny-by-default applies.
+
+### 5. Confirm before scaffolding
+
+After steps 1–4 pass, state out loud to the user:
+
+> "Preflight green — Prisma model `{Module}` present, subject `{SUBJECT}` declared, permissions `{module}:read|create|update|delete|restore` seeded, mapped to roles `[…]`. Proceeding with the Hex/DDD module."
+
+Only then create `domain/`, `application/`, `infrastructure/`, controllers, handlers, ports, mappers, and specs as described below.
+
+---
+
 ## 📁 Full Service Structure
 
 ```
@@ -73,17 +135,17 @@ src/
 │   │   └── cache-ttl.constants.ts        # TTL_SECONDS: SHORT | MEDIUM | LONG | STATIC
 │   │
 │   ├── export/                           # 🟢 Reports — usable from ANY module (CRUD or Hex/DDD)
-│   │   ├── export.module.ts              # Registers ExcelJS + PDFKit adapters
-│   │   ├── export.service.ts             # Orchestrator: routes to adapter by format (xlsx | pdf)
+│   │   ├── export.module.ts              # Registers CSV writer + PDFKit adapter
+│   │   ├── export.service.ts             # Orchestrator: routes by format — BOTH csv AND pdf are MANDATORY
 │   │   ├── ports/
-│   │   │   ├── excel-exporter.port.ts    # IExcelExporter
+│   │   │   ├── csv-exporter.port.ts      # ICsvExporter
 │   │   │   └── pdf-exporter.port.ts      # IPdfExporter
 │   │   ├── adapters/
-│   │   │   ├── exceljs.adapter.ts        # IExcelExporter via ExcelJS (only Excel engine — never `xlsx`)
+│   │   │   ├── csv.adapter.ts            # ICsvExporter — hand-rolled, no library; UTF-8 BOM, CRLF, "" escaping, leading =+-@ defused (OWASP)
 │   │   │   └── pdfkit.adapter.ts         # IPdfExporter via PDFKit — only PDF engine (Puppeteer NOT used)
 │   │   ├── decorators/
 │   │   │   └── export-column.decorator.ts # @ExportColumn({ label, format }) on ReadModel fields
-│   │   └── export.constants.ts           # FORMAT enum: XLSX | PDF
+│   │   └── export.constants.ts           # FORMAT enum: CSV | PDF (xlsx NOT supported)
 │   │
 │   ├── messaging/
 │   │   ├── queue.module.ts               # BullMQ jobs configuration
@@ -1250,8 +1312,8 @@ Anti-patterns:
   ❌ Using @nestjs/cqrs AggregateRoot base class — domain stays pure TS
   ❌ Command/Query classes importing NestJS or infra — they are plain TS payloads
   ❌ IAuditPort called inside QueryHandlers (reads never audit — except export)
-  ❌ CRUD list endpoint without matching /export?format=xlsx|pdf
-  ❌ Export implemented for xlsx but not pdf (or vice versa)
+  ❌ CRUD list endpoint without matching /export?format=csv|pdf
+  ❌ Export implemented for csv but not pdf (or vice versa) — BOTH are mandatory
   ❌ @ExportColumn on password, token, secret, or any sensitive field
   ❌ GET controller method without @CacheTTL() — always declare a tier
   ❌ Magic number TTL values — always use TTL_SECONDS constants

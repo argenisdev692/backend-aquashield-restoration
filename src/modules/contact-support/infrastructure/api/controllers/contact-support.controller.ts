@@ -10,7 +10,11 @@ import {
   UseGuards,
   ParseUUIDPipe,
   HttpCode,
+  ForbiddenException,
+  Res,
+  StreamableFile,
 } from '@nestjs/common';
+import type { Response } from 'express';
 import { Throttle } from '@nestjs/throttler';
 import { CommandBus, QueryBus } from '@nestjs/cqrs';
 import { CacheTTL } from '@nestjs/cache-manager';
@@ -24,7 +28,9 @@ import {
   ApiBadRequestResponse,
   ApiParam,
   ApiQuery,
+  ApiProduces,
 } from '@nestjs/swagger';
+import { SkipCache } from '../../../../../core/decorators/skip-cache.decorator';
 import { TTL_SECONDS } from '../../../../../shared/cache/cache-ttl.constants';
 import { ZodValidationPipe } from '../../../../../core/pipes/zod-validation.pipe';
 import { JwtAuthGuard } from '../../../../../core/guards/jwt-auth.guard';
@@ -33,6 +39,8 @@ import { CheckAbilities } from '../../../../../core/decorators/check-abilities.d
 import { CurrentUser } from '../../../../../core/decorators/current-user.decorator';
 import { Action } from '../../../../../core/access/actions.enum';
 import type { AuthenticatedUser } from '../../../../../core/access/actions.enum';
+import { CaslAbilityFactory } from '../../../../../core/access/casl-ability.factory';
+import { stringBoolean } from '../../../../../shared/crud/trashed.util';
 import { CreateContactSupportCommand } from '../../../application/commands/create-contact-support.command';
 import { MarkContactSupportReadCommand } from '../../../application/commands/mark-contact-support-read.command';
 import { DeleteContactSupportCommand } from '../../../application/commands/delete-contact-support.command';
@@ -41,6 +49,10 @@ import { BulkDeleteContactSupportCommand } from '../../../application/commands/b
 import { BulkRestoreContactSupportCommand } from '../../../application/commands/bulk-restore-contact-support.command';
 import { GetContactSupportByIdQuery } from '../../../application/queries/get-contact-support-by-id.query';
 import { ListContactSupportQuery } from '../../../application/queries/list-contact-support.query';
+import {
+  ExportContactSupportQuery,
+  type ExportContactSupportResult,
+} from '../../../application/queries/export-contact-support.query';
 import {
   CreateContactSupportDto,
   CreateContactSupportSchema,
@@ -53,6 +65,10 @@ import {
   BulkIdsDto,
   BulkIdsSchema,
 } from '../../../application/dtos/bulk-ids.dto';
+import {
+  ExportContactSupportDto,
+  ExportContactSupportSchema,
+} from '../../../application/dtos/export-contact-support.dto';
 import {
   ContactSupportResponse,
   ContactSupportListResponse,
@@ -67,6 +83,7 @@ export class ContactSupportController {
   constructor(
     private readonly commandBus: CommandBus,
     private readonly queryBus: QueryBus,
+    private readonly abilityFactory: CaslAbilityFactory,
   ) {}
 
   // ── Public — anonymous contact form ───────────────────────────
@@ -99,6 +116,8 @@ export class ContactSupportController {
   }
 
   // ── Admin — super-admin / admin only (CASL: CONTACT) ──────────
+  // `?onlyTrashed=true` is additionally gated by `Action.Restore` inside the
+  // handler so a read-only role cannot enumerate tombstoned rows.
   @Get()
   @UseGuards(JwtAuthGuard, CaslGuard)
   @ApiBearerAuth()
@@ -121,10 +140,18 @@ export class ContactSupportController {
     description:
       'Return ONLY soft-deleted requests. Cannot be combined with `withTrashed`.',
   })
-  list(
+  async list(
     @Query(new ZodValidationPipe(ListContactSupportSchema))
     query: ListContactSupportDto,
+    @CurrentUser() user: AuthenticatedUser,
   ): Promise<PaginatedContactSupport> {
+    // Enumerating tombstoned rows requires Action.Restore — not Action.Read.
+    if (query.onlyTrashed) {
+      const ability = await this.abilityFactory.createForUser(user);
+      if (!ability.can(Action.Restore, 'CONTACT')) {
+        throw new ForbiddenException('Insufficient permissions');
+      }
+    }
     const trashed: 'exclude' | 'include' | 'only' = query.onlyTrashed
       ? 'only'
       : query.withTrashed
@@ -141,6 +168,75 @@ export class ContactSupportController {
         trashed,
       ),
     );
+  }
+
+  // ── Export — must be registered BEFORE `:id` to avoid route shadowing.
+  // Bypasses cache, audited as `contact_support.export`, and `?onlyTrashed=true`
+  // additionally requires `Action.Restore` to prevent enumeration of deletions.
+  @Get('export')
+  @UseGuards(JwtAuthGuard, CaslGuard)
+  @ApiBearerAuth()
+  @SkipCache()
+  @CheckAbilities({ action: Action.Read, subject: 'CONTACT' })
+  @ApiProduces('text/csv', 'application/pdf')
+  @ApiOkResponse({
+    description: 'CSV (default) or PDF report of contact-support requests.',
+    content: {
+      'text/csv': {},
+      'application/pdf': {},
+    },
+  })
+  @ApiBadRequestResponse({ description: 'Validation failed' })
+  @ApiQuery({ name: 'format', required: false, enum: ['csv', 'pdf'] })
+  @ApiQuery({ name: 'readed', required: false, enum: ['true', 'false'] })
+  @ApiQuery({
+    name: 'withTrashed',
+    required: false,
+    type: Boolean,
+    description: 'Include soft-deleted requests in the export.',
+  })
+  @ApiQuery({
+    name: 'onlyTrashed',
+    required: false,
+    type: Boolean,
+    description:
+      'Export ONLY soft-deleted requests. Cannot be combined with `withTrashed`. Requires `Action.Restore`.',
+  })
+  async export(
+    @Query(new ZodValidationPipe(ExportContactSupportSchema))
+    query: ExportContactSupportDto,
+    @CurrentUser() user: AuthenticatedUser,
+    @Res({ passthrough: true }) res: Response,
+  ): Promise<StreamableFile> {
+    if (query.onlyTrashed) {
+      const ability = await this.abilityFactory.createForUser(user);
+      if (!ability.can(Action.Restore, 'CONTACT')) {
+        throw new ForbiddenException('Insufficient permissions');
+      }
+    }
+    const trashed: 'exclude' | 'include' | 'only' = query.onlyTrashed
+      ? 'only'
+      : query.withTrashed
+        ? 'include'
+        : 'exclude';
+    const result = await this.queryBus.execute<
+      ExportContactSupportQuery,
+      ExportContactSupportResult
+    >(
+      new ExportContactSupportQuery(
+        query.format,
+        user.id,
+        query.readed,
+        trashed,
+      ),
+    );
+
+    res.setHeader('Content-Type', result.contentType);
+    res.setHeader(
+      'Content-Disposition',
+      `attachment; filename="${result.filename}"`,
+    );
+    return new StreamableFile(result.buffer);
   }
 
   @Get(':id')
@@ -160,13 +256,16 @@ export class ContactSupportController {
   })
   findOne(
     @Param('id', ParseUUIDPipe) id: string,
-    @Query('withTrashed') withTrashedRaw?: string,
+    @Query(
+      'withTrashed',
+      new ZodValidationPipe(stringBoolean.optional()),
+    )
+    withTrashed?: boolean,
   ): Promise<ContactSupportReadModel> {
-    const withTrashed = withTrashedRaw === 'true';
     return this.queryBus.execute<
       GetContactSupportByIdQuery,
       ContactSupportReadModel
-    >(new GetContactSupportByIdQuery(id, withTrashed));
+    >(new GetContactSupportByIdQuery(id, withTrashed ?? false));
   }
 
   @Patch(':id/read')
@@ -175,6 +274,7 @@ export class ContactSupportController {
   @CheckAbilities({ action: Action.Update, subject: 'CONTACT' })
   @ApiOkResponse({ description: 'Marked as read' })
   @ApiNotFoundResponse()
+  @ApiBadRequestResponse({ description: 'Validation failed' })
   @ApiParam({ name: 'id', type: String, format: 'uuid' })
   async markAsRead(
     @Param('id', ParseUUIDPipe) id: string,
@@ -192,6 +292,7 @@ export class ContactSupportController {
   @CheckAbilities({ action: Action.Restore, subject: 'CONTACT' })
   @ApiOkResponse({ description: 'Restored' })
   @ApiNotFoundResponse()
+  @ApiBadRequestResponse({ description: 'Validation failed' })
   @ApiParam({ name: 'id', type: String, format: 'uuid' })
   async restore(
     @Param('id', ParseUUIDPipe) id: string,

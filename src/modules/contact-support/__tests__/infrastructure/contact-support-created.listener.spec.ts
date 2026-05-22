@@ -21,6 +21,7 @@ function deps() {
     save: jest.fn(),
     findReadModelById: jest.fn(),
     findMany: jest.fn(),
+    findAllForExport: jest.fn(),
     bulkDelete: jest.fn(),
     bulkRestore: jest.fn(),
   };

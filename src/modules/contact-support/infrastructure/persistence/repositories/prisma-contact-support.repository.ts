@@ -4,6 +4,7 @@ import { ContactSupport } from '../../../domain/entities/contact-support.aggrega
 import type {
   IContactSupportRepository,
   ListContactSupportFilters,
+  ExportContactSupportFilters,
 } from '../../../domain/ports/contact-support.repository.interface';
 import type {
   ContactSupportReadModel,
@@ -15,6 +16,9 @@ import type { Prisma } from '../../../../../generated/prisma/client';
 
 @Injectable()
 export class PrismaContactSupportRepository implements IContactSupportRepository {
+  /** Hard cap to prevent OOM when exporting (OWASP API #4 — Unrestricted Resource Consumption). */
+  private static readonly EXPORT_MAX_ROWS = 5_000;
+
   constructor(private readonly prisma: PrismaService) {}
 
   async findById(id: string): Promise<ContactSupport | null> {
@@ -85,6 +89,21 @@ export class PrismaContactSupportRepository implements IContactSupportRepository
       page: filters.page,
       limit: filters.limit,
     };
+  }
+
+  async findAllForExport(
+    filters: ExportContactSupportFilters,
+  ): Promise<ContactSupportReadModel[]> {
+    const where: Prisma.ContactSupportWhereInput = {
+      ...buildTrashedWhere(filters.trashed ?? 'exclude'),
+      ...(filters.readed === undefined ? {} : { readed: filters.readed }),
+    };
+    const rows = await this.prisma.contactSupport.findMany({
+      where,
+      orderBy: { createdAt: 'desc' },
+      take: PrismaContactSupportRepository.EXPORT_MAX_ROWS,
+    });
+    return rows.map((row) => ContactSupportMapper.toReadModel(row));
   }
 
   async bulkDelete(ids: string[]): Promise<{ count: number }> {

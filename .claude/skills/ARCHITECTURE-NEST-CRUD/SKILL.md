@@ -25,8 +25,70 @@ globs: src/modules/**
 | Value Objects | No | Yes |
 | CQRS bus | No — direct Service call | Yes (`CommandBus`/`QueryBus`) |
 | Service method size | ≤ ~20 lines of logic | Logic exceeds ~20 lines → upgrade |
-| Export (xlsx/pdf) | Optional (inject `shared/export`) | Yes (dedicated export path) |
+| Export (csv + pdf — both mandatory when present) | Optional (inject `shared/export`) | Yes (dedicated export path) |
 | Example | `categories`, `tags`, `statuses`, `contacts`, `users` (CRUD) | `auth`, `projects`, `estimates` |
+
+---
+
+## ✅ Preflight — BEFORE creating ANY module file (BLOCKING)
+
+> **Rule:** when the user asks for a new CRUD module, do **NOT** create `{module}.module.ts`, controller, service, or DTOs until every preflight check below is green. If a check fails, **fix it first**, commit the fix, then start the module. A module without its Prisma model + CASL subject + seeded permissions will fail at runtime and leak half-built scaffolding into the repo.
+
+For module `{module}` with CASL subject `{SUBJECT}` (UPPER_SNAKE, e.g. `BLOG_CATEGORY` for `blog-category`):
+
+### 1. Prisma model exists
+
+Check `prisma/schema/{module}.prisma` (multi-file schema layout).
+
+- ✅ File exists AND contains `model {Module} { … }` with at minimum: `id` (uuid v7 via `dbgenerated("uuid_generate_v7()")`), `createdAt`, `updatedAt`, and (when soft-delete is in scope) `deletedAt`.
+- ❌ Missing → create `prisma/schema/{module}.prisma` with the model FIRST. Then run:
+  ```bash
+  npx prisma generate
+  npx prisma db push        # or: npx prisma migrate dev --name add_{module}
+  ```
+- The model MUST follow the repo rules from `.claude/rules/backend-nest.md`: no `@updatedAt` when the table has a DB trigger; `@map`/`@@map` for snake_case columns; `@@index` on every FK and on soft-delete (`deletedAt`).
+
+### 2. CASL Subject is declared
+
+Check `src/core/access/actions.enum.ts`.
+
+- ✅ The string `'{SUBJECT}'` appears in the `Subjects` union.
+- ❌ Missing → add it to the union BEFORE writing the controller:
+  ```ts
+  export type Subjects =
+    | 'USER'
+    | …
+    | '{SUBJECT}'   // ← new
+    | 'ALL';
+  ```
+- Without this line, `@CheckAbilities({ action, subject: '{SUBJECT}' })` fails type-check and the guard silently denies every request.
+
+### 3. Permission rows are seeded
+
+Check `prisma/seed.ts`.
+
+- ✅ The permission catalogue contains rows for `{module}:read`, `{module}:create`, `{module}:update`, `{module}:delete`, and (when the model has `deletedAt`) `{module}:restore`. Each row uses `subject: '{SUBJECT}'`.
+- ❌ Missing → append the rows to the catalogue, then run:
+  ```bash
+  npx prisma db seed
+  ```
+- Lookup/config tables (categories, tags, statuses) usually need only `read|create|update|delete`. Skip `restore` if the table has no `deletedAt`.
+
+### 4. Role → permission mapping exists
+
+Still in `prisma/seed.ts`.
+
+- ✅ At least one non-`super-admin` role grants the new permissions explicitly (e.g. `admin` includes `{module}:read|update|delete`). `super-admin` bypasses CASL via `manage:all`, so it does not need rows — but a real admin role does.
+- ❌ Missing → wire the new permission names into the relevant role's `permissions[]` in the seed, re-run `npx prisma db seed`.
+- For modules that should NOT be visible to a given role, do nothing — deny-by-default applies.
+
+### 5. Confirm before scaffolding
+
+After steps 1–4 pass, state out loud to the user:
+
+> "Preflight green — Prisma model `{Module}` present, subject `{SUBJECT}` declared, permissions `{module}:read|create|update|delete[|restore]` seeded, mapped to roles `[…]`. Proceeding with the flat CRUD module."
+
+Only then create `{module}.module.ts`, controller, service, repository, entity, and DTOs as described below.
 
 ---
 
@@ -1025,7 +1087,7 @@ HTTP Request
 | Request context | `shared/cls` (`nestjs-cls`) | `ClsService` | traceId / correlationId propagation |
 | Activity log | `shared/activity-log` | `@Inject(AUDIT_PORT) IAuditPort` | Opt-in: manual `audit.log()` in EVERY mutation method (see Canonical Mutation Pattern) |
 | HTTP cache | `shared/cache` | `CacheService` | Opt-in: `@CacheTTL` on GET routes ⇒ `cache.delByPattern()` in EVERY mutation method (see Canonical Mutation Pattern) |
-| Excel/PDF export | `shared/export` | `ExportService` | Inject in Service, call from `GET /{module}/export?format=xlsx\|pdf` |
+| CSV + PDF export (both mandatory) | `shared/export` | `ExportService` | Inject in Service, call from `GET /{module}/export?format=csv\|pdf` — both formats MUST be reachable |
 | Circuit breaker | `shared/external` (cockatiel) | via `@CircuitBreaker('name')` | Wraps ANY outbound HTTP call |
 | AI clients | `shared/external/ai` | `IAiClient` | OpenAI / Anthropic — already CB-wrapped |
 | FastAPI client | `shared/external/fastapi` | `IFastapiClient` | Internal Python services — already CB-wrapped |

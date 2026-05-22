@@ -12,6 +12,7 @@ import { MarkContactSupportReadCommand } from '../mark-contact-support-read.comm
 import { CONTACT_SUPPORT_REPOSITORY } from '../../../domain/ports/contact-support.repository.interface';
 import type { IContactSupportRepository } from '../../../domain/ports/contact-support.repository.interface';
 import { ContactSupportReadEvent } from '../../../domain/events/contact-support-read.domain-event';
+import { CONTACT_SUPPORT_CACHE_PATTERN } from '../../contact-support.constants';
 
 @CommandHandler(MarkContactSupportReadCommand)
 export class MarkContactSupportReadHandler implements ICommandHandler<MarkContactSupportReadCommand> {
@@ -26,8 +27,6 @@ export class MarkContactSupportReadHandler implements ICommandHandler<MarkContac
   ) {
     this.logger.setContext(MarkContactSupportReadHandler.name);
   }
-
-  private static readonly CACHE_PATTERN = 'http:*:/contact-support*';
 
   @Transactional()
   async execute(command: MarkContactSupportReadCommand): Promise<void> {
@@ -53,7 +52,7 @@ export class MarkContactSupportReadHandler implements ICommandHandler<MarkContac
       { strict: true },
     );
 
-    await this.cache.delByPattern(MarkContactSupportReadHandler.CACHE_PATTERN);
+    await this.cache.delByPattern(CONTACT_SUPPORT_CACHE_PATTERN);
 
     this.eventEmitter.emit(
       'contact-support.read',

@@ -268,11 +268,15 @@ export class ProjectsController {
   findAll(@Query() query: ProjectFiltersDto): Promise<ProjectListResponse> { ... }
 
   @Get('export')     // ← MUST be before /:id to avoid route shadowing
-  @ApiOkResponse({ description: 'Binary file', content: { 'application/octet-stream': {} } })
-  @ApiQuery({ name: 'format', enum: ['xlsx', 'pdf'], required: true })
+  @ApiProduces('text/csv', 'application/pdf')
+  @ApiOkResponse({
+    description: 'CSV (default) or PDF report.',
+    content: { 'text/csv': {}, 'application/pdf': {} },
+  })
+  @ApiQuery({ name: 'format', enum: ['csv', 'pdf'], required: false })
   @SkipCache()
   @CheckAbilities({ action: Action.Read, subject: 'PROJECT' })
-  async export(@Query('format') format: 'xlsx' | 'pdf'): Promise<StreamableFile> { ... }
+  async export(@Query('format') format: 'csv' | 'pdf' = 'csv'): Promise<StreamableFile> { ... }
 
   @Get(':id')
   @ApiOkResponse({ type: ProjectResponse })
@@ -1050,49 +1054,57 @@ Key construction is owned by `CacheTTLInterceptor` — controllers never build c
 
 ---
 
-## §7 — Export (Excel + PDF) — Mandatory on Every CRUD
+## §7 — Export (CSV + PDF) — Mandatory on Every CRUD
 
-Every entity with a list endpoint MUST also expose `GET /{entities}/export?format=xlsx|pdf`.
+> **[ABSOLUTE]** Every entity with a list endpoint MUST expose `GET /{entities}/export` that supports **BOTH** `format=csv` AND `format=pdf`. Shipping only one of the two formats is a ❌ FAIL — frontends rely on both: CSV for data pipelines / re-import / spreadsheets, PDF for printable / auditor-friendly reports. The Excel format (`xlsx`) is NOT supported by this skill — CSV is the data interchange format (every spreadsheet app opens it).
 
 ### Export Flow
 
 ```
-GET /projects/export?format=xlsx
+GET /projects/export?format=csv      ← default when format is omitted
+GET /projects/export?format=pdf
   └─► Controller.export(format, filters)
-        └─► ExportProjectsUseCase.execute(filters, format)
-              ├─► Fetches all matching rows (no pagination)
-              ├─► ExportService.generate(rows, format, @ExportColumn metadata)
-              │     ├─► 'xlsx' → ExcelExporterService → Buffer
-              │     └─► 'pdf'  → PdfExporterService   → Buffer
-              └─► IAuditPort.log({ action: 'projects.export', properties: { format, rowCount } })
-        └─► Controller streams buffer with Content-Disposition header
+        └─► ExportProjectsUseCase.execute(filters, format, actorId)
+              ├─► Fetches all matching rows (capped at 5_000 — OWASP API #4)
+              ├─► Branches by format:
+              │     ├─► 'csv' → CsvExporter → Buffer (UTF-8 BOM + CRLF)
+              │     └─► 'pdf' → PdfExporter → Buffer (PDFKit)
+              └─► IAuditPort.log({ action: 'projects.export', metadata: { format, count, …filters } })
+        └─► Controller returns StreamableFile + Content-Disposition + dynamic Content-Type
 ```
 
-### ExcelExporterService Rules
+### CsvExporter Rules
 
-- Uses `ExcelJS` only — never the `xlsx` package.
-- Header row: bold font, accent background, auto-fit column width.
-- Column labels come from `@ExportColumn({ label })` on ReadModel — never hardcoded.
-- Dates formatted as `YYYY-MM-DD HH:mm UTC`.
-- Sensitive fields (`password`, `token`, `secret`) MUST NOT have `@ExportColumn`.
-- Datasets > 10k rows use worksheet streaming mode.
+- Hand-rolled inside the export handler — **no library**. CSV is trivial and an extra dep is unjustified.
+- First line is the header row from `@ExportColumn({ label })` (or the read-model field names if the decorator is not used).
+- Field separator `,`; row terminator `\r\n`; every cell wrapped in `"`; embedded `"` doubled to `""`.
+- Output is prefixed with the UTF-8 BOM (`0xEF 0xBB 0xBF`) so Excel auto-detects the encoding.
+- **CSV injection defence (OWASP)**: any cell starting with `=`, `+`, `-`, `@`, `\t`, or `\r` is prefixed with a single quote `'` so spreadsheets do not evaluate it as a formula.
+- Sensitive fields (`password`, `token`, `secret`, `passwordHash`, `mfaSecret`) MUST NOT have `@ExportColumn`.
+- Dates serialised as ISO 8601 (`YYYY-MM-DDTHH:mm:ss.sssZ`), the same shape the read-model exposes.
+- `Content-Type: text/csv; charset=utf-8` and `Content-Disposition: attachment; filename="{module}-<iso-timestamp>.csv"`.
 
-### PdfExporterService Rules
+### PdfExporter Rules
 
 - Uses **PDFKit** only (lightweight, streaming). Puppeteer is explicitly NOT used in this project — kept off the dependency tree to avoid the Chromium footprint.
-- Every PDF includes: entity name, export date, applied filters, total row count, data table.
-- Header/footer includes page number and org logo.
-- Minimum font size 10pt. Tables paginate automatically.
-- Column labels from same `@ExportColumn` metadata as Excel.
+- Every PDF includes: entity name, export date, applied filters, total row count.
+- Block-per-row layout for narrow datasets (≤ 6 columns) OR a paginated table for wider ones. Tables paginate automatically.
+- Minimum font size 10pt for body text, 8pt for footnotes (id, timestamps).
+- Column labels from the same `@ExportColumn` metadata as the CSV path — never hardcoded twice.
+- `Content-Type: application/pdf` and `Content-Disposition: attachment; filename="{module}-<iso-timestamp>.pdf"`.
 
 ### Export Checklist
 
-- [ ] Export route registered BEFORE `/:id` in controller
-- [ ] Same `FilterDTO` reused for list and export
-- [ ] `IAuditPort.log()` called with `action: '{module}.export'`
+- [ ] Export route registered BEFORE `/:id` in controller (no route shadowing)
+- [ ] **BOTH** `format=csv` AND `format=pdf` implemented and reachable — neither is optional
+- [ ] `format` query parameter defaults to `csv` when omitted
+- [ ] Same `FilterDTO` reused for list and export (no separate filter schema)
+- [ ] `?withTrashed` and `?onlyTrashed` accepted by the export endpoint when the module is soft-delete-aware; `onlyTrashed=true` gated by `Action.Restore`
+- [ ] `IAuditPort.log()` called with `action: '{module}.export'` and `metadata: { format, count, …filters }` (read paths use the default fire-and-forget `strict: false`)
 - [ ] `@SkipCache()` applied — export buffers never cached
-- [ ] `@Throttle()` — max 1 export per user per 30 seconds
-- [ ] Sensitive fields have no `@ExportColumn` decorator
+- [ ] Row cap enforced at the repository (`EXPORT_MAX_ROWS = 5_000` by default — OWASP API #4)
+- [ ] CSV cells starting with `= + - @ \t \r` prefixed with `'` (formula-injection defence)
+- [ ] Sensitive fields have no `@ExportColumn` decorator and are not present in the read-model used by the export
 
 ---
 

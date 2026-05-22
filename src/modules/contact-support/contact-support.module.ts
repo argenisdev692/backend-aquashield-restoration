@@ -11,6 +11,7 @@ import { BulkDeleteContactSupportHandler } from './application/commands/handlers
 import { BulkRestoreContactSupportHandler } from './application/commands/handlers/bulk-restore-contact-support.handler';
 import { GetContactSupportByIdHandler } from './application/queries/handlers/get-contact-support-by-id.handler';
 import { ListContactSupportHandler } from './application/queries/handlers/list-contact-support.handler';
+import { ExportContactSupportHandler } from './application/queries/handlers/export-contact-support.handler';
 import { PrismaContactSupportRepository } from './infrastructure/persistence/repositories/prisma-contact-support.repository';
 import { ResendSupportEmailAdapter } from './infrastructure/adapters/resend-support-email.adapter';
 import { UsersAdminRecipientsAdapter } from './infrastructure/acl/users-admin-recipients.adapter';
@@ -34,6 +35,7 @@ const CommandHandlers: Provider[] = [
 const QueryHandlers: Provider[] = [
   GetContactSupportByIdHandler,
   ListContactSupportHandler,
+  ExportContactSupportHandler,
 ];
 
 @Module({

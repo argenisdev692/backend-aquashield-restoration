@@ -14,6 +14,7 @@ import { ContactSupport } from '../../../domain/entities/contact-support.aggrega
 import { CONTACT_SUPPORT_REPOSITORY } from '../../../domain/ports/contact-support.repository.interface';
 import type { IContactSupportRepository } from '../../../domain/ports/contact-support.repository.interface';
 import { ContactSupportCreatedEvent } from '../../../domain/events/contact-support-created.domain-event';
+import { CONTACT_SUPPORT_CACHE_PATTERN } from '../../contact-support.constants';
 
 @CommandHandler(CreateContactSupportCommand)
 export class CreateContactSupportHandler implements ICommandHandler<CreateContactSupportCommand> {
@@ -28,9 +29,6 @@ export class CreateContactSupportHandler implements ICommandHandler<CreateContac
   ) {
     this.logger.setContext(CreateContactSupportHandler.name);
   }
-
-  /** Mirrors the CacheTtlInterceptor key scheme `http:{userId}:{originalUrl}`. */
-  private static readonly CACHE_PATTERN = 'http:*:/contact-support*';
 
   @Transactional()
   async execute(command: CreateContactSupportCommand): Promise<string> {
@@ -61,7 +59,7 @@ export class CreateContactSupportHandler implements ICommandHandler<CreateContac
       { strict: true },
     );
 
-    await this.cache.delByPattern(CreateContactSupportHandler.CACHE_PATTERN);
+    await this.cache.delByPattern(CONTACT_SUPPORT_CACHE_PATTERN);
 
     this.eventEmitter.emit(
       'contact-support.created',

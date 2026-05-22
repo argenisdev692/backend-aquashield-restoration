@@ -7,8 +7,8 @@ jest.mock('@nestjs-cls/transactional', () => ({
 import { Test, TestingModule } from '@nestjs/testing';
 import { NotFoundException } from '@nestjs/common';
 import { ClsService } from 'nestjs-cls';
-import { DeleteContactSupportHandler } from '../../application/commands/handlers/delete-contact-support.handler';
-import { DeleteContactSupportCommand } from '../../application/commands/delete-contact-support.command';
+import { RestoreContactSupportHandler } from '../../application/commands/handlers/restore-contact-support.handler';
+import { RestoreContactSupportCommand } from '../../application/commands/restore-contact-support.command';
 import { CONTACT_SUPPORT_REPOSITORY } from '../../domain/ports/contact-support.repository.interface';
 import { AUDIT_PORT } from '../../../../shared/activity-log/audit.port';
 import { CACHE_PORT } from '../../../../shared/cache/cache.port';
@@ -16,11 +16,11 @@ import { LoggerService } from '../../../../logger/logger.service';
 import { ContactSupport } from '../../domain/entities/contact-support.aggregate';
 
 const ID = 'aaaaaaaa-0000-0000-0000-000000000001';
-const CMD = new DeleteContactSupportCommand(ID, 'admin-uuid');
+const CMD = new RestoreContactSupportCommand(ID, 'admin-uuid');
 
-describe('DeleteContactSupportHandler', () => {
-  let handler: DeleteContactSupportHandler;
-  let repo: { save: jest.Mock; findById: jest.Mock };
+describe('RestoreContactSupportHandler', () => {
+  let handler: RestoreContactSupportHandler;
+  let repo: { save: jest.Mock; findByIdWithDeleted: jest.Mock };
   let audit: { log: jest.Mock };
   let cache: { delByPattern: jest.Mock };
   let logger: Record<string, jest.Mock>;
@@ -28,7 +28,7 @@ describe('DeleteContactSupportHandler', () => {
   beforeEach(async () => {
     repo = {
       save: jest.fn().mockResolvedValue(undefined),
-      findById: jest.fn(),
+      findByIdWithDeleted: jest.fn(),
     };
     audit = { log: jest.fn().mockResolvedValue(undefined) };
     cache = { delByPattern: jest.fn().mockResolvedValue(undefined) };
@@ -41,7 +41,7 @@ describe('DeleteContactSupportHandler', () => {
 
     const module: TestingModule = await Test.createTestingModule({
       providers: [
-        DeleteContactSupportHandler,
+        RestoreContactSupportHandler,
         { provide: CONTACT_SUPPORT_REPOSITORY, useValue: repo },
         { provide: AUDIT_PORT, useValue: audit },
         { provide: CACHE_PORT, useValue: cache },
@@ -53,11 +53,11 @@ describe('DeleteContactSupportHandler', () => {
       ],
     }).compile();
 
-    handler = module.get(DeleteContactSupportHandler);
+    handler = module.get(RestoreContactSupportHandler);
   });
 
-  it('soft-deletes, audits, invalidates cache', async () => {
-    const e = ContactSupport.create(
+  it('restores a soft-deleted row, audits, invalidates cache, logs start+end', async () => {
+    const e = ContactSupport.reconstitute(
       ID,
       'John',
       'Doe',
@@ -66,34 +66,37 @@ describe('DeleteContactSupportHandler', () => {
       'Help',
       'message body',
       false,
+      false,
+      new Date('2026-01-01T00:00:00.000Z'),
     );
-    repo.findById.mockResolvedValue(e);
+    repo.findByIdWithDeleted.mockResolvedValue(e);
 
     await handler.execute(CMD);
 
-    expect(e.isDeleted).toBe(true);
+    expect(e.isDeleted).toBe(false);
     expect(repo.save).toHaveBeenCalledWith(e);
     expect(audit.log).toHaveBeenCalledWith(
       expect.objectContaining({
-        action: 'contact_support.deleted',
+        action: 'contact_support.restored',
         resourceType: 'CONTACT',
+        actorId: 'admin-uuid',
         resourceId: ID,
       }),
       { strict: true },
     );
     expect(cache.delByPattern).toHaveBeenCalledWith('http:*:/contact-support*');
     expect(logger.info).toHaveBeenCalledWith(
-      'DeleteContactSupportHandler start',
+      'RestoreContactSupportHandler start',
       expect.objectContaining({ traceId: 'trace-id', id: ID }),
     );
     expect(logger.info).toHaveBeenCalledWith(
-      'DeleteContactSupportHandler end',
+      'RestoreContactSupportHandler end',
       expect.objectContaining({ traceId: 'trace-id', id: ID }),
     );
   });
 
   it('throws NotFound and skips side effects when missing', async () => {
-    repo.findById.mockResolvedValue(null);
+    repo.findByIdWithDeleted.mockResolvedValue(null);
     await expect(handler.execute(CMD)).rejects.toBeInstanceOf(
       NotFoundException,
     );

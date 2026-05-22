@@ -10,6 +10,7 @@ import type { ICachePort } from '../../../../../shared/cache/cache.port';
 import { RestoreContactSupportCommand } from '../restore-contact-support.command';
 import { CONTACT_SUPPORT_REPOSITORY } from '../../../domain/ports/contact-support.repository.interface';
 import type { IContactSupportRepository } from '../../../domain/ports/contact-support.repository.interface';
+import { CONTACT_SUPPORT_CACHE_PATTERN } from '../../contact-support.constants';
 
 @CommandHandler(RestoreContactSupportCommand)
 export class RestoreContactSupportHandler implements ICommandHandler<RestoreContactSupportCommand> {
@@ -23,8 +24,6 @@ export class RestoreContactSupportHandler implements ICommandHandler<RestoreCont
   ) {
     this.logger.setContext(RestoreContactSupportHandler.name);
   }
-
-  private static readonly CACHE_PATTERN = 'http:*:/contact-support*';
 
   @Transactional()
   async execute(command: RestoreContactSupportCommand): Promise<void> {
@@ -50,7 +49,7 @@ export class RestoreContactSupportHandler implements ICommandHandler<RestoreCont
       { strict: true },
     );
 
-    await this.cache.delByPattern(RestoreContactSupportHandler.CACHE_PATTERN);
+    await this.cache.delByPattern(CONTACT_SUPPORT_CACHE_PATTERN);
 
     this.logger.info('RestoreContactSupportHandler end', {
       traceId,

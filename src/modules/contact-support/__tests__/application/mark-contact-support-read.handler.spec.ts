@@ -39,6 +39,7 @@ describe('MarkContactSupportReadHandler', () => {
   let audit: { log: jest.Mock };
   let cache: { delByPattern: jest.Mock };
   let events: { emit: jest.Mock };
+  let logger: Record<string, jest.Mock>;
 
   beforeEach(async () => {
     repo = {
@@ -48,6 +49,12 @@ describe('MarkContactSupportReadHandler', () => {
     audit = { log: jest.fn().mockResolvedValue(undefined) };
     cache = { delByPattern: jest.fn().mockResolvedValue(undefined) };
     events = { emit: jest.fn() };
+    logger = {
+      info: jest.fn(),
+      warn: jest.fn(),
+      error: jest.fn(),
+      setContext: jest.fn(),
+    };
 
     const module: TestingModule = await Test.createTestingModule({
       providers: [
@@ -56,15 +63,7 @@ describe('MarkContactSupportReadHandler', () => {
         { provide: AUDIT_PORT, useValue: audit },
         { provide: CACHE_PORT, useValue: cache },
         { provide: EventEmitter2, useValue: events },
-        {
-          provide: LoggerService,
-          useValue: {
-            info: jest.fn(),
-            warn: jest.fn(),
-            error: jest.fn(),
-            setContext: jest.fn(),
-          },
-        },
+        { provide: LoggerService, useValue: logger },
         {
           provide: ClsService,
           useValue: { get: jest.fn().mockReturnValue('trace-id') },
@@ -96,6 +95,14 @@ describe('MarkContactSupportReadHandler', () => {
     expect(events.emit).toHaveBeenCalledWith(
       'contact-support.read',
       expect.any(ContactSupportReadEvent),
+    );
+    expect(logger.info).toHaveBeenCalledWith(
+      'MarkContactSupportReadHandler start',
+      expect.objectContaining({ traceId: 'trace-id', id: ID }),
+    );
+    expect(logger.info).toHaveBeenCalledWith(
+      'MarkContactSupportReadHandler end',
+      expect.objectContaining({ traceId: 'trace-id', id: ID }),
     );
   });
 

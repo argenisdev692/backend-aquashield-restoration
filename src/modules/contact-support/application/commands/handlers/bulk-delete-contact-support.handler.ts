@@ -10,11 +10,10 @@ import type { ICachePort } from '../../../../../shared/cache/cache.port';
 import { BulkDeleteContactSupportCommand } from '../bulk-delete-contact-support.command';
 import { CONTACT_SUPPORT_REPOSITORY } from '../../../domain/ports/contact-support.repository.interface';
 import type { IContactSupportRepository } from '../../../domain/ports/contact-support.repository.interface';
+import { CONTACT_SUPPORT_CACHE_PATTERN } from '../../contact-support.constants';
 
 @CommandHandler(BulkDeleteContactSupportCommand)
 export class BulkDeleteContactSupportHandler implements ICommandHandler<BulkDeleteContactSupportCommand> {
-  private static readonly CACHE_PATTERN = 'http:*:/contact-support*';
-
   constructor(
     @Inject(CONTACT_SUPPORT_REPOSITORY)
     private readonly repo: IContactSupportRepository,
@@ -50,9 +49,7 @@ export class BulkDeleteContactSupportHandler implements ICommandHandler<BulkDele
       { strict: true },
     );
 
-    await this.cache.delByPattern(
-      BulkDeleteContactSupportHandler.CACHE_PATTERN,
-    );
+    await this.cache.delByPattern(CONTACT_SUPPORT_CACHE_PATTERN);
 
     this.logger.info('BulkDeleteContactSupportHandler end', { traceId, count });
     return { count };
