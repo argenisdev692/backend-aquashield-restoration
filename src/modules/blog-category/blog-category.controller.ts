@@ -9,12 +9,14 @@ import {
   Query,
   UseGuards,
   ParseUUIDPipe,
-  ParseIntPipe,
   HttpCode,
   UseInterceptors,
   UploadedFile,
   BadRequestException,
+  Res,
+  StreamableFile,
 } from '@nestjs/common';
+import type { Response } from 'express';
 import { FileInterceptor } from '@nestjs/platform-express';
 import { ZodValidationPipe } from 'nestjs-zod';
 import { CacheTTL } from '@nestjs/cache-manager';
@@ -40,6 +42,7 @@ import { Action } from '../../core/access/actions.enum';
 import type { AuthenticatedUser } from '../../core/access/actions.enum';
 import { SkipCache } from '../../core/decorators/skip-cache.decorator';
 import { TTL_SECONDS } from '../../shared/cache/cache-ttl.constants';
+import { resolveTrashedMode } from '../../shared/crud/trashed.util';
 import { BlogCategoryService } from './blog-category.service';
 import { CreateBlogCategorySchema } from './dto/create-blog-category.dto';
 import type { CreateBlogCategoryDto } from './dto/create-blog-category.dto';
@@ -48,6 +51,16 @@ import type { UpdateBlogCategoryDto } from './dto/update-blog-category.dto';
 import { BlogCategoryResponse } from './dto/blog-category.response';
 import { BulkIdsSchema } from './dto/bulk-ids.dto';
 import type { BulkIdsDto } from './dto/bulk-ids.dto';
+import {
+  ListBlogCategoryQuerySchema,
+  GetBlogCategoryQuerySchema,
+  ExportBlogCategoryQuerySchema,
+} from './dto/list-blog-category.dto';
+import type {
+  ListBlogCategoryQueryDto,
+  GetBlogCategoryQueryDto,
+  ExportBlogCategoryQueryDto,
+} from './dto/list-blog-category.dto';
 
 @ApiTags('blog-categories')
 @ApiBearerAuth()
@@ -69,9 +82,26 @@ export class BlogCategoryController {
     return this.service.create(user.id, dto);
   }
 
+  @Get('trash')
+  @SkipThrottle()
+  @ApiOkResponse({ type: [BlogCategoryResponse] })
+  @ApiBadRequestResponse({ description: 'Validation failed' })
+  @ApiQuery({ name: 'limit', required: false, type: Number })
+  @ApiQuery({ name: 'skip', required: false, type: Number })
+  @SkipCache()
+  @CheckAbilities({ action: Action.Restore, subject: 'BLOG_CATEGORY' })
+  async findTrash(
+    @CurrentUser() user: AuthenticatedUser,
+    @Query(new ZodValidationPipe(ListBlogCategoryQuerySchema))
+    query: ListBlogCategoryQueryDto,
+  ): Promise<BlogCategoryResponse[]> {
+    return this.service.findAll(user.id, query.limit, query.skip, 'only');
+  }
+
   @Get()
   @SkipThrottle()
   @ApiOkResponse({ type: [BlogCategoryResponse] })
+  @ApiBadRequestResponse({ description: 'Validation failed' })
   @ApiQuery({ name: 'limit', required: false, type: Number })
   @ApiQuery({ name: 'skip', required: false, type: Number })
   @ApiQuery({
@@ -85,28 +115,55 @@ export class BlogCategoryController {
     required: false,
     type: Boolean,
     description:
-      'Return ONLY soft-deleted categories. Cannot be combined with `withTrashed`.',
+      'Return ONLY soft-deleted categories. Cannot be combined with `withTrashed`. Requires Action.Restore (use GET /blog-categories/trash).',
   })
   @CacheTTL(TTL_SECONDS.MEDIUM)
   @CheckAbilities({ action: Action.Read, subject: 'BLOG_CATEGORY' })
   async findAll(
-    @Query('limit', new ParseIntPipe({ optional: true })) limit?: number,
-    @Query('skip', new ParseIntPipe({ optional: true })) skip?: number,
-    @Query('withTrashed') withTrashedRaw?: string,
-    @Query('onlyTrashed') onlyTrashedRaw?: string,
+    @CurrentUser() user: AuthenticatedUser,
+    @Query(new ZodValidationPipe(ListBlogCategoryQuerySchema))
+    query: ListBlogCategoryQueryDto,
   ): Promise<BlogCategoryResponse[]> {
-    if (withTrashedRaw === 'true' && onlyTrashedRaw === 'true') {
+    if (query.onlyTrashed) {
       throw new BadRequestException(
-        'Use either withTrashed or onlyTrashed, not both',
+        'Use GET /blog-categories/trash to list soft-deleted categories.',
       );
     }
-    const trashed: 'exclude' | 'include' | 'only' =
-      onlyTrashedRaw === 'true'
-        ? 'only'
-        : withTrashedRaw === 'true'
-          ? 'include'
-          : 'exclude';
-    return this.service.findAll(limit, skip, trashed);
+    const trashed = resolveTrashedMode({ withTrashed: query.withTrashed });
+    return this.service.findAll(user.id, query.limit, query.skip, trashed);
+  }
+
+  @Get('export')
+  @SkipThrottle()
+  @SkipCache()
+  @ApiOkResponse({
+    description: 'Binary export of blog categories (CSV, XLSX, or PDF).',
+    content: { 'application/octet-stream': {} },
+  })
+  @ApiBadRequestResponse({ description: 'Validation failed' })
+  @ApiQuery({ name: 'format', required: true, enum: ['csv', 'xlsx', 'pdf'] })
+  @ApiQuery({ name: 'withTrashed', required: false, type: Boolean })
+  @ApiQuery({ name: 'onlyTrashed', required: false, type: Boolean })
+  @CheckAbilities({ action: Action.Read, subject: 'BLOG_CATEGORY' })
+  async export(
+    @CurrentUser() user: AuthenticatedUser,
+    @Query(new ZodValidationPipe(ExportBlogCategoryQuerySchema))
+    query: ExportBlogCategoryQueryDto,
+    @Res({ passthrough: true }) res: Response,
+  ): Promise<StreamableFile> {
+    const { buffer, filename, contentType } =
+      await this.service.exportBlogCategories(
+        user.id,
+        { withTrashed: query.withTrashed, onlyTrashed: query.onlyTrashed },
+        query.format,
+      );
+
+    res.set({
+      'Content-Type': contentType,
+      'Content-Disposition': `attachment; filename="${filename}"`,
+    });
+
+    return new StreamableFile(buffer);
   }
 
   @Get(':id')
@@ -124,10 +181,12 @@ export class BlogCategoryController {
   @CacheTTL(TTL_SECONDS.MEDIUM)
   @CheckAbilities({ action: Action.Read, subject: 'BLOG_CATEGORY' })
   async findOne(
+    @CurrentUser() user: AuthenticatedUser,
     @Param('id', ParseUUIDPipe) id: string,
-    @Query('withTrashed') withTrashedRaw?: string,
+    @Query(new ZodValidationPipe(GetBlogCategoryQuerySchema))
+    query: GetBlogCategoryQueryDto,
   ): Promise<BlogCategoryResponse> {
-    return this.service.findById(id, withTrashedRaw === 'true');
+    return this.service.findById(user.id, id, query.withTrashed === true);
   }
 
   @Patch(':id')
@@ -138,11 +197,12 @@ export class BlogCategoryController {
   @ApiParam({ name: 'id', type: String, format: 'uuid' })
   @CheckAbilities({ action: Action.Update, subject: 'BLOG_CATEGORY' })
   async update(
+    @CurrentUser() user: AuthenticatedUser,
     @Param('id', ParseUUIDPipe) id: string,
     @Body(new ZodValidationPipe(UpdateBlogCategorySchema))
     dto: UpdateBlogCategoryDto,
   ): Promise<BlogCategoryResponse> {
-    return this.service.update(id, dto);
+    return this.service.update(user.id, id, dto);
   }
 
   @Delete(':id')
@@ -152,8 +212,11 @@ export class BlogCategoryController {
   @ApiParam({ name: 'id', type: String, format: 'uuid' })
   @HttpCode(204)
   @CheckAbilities({ action: Action.Delete, subject: 'BLOG_CATEGORY' })
-  async remove(@Param('id', ParseUUIDPipe) id: string): Promise<void> {
-    return this.service.delete(id);
+  async remove(
+    @CurrentUser() user: AuthenticatedUser,
+    @Param('id', ParseUUIDPipe) id: string,
+  ): Promise<void> {
+    return this.service.delete(user.id, id);
   }
 
   @Post(':id/restore')
@@ -164,9 +227,10 @@ export class BlogCategoryController {
   @SkipCache()
   @CheckAbilities({ action: Action.Restore, subject: 'BLOG_CATEGORY' })
   async restore(
+    @CurrentUser() user: AuthenticatedUser,
     @Param('id', ParseUUIDPipe) id: string,
   ): Promise<BlogCategoryResponse> {
-    return this.service.restore(id);
+    return this.service.restore(user.id, id);
   }
 
   @Post('bulk-delete')
@@ -180,7 +244,7 @@ export class BlogCategoryController {
     @CurrentUser() user: AuthenticatedUser,
     @Body(new ZodValidationPipe(BulkIdsSchema)) dto: BulkIdsDto,
   ): Promise<{ count: number }> {
-    return this.service.bulkDelete(dto.ids, user.id);
+    return this.service.bulkDelete(user.id, dto.ids);
   }
 
   @Post('bulk-restore')
@@ -194,7 +258,7 @@ export class BlogCategoryController {
     @CurrentUser() user: AuthenticatedUser,
     @Body(new ZodValidationPipe(BulkIdsSchema)) dto: BulkIdsDto,
   ): Promise<{ count: number }> {
-    return this.service.bulkRestore(dto.ids, user.id);
+    return this.service.bulkRestore(user.id, dto.ids);
   }
 
   @Post(':id/image')
@@ -222,6 +286,7 @@ export class BlogCategoryController {
   )
   @CheckAbilities({ action: Action.Update, subject: 'BLOG_CATEGORY' })
   async uploadImage(
+    @CurrentUser() user: AuthenticatedUser,
     @Param('id', ParseUUIDPipe) id: string,
     @UploadedFile() file: Express.Multer.File,
   ): Promise<BlogCategoryResponse> {
@@ -230,7 +295,7 @@ export class BlogCategoryController {
         'No file provided or invalid file type. Allowed: png, jpeg, webp (max 2 MB)',
       );
     }
-    return this.service.uploadImage(id, {
+    return this.service.uploadImage(user.id, id, {
       buffer: file.buffer,
       mimeType: file.mimetype,
     });
@@ -243,8 +308,9 @@ export class BlogCategoryController {
   @ApiParam({ name: 'id', type: String, format: 'uuid' })
   @CheckAbilities({ action: Action.Update, subject: 'BLOG_CATEGORY' })
   async deleteImage(
+    @CurrentUser() user: AuthenticatedUser,
     @Param('id', ParseUUIDPipe) id: string,
   ): Promise<BlogCategoryResponse> {
-    return this.service.deleteImage(id);
+    return this.service.deleteImage(user.id, id);
   }
 }

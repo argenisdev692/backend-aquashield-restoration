@@ -28,11 +28,15 @@ export class BlogCategoryRepository {
   }
 
   async findAll(
+    userId: string,
     limit = 50,
     skip = 0,
     trashed: TrashedMode = 'exclude',
   ): Promise<BlogCategory[]> {
-    const where: Prisma.BlogCategoryWhereInput = buildTrashedWhere(trashed);
+    const where: Prisma.BlogCategoryWhereInput = {
+      ...buildTrashedWhere(trashed),
+      userId,
+    };
     const rows = await this.prisma.blogCategory.findMany({
       where,
       orderBy: { createdAt: 'desc' },
@@ -52,17 +56,46 @@ export class BlogCategoryRepository {
     return rows.map((r) => this.mapToEntity(r));
   }
 
+  /** Uncapped reader for `/export` — single tenant scope. */
+  async findAllForExport(
+    userId: string,
+    trashed: TrashedMode = 'exclude',
+  ): Promise<BlogCategory[]> {
+    const where: Prisma.BlogCategoryWhereInput = {
+      ...buildTrashedWhere(trashed),
+      userId,
+    };
+    const rows = await this.prisma.blogCategory.findMany({
+      where,
+      orderBy: { createdAt: 'desc' },
+      take: 10_000,
+      select: {
+        id: true,
+        name: true,
+        description: true,
+        image: true,
+        userId: true,
+        createdAt: true,
+        updatedAt: true,
+        deletedAt: true,
+      },
+    });
+    return rows.map((r) => this.mapToEntity(r));
+  }
+
   /**
+   * Tenant-scoped read by id.
    * @param trashed when `true`, soft-deleted categories are returned too
    *                (Laravel `withTrashed()->find()`).
    */
   async findById(
+    userId: string,
     id: string,
     trashed: boolean = false,
   ): Promise<BlogCategory | null> {
     const where: Prisma.BlogCategoryWhereInput = trashed
-      ? { id }
-      : { id, deletedAt: null };
+      ? { id, userId }
+      : { id, userId, deletedAt: null };
     const row = await this.prisma.blogCategory.findFirst({ where });
     return row ? this.mapToEntity(row) : null;
   }
@@ -77,9 +110,14 @@ export class BlogCategoryRepository {
     return row ? this.mapToEntity(row) : null;
   }
 
-  /** Finds a row regardless of soft-delete state — required to restore tombstoned rows. */
-  async findByIdWithDeleted(id: string): Promise<BlogCategory | null> {
-    const row = await this.prisma.blogCategory.findUnique({ where: { id } });
+  /** Tenant-scoped finder that also sees soft-deleted rows — required for restore. */
+  async findByIdWithDeleted(
+    userId: string,
+    id: string,
+  ): Promise<BlogCategory | null> {
+    const row = await this.prisma.blogCategory.findFirst({
+      where: { id, userId },
+    });
     return row ? this.mapToEntity(row) : null;
   }
 
@@ -123,17 +161,23 @@ export class BlogCategoryRepository {
     return this.mapToEntity(row);
   }
 
-  async bulkDelete(ids: string[]): Promise<{ count: number }> {
+  async bulkDelete(
+    userId: string,
+    ids: string[],
+  ): Promise<{ count: number }> {
     const result = await this.prisma.blogCategory.updateMany({
-      where: { id: { in: ids }, deletedAt: null },
+      where: { id: { in: ids }, userId, deletedAt: null },
       data: { deletedAt: new Date() },
     });
     return { count: result.count };
   }
 
-  async bulkRestore(ids: string[]): Promise<{ count: number }> {
+  async bulkRestore(
+    userId: string,
+    ids: string[],
+  ): Promise<{ count: number }> {
     const result = await this.prisma.blogCategory.updateMany({
-      where: { id: { in: ids }, deletedAt: { not: null } },
+      where: { id: { in: ids }, userId, deletedAt: { not: null } },
       data: { deletedAt: null },
     });
     return { count: result.count };

@@ -56,6 +56,8 @@ const PERMISSIONS: readonly PermissionSeed[] = [
   { name: "roles:delete",  module: "roles",  subject: "ROLE",  action: "delete",  description: "Soft-delete roles" },
   { name: "roles:assign",  module: "roles",  subject: "ROLE",  action: "assign",  description: "Assign roles to users" },
   { name: "roles:restore", module: "roles",  subject: "ROLE",  action: "restore", description: "Restore soft-deleted roles" },
+  // permissions (catalog — read-only; gated separately from ROLE so a future "list my perms" use case can grant it without role-admin access)
+  { name: "permissions:read", module: "permissions", subject: "PERMISSION", action: "read", description: "View the permission catalog" },
   // content
   { name: "content:create",  module: "content", subject: "CONTENT", action: "create",  description: "Create content" },
   { name: "content:read",    module: "content", subject: "CONTENT", action: "read",    description: "View content" },
@@ -91,6 +93,7 @@ const ROLE_GRANTS: Readonly<Record<string, readonly string[] | "ALL">> = {
   admin: [
     "users:create", "users:read", "users:update", "users:delete",
     "roles:read", "roles:assign",
+    "permissions:read",
     "content:create", "content:read", "content:update", "content:delete", "content:publish",
     "appointments:create", "appointments:read", "appointments:update", "appointments:delete",
     "contacts:create", "contacts:read", "contacts:update", "contacts:delete",

@@ -10,6 +10,7 @@ import type { IAuditPort } from '../../../../../shared/activity-log/audit.port';
 import { AUDIT_PORT } from '../../../../../shared/activity-log/audit.port';
 import { formatPhonePretty } from '../../../../../shared/phone/phone.util';
 import { resolveTrashedMode } from '../../../../../shared/crud/trashed.util';
+import { sheetEscape } from '../../../../../shared/export/export.util';
 import { ExportUsersCommand } from '../export-users.command';
 
 @CommandHandler(ExportUsersCommand)
@@ -108,7 +109,15 @@ export class ExportUsersHandler implements ICommandHandler<ExportUsersCommand> {
     headerRow.alignment = { vertical: 'middle' };
 
     for (const row of rows) {
-      sheet.addRow(row);
+      sheet.addRow({
+        id: sheetEscape(row.id),
+        name: sheetEscape(row.name),
+        lastName: sheetEscape(row.lastName),
+        email: sheetEscape(row.email),
+        phone: sheetEscape(row.phone),
+        createdAt: sheetEscape(row.createdAt),
+        deletedAt: sheetEscape(row.deletedAt),
+      });
     }
 
     const arrayBuffer = await workbook.xlsx.writeBuffer();

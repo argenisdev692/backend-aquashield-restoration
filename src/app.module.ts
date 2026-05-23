@@ -28,6 +28,8 @@ import { BlogCategoryModule } from './modules/blog-category/blog-category.module
 import { UsersModule } from './modules/users/users.module';
 import { AppointmentsModule } from './modules/appointments/appointments.module';
 import { ContactSupportModule } from './modules/contact-support/contact-support.module';
+import { RolesModule } from './modules/roles/roles.module';
+import { UserPermissionsModule } from './modules/user-permissions/user-permissions.module';
 
 @Module({
   imports: [
@@ -87,8 +89,11 @@ import { ContactSupportModule } from './modules/contact-support/contact-support.
     UsersModule,
     AppointmentsModule,
     ContactSupportModule,
+    RolesModule,
+    UserPermissionsModule,
   ],
   controllers: [AppController],
   providers: [AppService, { provide: APP_GUARD, useClass: ThrottlerGuard }],
 })
 export class AppModule {}
+

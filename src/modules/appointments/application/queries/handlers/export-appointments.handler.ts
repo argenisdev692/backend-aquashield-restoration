@@ -17,25 +17,10 @@ import type { IAuditPort } from '../../../domain/ports/outbound/audit.port.inter
 import { LoggerService } from '../../../../../logger/logger.service';
 import { ClsService } from 'nestjs-cls';
 import { resolveTrashedMode } from '../../../../../shared/crud/trashed.util';
-
-/**
- * Defuse CSV/XLSX formula injection (OWASP — Excel/LibreOffice evaluate
- * cells beginning with `=`, `+`, `-`, `@`, TAB or CR as formulas). Prefix
- * with `'` to neutralize. Returned as a quoted CSV cell.
- */
-function csvEscape(value: unknown): string {
-  if (value === null || value === undefined) return '""';
-  const raw = String(value);
-  const safe = /^[=+\-@\t\r]/.test(raw) ? `'${raw}` : raw;
-  return `"${safe.replace(/"/g, '""')}"`;
-}
-
-function sheetEscape(value: unknown): string | number | boolean | null {
-  if (value === null || value === undefined) return null;
-  if (typeof value === 'number' || typeof value === 'boolean') return value;
-  const raw = String(value);
-  return /^[=+\-@\t\r]/.test(raw) ? `'${raw}` : raw;
-}
+import {
+  csvEscape,
+  sheetEscape,
+} from '../../../../../shared/export/export.util';
 
 const COLUMNS = [
   { header: 'id', key: 'id', width: 38 },

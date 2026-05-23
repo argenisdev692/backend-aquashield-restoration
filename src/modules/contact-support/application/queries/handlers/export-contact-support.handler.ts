@@ -12,20 +12,7 @@ import {
 import { CONTACT_SUPPORT_REPOSITORY } from '../../../domain/ports/contact-support.repository.interface';
 import type { IContactSupportRepository } from '../../../domain/ports/contact-support.repository.interface';
 import type { ContactSupportReadModel } from '../../../domain/read-models/contact-support.read-model';
-
-/**
- * Defuse CSV injection (OWASP — formula attacks). When a cell starts with
- * `=`, `+`, `-` or `@`, Excel/LibreOffice may evaluate it as a formula
- * (e.g. `=HYPERLINK(...)`). Prefix with a single quote to neutralize.
- */
-function csvEscape(value: unknown): string {
-  if (value === null || value === undefined) return '';
-  const raw = String(value);
-  const needsPrefix = /^[=+\-@\t\r]/.test(raw);
-  const safe = needsPrefix ? `'${raw}` : raw;
-  const escaped = safe.replace(/"/g, '""');
-  return `"${escaped}"`;
-}
+import { csvEscape } from '../../../../../shared/export/export.util';
 
 const CSV_HEADERS = [
   'id',

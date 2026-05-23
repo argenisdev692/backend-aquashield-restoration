@@ -2,6 +2,7 @@ import { Injectable, OnModuleInit } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { Resend } from 'resend';
 import sanitize from 'sanitize-html';
+import { ClsService } from 'nestjs-cls';
 import {
   type IPolicy,
   ConsecutiveBreaker,
@@ -23,6 +24,7 @@ export class ResendEmailAdapter implements IEmailPort, OnModuleInit {
   constructor(
     private readonly config: ConfigService,
     private readonly logger: LoggerService,
+    private readonly cls: ClsService,
   ) {}
 
   onModuleInit(): void {
@@ -83,6 +85,7 @@ export class ResendEmailAdapter implements IEmailPort, OnModuleInit {
   }
 
   private async send(to: string, subject: string, html: string): Promise<void> {
+    const traceId = this.cls.get<string>('traceId');
     await this.resilience.execute(async () => {
       const { error } = await this.resend.emails.send({
         from: this.from,
@@ -97,6 +100,7 @@ export class ResendEmailAdapter implements IEmailPort, OnModuleInit {
 
         if (code >= 400 && code < 500) {
           this.logger.warn('Resend 4xx — client error', {
+            traceId,
             to,
             subject,
             statusCode: code,
@@ -104,6 +108,7 @@ export class ResendEmailAdapter implements IEmailPort, OnModuleInit {
           });
         } else {
           this.logger.error('Resend 5xx — server error', {
+            traceId,
             to,
             subject,
             statusCode: code,
@@ -114,7 +119,7 @@ export class ResendEmailAdapter implements IEmailPort, OnModuleInit {
         throw new Error(`Email delivery failed (${code}): ${error.message}`);
       }
 
-      this.logger.info('Email sent via Resend', { to, subject });
+      this.logger.info('Email sent via Resend', { traceId, to, subject });
     });
   }
 }

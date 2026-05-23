@@ -5,6 +5,8 @@ import {
   ConflictException,
 } from '@nestjs/common';
 import { v7 as uuidv7 } from 'uuid';
+import ExcelJS from 'exceljs';
+import PDFDocument from 'pdfkit';
 import { BlogCategoryRepository } from './blog-category.repository';
 import type { BlogCategory } from './blog-category.entity';
 import type { CreateBlogCategoryDto } from './dto/create-blog-category.dto';
@@ -21,7 +23,11 @@ import {
   TRANSACTION_MANAGER,
   type ITransactionManager,
 } from '../../shared/database/transaction-manager.port';
-import type { TrashedMode } from '../../shared/crud/trashed.util';
+import {
+  resolveTrashedMode,
+  type TrashedMode,
+} from '../../shared/crud/trashed.util';
+import { csvEscape, sheetEscape } from '../../shared/export/export.util';
 
 @Injectable()
 export class BlogCategoryService {
@@ -42,6 +48,7 @@ export class BlogCategoryService {
   }
 
   async findAll(
+    userId: string,
     limit = 50,
     skip = 0,
     trashed: TrashedMode = 'exclude',
@@ -49,21 +56,27 @@ export class BlogCategoryService {
     const traceId = this.cls.get<string>('traceId');
     this.logger.info('BlogCategoryService.findAll', {
       traceId,
+      userId,
       limit,
       skip,
       trashed,
     });
-    return this.repository.findAll(limit, skip, trashed);
+    return this.repository.findAll(userId, limit, skip, trashed);
   }
 
-  async findById(id: string, withTrashed: boolean = false): Promise<BlogCategory> {
+  async findById(
+    userId: string,
+    id: string,
+    withTrashed: boolean = false,
+  ): Promise<BlogCategory> {
     const traceId = this.cls.get<string>('traceId');
     this.logger.info('BlogCategoryService.findById', {
       traceId,
+      userId,
       id,
       withTrashed,
     });
-    const result = await this.repository.findById(id, withTrashed);
+    const result = await this.repository.findById(userId, id, withTrashed);
     if (!result) throw new NotFoundException('Blog category not found');
     return result;
   }
@@ -75,7 +88,6 @@ export class BlogCategoryService {
     const traceId = this.cls.get<string>('traceId');
     this.logger.info('BlogCategoryService.create start', { traceId, userId });
 
-    // Check for duplicate category name
     if (dto.name) {
       const existing = await this.repository.findByName(userId, dto.name);
       if (existing) {
@@ -107,21 +119,23 @@ export class BlogCategoryService {
     return result;
   }
 
-  async update(id: string, dto: UpdateBlogCategoryDto): Promise<BlogCategory> {
+  async update(
+    userId: string,
+    id: string,
+    dto: UpdateBlogCategoryDto,
+  ): Promise<BlogCategory> {
     const traceId = this.cls.get<string>('traceId');
-    this.logger.info('BlogCategoryService.update start', { traceId, id });
-    const existing = await this.findOrFail(id);
+    this.logger.info('BlogCategoryService.update start', {
+      traceId,
+      userId,
+      id,
+    });
+    const existing = await this.findOrFail(userId, id);
 
-    // Check for duplicate category name if name is being changed
     if (dto.name && dto.name !== existing.name) {
-      const duplicate = await this.repository.findByName(
-        existing.userId,
-        dto.name,
-      );
+      const duplicate = await this.repository.findByName(userId, dto.name);
       if (duplicate && duplicate.id !== id) {
-        throw new ConflictException(
-          'Category with this name already exists',
-        );
+        throw new ConflictException('Category with this name already exists');
       }
     }
 
@@ -130,6 +144,7 @@ export class BlogCategoryService {
       await this.audit.log(
         {
           action: 'blogcategory.updated',
+          actorId: userId,
           resourceType: 'BLOG_CATEGORY',
           resourceId: id,
         },
@@ -143,10 +158,14 @@ export class BlogCategoryService {
     return result;
   }
 
-  async delete(id: string): Promise<void> {
+  async delete(userId: string, id: string): Promise<void> {
     const traceId = this.cls.get<string>('traceId');
-    this.logger.info('BlogCategoryService.delete start', { traceId, id });
-    await this.findOrFail(id);
+    this.logger.info('BlogCategoryService.delete start', {
+      traceId,
+      userId,
+      id,
+    });
+    await this.findOrFail(userId, id);
 
     await this.tx.runInTx(async () => {
       // Soft delete only: the R2 image is intentionally kept so restore() can
@@ -156,6 +175,7 @@ export class BlogCategoryService {
       await this.audit.log(
         {
           action: 'blogcategory.deleted',
+          actorId: userId,
           resourceType: 'BLOG_CATEGORY',
           resourceId: id,
         },
@@ -168,13 +188,18 @@ export class BlogCategoryService {
   }
 
   async uploadImage(
+    userId: string,
     id: string,
     file: { buffer: Buffer; mimeType: string },
   ): Promise<BlogCategory> {
     const traceId = this.cls.get<string>('traceId');
-    this.logger.info('BlogCategoryService.uploadImage start', { traceId, id });
+    this.logger.info('BlogCategoryService.uploadImage start', {
+      traceId,
+      userId,
+      id,
+    });
 
-    const existing = await this.findOrFail(id);
+    const existing = await this.findOrFail(userId, id);
 
     const ext = file.mimeType.split('/').at(1) ?? 'bin';
     const key = `${this.imageDirectory}/${uuidv7()}.${ext}`;
@@ -189,6 +214,7 @@ export class BlogCategoryService {
         await this.audit.log(
           {
             action: 'blogcategory.image_uploaded',
+            actorId: userId,
             resourceType: 'BLOG_CATEGORY',
             resourceId: id,
           },
@@ -210,17 +236,22 @@ export class BlogCategoryService {
     return result;
   }
 
-  async deleteImage(id: string): Promise<BlogCategory> {
+  async deleteImage(userId: string, id: string): Promise<BlogCategory> {
     const traceId = this.cls.get<string>('traceId');
-    this.logger.info('BlogCategoryService.deleteImage start', { traceId, id });
+    this.logger.info('BlogCategoryService.deleteImage start', {
+      traceId,
+      userId,
+      id,
+    });
 
-    const existing = await this.findOrFail(id);
+    const existing = await this.findOrFail(userId, id);
 
     const result = await this.tx.runInTx(async () => {
       const row = await this.repository.update(id, { image: null });
       await this.audit.log(
         {
           action: 'blogcategory.image_deleted',
+          actorId: userId,
           resourceType: 'BLOG_CATEGORY',
           resourceId: id,
         },
@@ -238,16 +269,21 @@ export class BlogCategoryService {
     return result;
   }
 
-  async restore(id: string): Promise<BlogCategory> {
+  async restore(userId: string, id: string): Promise<BlogCategory> {
     const traceId = this.cls.get<string>('traceId');
-    this.logger.info('BlogCategoryService.restore start', { traceId, id });
-    await this.findOrFailWithDeleted(id);
+    this.logger.info('BlogCategoryService.restore start', {
+      traceId,
+      userId,
+      id,
+    });
+    await this.findOrFailWithDeleted(userId, id);
 
     const result = await this.tx.runInTx(async () => {
       const row = await this.repository.restore(id);
       await this.audit.log(
         {
           action: 'blogcategory.restored',
+          actorId: userId,
           resourceType: 'BLOG_CATEGORY',
           resourceId: id,
         },
@@ -261,7 +297,10 @@ export class BlogCategoryService {
     return result;
   }
 
-  async bulkDelete(ids: string[], actorId: string): Promise<{ count: number }> {
+  async bulkDelete(
+    actorId: string,
+    ids: string[],
+  ): Promise<{ count: number }> {
     const traceId = this.cls.get<string>('traceId');
     this.logger.info('BlogCategoryService.bulkDelete start', {
       traceId,
@@ -270,13 +309,13 @@ export class BlogCategoryService {
     });
 
     const result = await this.tx.runInTx(async () => {
-      const { count } = await this.repository.bulkDelete(ids);
+      const { count } = await this.repository.bulkDelete(actorId, ids);
       await this.audit.log(
         {
           action: 'blogcategory.bulk_deleted',
           actorId,
           resourceType: 'BLOG_CATEGORY',
-          resourceId: ids.length === 1 ? ids[0] : undefined,
+          ...(ids.length === 1 ? { resourceId: ids[0] } : {}),
           metadata: { ids, count },
         },
         { strict: true },
@@ -293,8 +332,8 @@ export class BlogCategoryService {
   }
 
   async bulkRestore(
-    ids: string[],
     actorId: string,
+    ids: string[],
   ): Promise<{ count: number }> {
     const traceId = this.cls.get<string>('traceId');
     this.logger.info('BlogCategoryService.bulkRestore start', {
@@ -304,13 +343,13 @@ export class BlogCategoryService {
     });
 
     const result = await this.tx.runInTx(async () => {
-      const { count } = await this.repository.bulkRestore(ids);
+      const { count } = await this.repository.bulkRestore(actorId, ids);
       await this.audit.log(
         {
           action: 'blogcategory.bulk_restored',
           actorId,
           resourceType: 'BLOG_CATEGORY',
-          resourceId: ids.length === 1 ? ids[0] : undefined,
+          ...(ids.length === 1 ? { resourceId: ids[0] } : {}),
           metadata: { ids, count },
         },
         { strict: true },
@@ -326,20 +365,227 @@ export class BlogCategoryService {
     return result;
   }
 
-  private async findOrFail(id: string): Promise<BlogCategory> {
-    const result = await this.repository.findById(id);
+  async exportBlogCategories(
+    userId: string,
+    query: { withTrashed?: boolean; onlyTrashed?: boolean },
+    format: 'csv' | 'xlsx' | 'pdf',
+  ): Promise<{ buffer: Buffer; filename: string; contentType: string }> {
+    const traceId = this.cls.get<string>('traceId');
+    const trashed = resolveTrashedMode({
+      withTrashed: query.withTrashed,
+      onlyTrashed: query.onlyTrashed,
+    });
+
+    this.logger.info('BlogCategoryService.exportBlogCategories start', {
+      traceId,
+      userId,
+      format,
+      trashed,
+    });
+
+    const rows = await this.repository.findAllForExport(userId, trashed);
+    const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
+
+    let result: { buffer: Buffer; filename: string; contentType: string };
+    if (format === 'csv') {
+      result = this.buildCsv(rows, timestamp);
+    } else if (format === 'xlsx') {
+      result = await this.buildXlsx(rows, timestamp);
+    } else {
+      result = await this.buildPdf(rows, timestamp);
+    }
+
+    await this.audit.log(
+      {
+        action: 'blogcategory.export',
+        actorId: userId,
+        resourceType: 'BLOG_CATEGORY',
+        metadata: { format, rowCount: rows.length },
+      },
+      { strict: false },
+    );
+
+    this.logger.info('BlogCategoryService.exportBlogCategories end', {
+      traceId,
+      format,
+      rowCount: rows.length,
+    });
+
+    return result;
+  }
+
+  private buildCsv(
+    rows: BlogCategory[],
+    timestamp: string,
+  ): { buffer: Buffer; filename: string; contentType: string } {
+    const columns = [
+      { header: 'ID', key: 'id' },
+      { header: 'Name', key: 'name' },
+      { header: 'Description', key: 'description' },
+      { header: 'Image', key: 'image' },
+      { header: 'Created At', key: 'createdAt' },
+      { header: 'Updated At', key: 'updatedAt' },
+      { header: 'Deleted At', key: 'deletedAt' },
+    ];
+
+    const header = columns.map((c) => c.header).join(',');
+    const body = rows
+      .map((r) =>
+        [
+          csvEscape(r.id),
+          csvEscape(r.name),
+          csvEscape(r.description),
+          csvEscape(r.image),
+          csvEscape(r.createdAt),
+          csvEscape(r.updatedAt),
+          csvEscape(r.deletedAt ?? ''),
+        ].join(','),
+      )
+      .join('\r\n');
+
+    const csv =
+      body.length === 0 ? `${header}\r\n` : `${header}\r\n${body}\r\n`;
+
+    const buffer = Buffer.concat([
+      Buffer.from([0xef, 0xbb, 0xbf]),
+      Buffer.from(csv, 'utf8'),
+    ]);
+
+    return {
+      buffer,
+      filename: `blog-categories-${timestamp}.csv`,
+      contentType: 'text/csv; charset=utf-8',
+    };
+  }
+
+  private async buildXlsx(
+    rows: BlogCategory[],
+    timestamp: string,
+  ): Promise<{ buffer: Buffer; filename: string; contentType: string }> {
+    const wb = new ExcelJS.Workbook();
+    wb.creator = 'Vidula';
+    wb.created = new Date();
+
+    const sheet = wb.addWorksheet('BlogCategories');
+    sheet.columns = [
+      { header: 'ID', key: 'id', width: 38 },
+      { header: 'Name', key: 'name', width: 24 },
+      { header: 'Description', key: 'description', width: 40 },
+      { header: 'Image', key: 'image', width: 40 },
+      { header: 'Created At', key: 'createdAt', width: 24 },
+      { header: 'Updated At', key: 'updatedAt', width: 24 },
+      { header: 'Deleted At', key: 'deletedAt', width: 24 },
+    ];
+
+    sheet.getRow(1).font = { bold: true, color: { argb: 'FFFFFFFF' } };
+    sheet.getRow(1).fill = {
+      type: 'pattern',
+      pattern: 'solid',
+      fgColor: { argb: 'FF2563EB' },
+    };
+    sheet.views = [{ state: 'frozen', ySplit: 1 }];
+
+    for (const r of rows) {
+      sheet.addRow({
+        id: sheetEscape(r.id),
+        name: sheetEscape(r.name),
+        description: sheetEscape(r.description),
+        image: sheetEscape(r.image),
+        createdAt: sheetEscape(r.createdAt),
+        updatedAt: sheetEscape(r.updatedAt),
+        deletedAt: sheetEscape(r.deletedAt ?? ''),
+      });
+    }
+
+    const arrayBuffer = await wb.xlsx.writeBuffer();
+
+    return {
+      buffer: Buffer.from(arrayBuffer),
+      filename: `blog-categories-${timestamp}.xlsx`,
+      contentType:
+        'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+    };
+  }
+
+  private buildPdf(
+    rows: BlogCategory[],
+    timestamp: string,
+  ): Promise<{ buffer: Buffer; filename: string; contentType: string }> {
+    return new Promise((resolve, reject) => {
+      const doc = new PDFDocument({
+        size: 'A4',
+        layout: 'landscape',
+        margin: 36,
+      });
+      const chunks: Buffer[] = [];
+      doc.on('data', (chunk: Buffer) => chunks.push(chunk));
+      doc.on('end', () =>
+        resolve({
+          buffer: Buffer.concat(chunks),
+          filename: `blog-categories-${timestamp}.pdf`,
+          contentType: 'application/pdf',
+        }),
+      );
+      doc.on('error', reject);
+
+      doc.fontSize(16).text('Blog Categories — Export', { align: 'left' });
+      doc.moveDown(0.5);
+      doc
+        .fontSize(9)
+        .fillColor('#64748b')
+        .text(`Generated: ${new Date().toISOString()}    Rows: ${rows.length}`)
+        .fillColor('#000');
+      doc.moveDown();
+
+      if (rows.length === 0) {
+        doc.fontSize(11).text('No rows to export.');
+      } else {
+        for (const r of rows) {
+          doc
+            .fontSize(11)
+            .font('Helvetica-Bold')
+            .text(r.name ?? '(unnamed)');
+
+          doc
+            .font('Helvetica')
+            .fontSize(9)
+            .fillColor('#475569')
+            .text(`ID: ${r.id}`)
+            .text(`Created: ${r.createdAt}`)
+            .text(`Updated: ${r.updatedAt}`)
+            .text(r.deletedAt ? `Deleted: ${r.deletedAt}` : 'Deleted: —')
+            .fillColor('#000');
+
+          if (r.description) {
+            doc.moveDown(0.2).fontSize(10).text(r.description);
+          }
+          doc.moveDown(0.6);
+        }
+      }
+
+      doc.end();
+    });
+  }
+
+  private async findOrFail(
+    userId: string,
+    id: string,
+  ): Promise<BlogCategory> {
+    const result = await this.repository.findById(userId, id);
     if (!result) throw new NotFoundException('Blog category not found');
     return result;
   }
 
-  /** Existence check that also sees soft-deleted rows — used by restore. */
-  private async findOrFailWithDeleted(id: string): Promise<BlogCategory> {
-    const result = await this.repository.findByIdWithDeleted(id);
+  /** Tenant-scoped existence check that also sees soft-deleted rows — used by restore. */
+  private async findOrFailWithDeleted(
+    userId: string,
+    id: string,
+  ): Promise<BlogCategory> {
+    const result = await this.repository.findByIdWithDeleted(userId, id);
     if (!result) throw new NotFoundException('Blog category not found');
     return result;
   }
 
-  /** Drops every cached blog-category GET response after a mutation. */
   private async invalidateCache(): Promise<void> {
     await this.cache.delByPattern(this.cacheKeyPattern);
   }

@@ -1,5 +1,6 @@
 import { Injectable } from '@nestjs/common';
 import { OnEvent } from '@nestjs/event-emitter';
+import { ClsService } from 'nestjs-cls';
 import { LoggerService } from '../../../../logger/logger.service';
 import type { UserCreatedEvent } from '../../domain/events/user-created.domain-event';
 import type { PasswordSetupEvent } from '../../domain/events/password-setup.domain-event';
@@ -7,11 +8,15 @@ import type { PasswordChangedEvent } from '../../domain/events/password-changed.
 
 @Injectable()
 export class UserEventListener {
-  constructor(private readonly logger: LoggerService) {}
+  constructor(
+    private readonly logger: LoggerService,
+    private readonly cls: ClsService,
+  ) {}
 
   @OnEvent('users.created')
   handleUserCreated(event: UserCreatedEvent): void {
     this.logger.info('User created event received', {
+      traceId: this.cls.get<string>('traceId'),
       userId: event.userId,
       email: event.email,
     });
@@ -20,6 +25,7 @@ export class UserEventListener {
   @OnEvent('users.password_setup')
   handlePasswordSetup(event: PasswordSetupEvent): void {
     this.logger.info('Password setup event received', {
+      traceId: this.cls.get<string>('traceId'),
       userId: event.userId,
     });
   }
@@ -27,6 +33,7 @@ export class UserEventListener {
   @OnEvent('users.password_changed')
   handlePasswordChanged(event: PasswordChangedEvent): void {
     this.logger.info('Password changed event received', {
+      traceId: this.cls.get<string>('traceId'),
       userId: event.userId,
     });
   }

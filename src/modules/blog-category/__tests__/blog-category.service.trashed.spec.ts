@@ -7,7 +7,7 @@ import type { BlogCategory } from '../blog-category.entity';
  *
  * Stays separate from `blog-category.service.spec.ts` so the new tests
  * are easy to read and aren't tangled with the pre-existing fixture in
- * that file (which has unrelated mocking gaps for other service methods).
+ * that file.
  */
 
 const logger = {
@@ -30,12 +30,14 @@ const cache = {
 const audit = { log: jest.fn() };
 const tx = { runInTx: jest.fn(async <T>(fn: () => Promise<T>) => fn()) };
 
+const USER_ID = '018f0000-0000-7000-8000-000000000002';
+
 const activeEntity: BlogCategory = {
   id: '018f0000-0000-7000-8000-000000000001',
   name: 'News',
   description: null,
   image: null,
-  userId: '018f0000-0000-7000-8000-000000000002',
+  userId: USER_ID,
   createdAt: new Date().toISOString(),
   updatedAt: new Date().toISOString(),
   deletedAt: null,
@@ -85,27 +87,27 @@ describe('BlogCategoryService — trashed semantics', () => {
       const repo = makeRepo();
       const service = makeService(repo);
 
-      await service.findAll(50, 0);
+      await service.findAll(USER_ID, 50, 0);
 
-      expect(repo.findAll).toHaveBeenCalledWith(50, 0, 'exclude');
+      expect(repo.findAll).toHaveBeenCalledWith(USER_ID, 50, 0, 'exclude');
     });
 
     it('forwards trashed=include for withTrashed()', async () => {
       const repo = makeRepo();
       const service = makeService(repo);
 
-      await service.findAll(50, 0, 'include');
+      await service.findAll(USER_ID, 50, 0, 'include');
 
-      expect(repo.findAll).toHaveBeenCalledWith(50, 0, 'include');
+      expect(repo.findAll).toHaveBeenCalledWith(USER_ID, 50, 0, 'include');
     });
 
     it('forwards trashed=only for onlyTrashed()', async () => {
       const repo = makeRepo();
       const service = makeService(repo);
 
-      await service.findAll(50, 0, 'only');
+      await service.findAll(USER_ID, 50, 0, 'only');
 
-      expect(repo.findAll).toHaveBeenCalledWith(50, 0, 'only');
+      expect(repo.findAll).toHaveBeenCalledWith(USER_ID, 50, 0, 'only');
     });
   });
 
@@ -114,9 +116,13 @@ describe('BlogCategoryService — trashed semantics', () => {
       const repo = makeRepo();
       const service = makeService(repo);
 
-      await service.findById(activeEntity.id);
+      await service.findById(USER_ID, activeEntity.id);
 
-      expect(repo.findById).toHaveBeenCalledWith(activeEntity.id, false);
+      expect(repo.findById).toHaveBeenCalledWith(
+        USER_ID,
+        activeEntity.id,
+        false,
+      );
     });
 
     it('passes withTrashed=true so suspended rows resolve', async () => {
@@ -124,9 +130,13 @@ describe('BlogCategoryService — trashed semantics', () => {
       repo.findById.mockResolvedValueOnce(suspendedEntity);
       const service = makeService(repo);
 
-      const result = await service.findById(suspendedEntity.id, true);
+      const result = await service.findById(USER_ID, suspendedEntity.id, true);
 
-      expect(repo.findById).toHaveBeenCalledWith(suspendedEntity.id, true);
+      expect(repo.findById).toHaveBeenCalledWith(
+        USER_ID,
+        suspendedEntity.id,
+        true,
+      );
       expect(result.deletedAt).toBe('2026-05-01T10:00:00.000Z');
     });
 
@@ -135,9 +145,9 @@ describe('BlogCategoryService — trashed semantics', () => {
       repo.findById.mockResolvedValueOnce(null);
       const service = makeService(repo);
 
-      await expect(service.findById('missing-id', true)).rejects.toBeInstanceOf(
-        NotFoundException,
-      );
+      await expect(
+        service.findById(USER_ID, 'missing-id', true),
+      ).rejects.toBeInstanceOf(NotFoundException);
     });
   });
 });

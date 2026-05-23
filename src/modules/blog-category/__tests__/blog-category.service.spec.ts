@@ -27,12 +27,14 @@ const makeTx = () => ({
 });
 type Tx = ReturnType<typeof makeTx>;
 
+const USER_ID = '018f0000-0000-7000-8000-000000000002';
+
 const baseEntity: BlogCategory = {
   id: '018f0000-0000-7000-8000-000000000001',
   name: 'News',
   description: null,
   image: null,
-  userId: '018f0000-0000-7000-8000-000000000002',
+  userId: USER_ID,
   createdAt: new Date().toISOString(),
   updatedAt: new Date().toISOString(),
   deletedAt: null,
@@ -42,8 +44,6 @@ const makeRepo = (overrides: Record<string, jest.Mock> = {}) => ({
   findAll: jest.fn().mockResolvedValue([baseEntity]),
   findById: jest.fn().mockResolvedValue(baseEntity),
   findByIdWithDeleted: jest.fn().mockResolvedValue(baseEntity),
-  // `null` = no duplicate, so create/update don't trip the ConflictException
-  // guard (`if (await repo.findByName(...))`).
   findByName: jest.fn().mockResolvedValue(null),
   create: jest.fn().mockResolvedValue(baseEntity),
   update: jest.fn().mockResolvedValue(baseEntity),
@@ -92,16 +92,17 @@ describe('BlogCategoryService', () => {
 
   it('findById returns the entity when it exists', async () => {
     const repo = makeRepo();
-    await expect(makeService(repo).findById(baseEntity.id)).resolves.toEqual(
-      baseEntity,
-    );
+    await expect(
+      makeService(repo).findById(USER_ID, baseEntity.id),
+    ).resolves.toEqual(baseEntity);
+    expect(repo.findById).toHaveBeenCalledWith(USER_ID, baseEntity.id, false);
   });
 
   it('findById throws NotFoundException when missing', async () => {
     const repo = makeRepo({ findById: jest.fn().mockResolvedValue(null) });
-    await expect(makeService(repo).findById('missing')).rejects.toBeInstanceOf(
-      NotFoundException,
-    );
+    await expect(
+      makeService(repo).findById(USER_ID, 'missing'),
+    ).rejects.toBeInstanceOf(NotFoundException);
   });
 
   it('create forwards the authenticated userId, logs audit, and invalidates cache', async () => {
@@ -129,16 +130,19 @@ describe('BlogCategoryService', () => {
   it('update delegates to repository.update, logs audit, and invalidates cache', async () => {
     const repo = makeRepo();
     const audit = makeAudit();
-    await makeService(repo, makeStorage(), audit).update(baseEntity.id, {
-      name: 'Renamed',
-    });
-    expect(repo.findById).toHaveBeenCalledWith(baseEntity.id);
+    await makeService(repo, makeStorage(), audit).update(
+      USER_ID,
+      baseEntity.id,
+      { name: 'Renamed' },
+    );
+    expect(repo.findById).toHaveBeenCalledWith(USER_ID, baseEntity.id);
     expect(repo.update).toHaveBeenCalledWith(baseEntity.id, {
       name: 'Renamed',
     });
     expect(audit.log).toHaveBeenCalledWith(
       expect.objectContaining({
         action: 'blogcategory.updated',
+        actorId: USER_ID,
         resourceType: 'BLOG_CATEGORY',
         resourceId: baseEntity.id,
       }),
@@ -150,12 +154,16 @@ describe('BlogCategoryService', () => {
   it('delete soft-deletes, logs audit, and invalidates cache', async () => {
     const repo = makeRepo();
     const audit = makeAudit();
-    await makeService(repo, makeStorage(), audit).delete(baseEntity.id);
-    expect(repo.findById).toHaveBeenCalledWith(baseEntity.id);
+    await makeService(repo, makeStorage(), audit).delete(
+      USER_ID,
+      baseEntity.id,
+    );
+    expect(repo.findById).toHaveBeenCalledWith(USER_ID, baseEntity.id);
     expect(repo.softDelete).toHaveBeenCalledWith(baseEntity.id);
     expect(audit.log).toHaveBeenCalledWith(
       expect.objectContaining({
         action: 'blogcategory.deleted',
+        actorId: USER_ID,
         resourceType: 'BLOG_CATEGORY',
         resourceId: baseEntity.id,
       }),
@@ -167,13 +175,20 @@ describe('BlogCategoryService', () => {
   it('restore looks up the row INCLUDING soft-deleted rows (regression)', async () => {
     const repo = makeRepo();
     const audit = makeAudit();
-    await makeService(repo, makeStorage(), audit).restore(baseEntity.id);
-    expect(repo.findByIdWithDeleted).toHaveBeenCalledWith(baseEntity.id);
+    await makeService(repo, makeStorage(), audit).restore(
+      USER_ID,
+      baseEntity.id,
+    );
+    expect(repo.findByIdWithDeleted).toHaveBeenCalledWith(
+      USER_ID,
+      baseEntity.id,
+    );
     expect(repo.findById).not.toHaveBeenCalled();
     expect(repo.restore).toHaveBeenCalledWith(baseEntity.id);
     expect(audit.log).toHaveBeenCalledWith(
       expect.objectContaining({
         action: 'blogcategory.restored',
+        actorId: USER_ID,
         resourceType: 'BLOG_CATEGORY',
         resourceId: baseEntity.id,
       }),
@@ -186,9 +201,11 @@ describe('BlogCategoryService', () => {
     const repo = makeRepo({ findById: jest.fn().mockResolvedValue(null) });
     const audit = makeAudit();
     await expect(
-      makeService(repo, makeStorage(), audit).update(baseEntity.id, {
-        name: 'X',
-      }),
+      makeService(repo, makeStorage(), audit).update(
+        USER_ID,
+        baseEntity.id,
+        { name: 'X' },
+      ),
     ).rejects.toBeInstanceOf(NotFoundException);
     expect(audit.log).not.toHaveBeenCalled();
     expect(cache.delByPattern).not.toHaveBeenCalled();
@@ -198,10 +215,55 @@ describe('BlogCategoryService', () => {
     const repo = makeRepo({
       findByIdWithDeleted: jest.fn().mockResolvedValue(null),
     });
-    await expect(makeService(repo).restore('missing')).rejects.toBeInstanceOf(
-      NotFoundException,
-    );
+    await expect(
+      makeService(repo).restore(USER_ID, 'missing'),
+    ).rejects.toBeInstanceOf(NotFoundException);
     expect(repo.restore).not.toHaveBeenCalled();
+  });
+
+  describe('bulk operations', () => {
+    it('bulkDelete forwards actor id to repository and audit', async () => {
+      const repo = makeRepo({
+        bulkDelete: jest.fn().mockResolvedValue({ count: 2 }),
+      });
+      const audit = makeAudit();
+      const ids = [
+        '018f0000-0000-7000-8000-00000000aaaa',
+        '018f0000-0000-7000-8000-00000000bbbb',
+      ];
+
+      await makeService(repo, makeStorage(), audit).bulkDelete(USER_ID, ids);
+
+      expect(repo.bulkDelete).toHaveBeenCalledWith(USER_ID, ids);
+      expect(audit.log).toHaveBeenCalledWith(
+        expect.objectContaining({
+          action: 'blogcategory.bulk_deleted',
+          actorId: USER_ID,
+          metadata: { ids, count: 2 },
+        }),
+        { strict: true },
+      );
+      // multi-id: resourceId omitted, not undefined-as-key
+      expect(audit.log.mock.calls[0][0]).not.toHaveProperty('resourceId');
+    });
+
+    it('bulkDelete passes resourceId when exactly one id', async () => {
+      const repo = makeRepo({
+        bulkDelete: jest.fn().mockResolvedValue({ count: 1 }),
+      });
+      const audit = makeAudit();
+      const ids = ['018f0000-0000-7000-8000-00000000cccc'];
+
+      await makeService(repo, makeStorage(), audit).bulkDelete(USER_ID, ids);
+
+      expect(audit.log).toHaveBeenCalledWith(
+        expect.objectContaining({
+          resourceId: ids[0],
+          metadata: { ids, count: 1 },
+        }),
+        { strict: true },
+      );
+    });
   });
 
   describe('uploadImage', () => {
@@ -209,7 +271,7 @@ describe('BlogCategoryService', () => {
       const repo = makeRepo();
       const storage = makeStorage();
 
-      await makeService(repo, storage).uploadImage(baseEntity.id, {
+      await makeService(repo, storage).uploadImage(USER_ID, baseEntity.id, {
         buffer: Buffer.from('img'),
         mimeType: 'image/png',
       });
@@ -234,7 +296,7 @@ describe('BlogCategoryService', () => {
       });
       const storage = makeStorage();
 
-      await makeService(repo, storage).uploadImage(baseEntity.id, {
+      await makeService(repo, storage).uploadImage(USER_ID, baseEntity.id, {
         buffer: Buffer.from('img'),
         mimeType: 'image/webp',
       });
@@ -255,7 +317,7 @@ describe('BlogCategoryService', () => {
       });
 
       await expect(
-        makeService(repo, storage).uploadImage(baseEntity.id, {
+        makeService(repo, storage).uploadImage(USER_ID, baseEntity.id, {
           buffer: Buffer.from('img'),
           mimeType: 'image/png',
         }),
@@ -269,7 +331,7 @@ describe('BlogCategoryService', () => {
       const storage = makeStorage();
 
       await expect(
-        makeService(repo, storage).uploadImage('missing', {
+        makeService(repo, storage).uploadImage(USER_ID, 'missing', {
           buffer: Buffer.from('img'),
           mimeType: 'image/png',
         }),
@@ -286,7 +348,7 @@ describe('BlogCategoryService', () => {
       });
       const storage = makeStorage();
 
-      await makeService(repo, storage).deleteImage(baseEntity.id);
+      await makeService(repo, storage).deleteImage(USER_ID, baseEntity.id);
 
       expect(storage.delete).toHaveBeenCalledWith(
         'blog-category-images/sig.png',
@@ -299,7 +361,7 @@ describe('BlogCategoryService', () => {
       const storage = makeStorage();
 
       await expect(
-        makeService(repo, storage).deleteImage('missing'),
+        makeService(repo, storage).deleteImage(USER_ID, 'missing'),
       ).rejects.toBeInstanceOf(NotFoundException);
       expect(storage.delete).not.toHaveBeenCalled();
     });

@@ -205,11 +205,15 @@ export class PrismaUserRepository implements IUserRepository {
       },
     });
 
-    // 1 SQL — direct grants only (explicit DENY rows ignored for read projection)
+    // 1 SQL — direct overrides (both ALLOWs and DENYs). ALLOWs add to the
+    // effective set; DENYs subtract from it. This mirrors what
+    // `CaslAbilityFactory.createForUser` does at the policy layer so the
+    // read projection stays consistent with what `ability.can(...)` returns.
     const userDirectPermRows = await this.prisma.userPermission.findMany({
-      where: { userId: { in: userIds }, isGranted: true },
+      where: { userId: { in: userIds } },
       select: {
         userId: true,
+        isGranted: true,
         permission: { select: { action: true, subject: true } },
       },
     });
@@ -242,12 +246,18 @@ export class PrismaUserRepository implements IUserRepository {
       }
     }
 
-    // Merge direct grants (deduplicated against role-inherited)
+    // Apply direct overrides AFTER role permissions, so DENYs win — matches
+    // CASL's late-rule precedence in `CaslAbilityFactory.createForUser`.
     for (const row of userDirectPermRows) {
       const perms = permIndex.get(row.userId);
       if (!perms) continue;
       const { action, subject } = row.permission;
-      perms.set(dedupeKey(action, subject), { action, subject });
+      const key = dedupeKey(action, subject);
+      if (row.isGranted) {
+        perms.set(key, { action, subject });
+      } else {
+        perms.delete(key);
+      }
     }
 
     // Materialize the flat permission arrays
