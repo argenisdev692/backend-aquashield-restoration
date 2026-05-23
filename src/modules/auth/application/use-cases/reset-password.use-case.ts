@@ -130,6 +130,14 @@ export class ResetPasswordUseCase {
         passwordExpiresAt,
       );
       await this.sessionRepo.revokeAllForUser(user.id);
+      await this.audit.log(
+        {
+          action: 'auth.password_reset',
+          resourceType: 'USER',
+          resourceId: user.id,
+        },
+        { strict: true },
+      );
     });
 
     this.eventEmitter.emit(
@@ -149,12 +157,6 @@ export class ResetPasswordUseCase {
         deviceLabel: deviceLabelFromUserAgent(ua),
       }),
     );
-
-    await this.audit.log({
-      action: 'auth.password_reset',
-      resourceType: 'USER',
-      resourceId: user.id,
-    });
 
     this.logger.info('Password reset complete', { traceId, userId: user.id });
   }

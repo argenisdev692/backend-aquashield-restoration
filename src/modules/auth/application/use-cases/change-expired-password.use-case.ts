@@ -123,7 +123,16 @@ export class ChangeExpiredPasswordUseCase {
         passwordExpiresAt,
       );
       await this.sessionRepo.revokeAllForUser(userId);
-      return this.tokenIssuer.issue(user);
+      const issued = await this.tokenIssuer.issue(user);
+      await this.audit.log(
+        {
+          action: 'auth.password_changed',
+          resourceType: 'USER',
+          resourceId: userId,
+        },
+        { strict: true },
+      );
+      return issued;
     });
 
     const ua = this.cls.get<string>(CLS_KEYS.USER_AGENT) ?? null;
@@ -136,12 +145,6 @@ export class ChangeExpiredPasswordUseCase {
         deviceLabel: deviceLabelFromUserAgent(ua),
       }),
     );
-
-    await this.audit.log({
-      action: 'auth.password_changed',
-      resourceType: 'USER',
-      resourceId: userId,
-    });
 
     this.logger.info('Expired password changed successfully', {
       traceId,

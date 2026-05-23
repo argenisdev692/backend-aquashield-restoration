@@ -152,6 +152,7 @@ describe('ChangeExpiredPasswordUseCase', () => {
     });
     expect(audit.log).toHaveBeenCalledWith(
       expect.objectContaining({ action: 'auth.password_changed' }),
+      { strict: true },
     );
     expect(eventEmitter.emit).toHaveBeenCalledWith(
       'auth.password_changed',

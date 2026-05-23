@@ -58,18 +58,21 @@ export class RefreshTokenUseCase {
       throw new UnauthorizedException('User not found');
     }
 
-    // Rotation is atomic: revoke + issue happen inside a single DB
-    // transaction. If issuing fails, the revoke is rolled back so the user
-    // is never left without any valid session.
+    // Rotation is atomic: revoke + issue + audit happen inside a single DB
+    // transaction. If issuing or auditing fails, the revoke is rolled back
+    // so the user is never left without any valid session or trace.
     const tokens = await this.tx.runInTx(async () => {
       await this.sessionRepo.revokeById(session.id);
-      return this.tokenIssuer.issue(user);
-    });
-
-    await this.audit.log({
-      action: 'auth.token_refreshed',
-      resourceType: 'USER',
-      resourceId: user.id,
+      const issued = await this.tokenIssuer.issue(user);
+      await this.audit.log(
+        {
+          action: 'auth.token_refreshed',
+          resourceType: 'USER',
+          resourceId: user.id,
+        },
+        { strict: true },
+      );
+      return issued;
     });
 
     this.logger.info('Token refreshed', { traceId, userId: user.id });

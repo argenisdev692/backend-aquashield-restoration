@@ -13,6 +13,8 @@ import type { IUserAuthRepository } from '../../domain/repositories/user-auth.re
 import { USER_AUTH_REPOSITORY } from '../../domain/repositories/user-auth.repository.interface';
 import type { IAuditPort } from '../../../../shared/activity-log/audit.port';
 import { AUDIT_PORT } from '../../../../shared/activity-log/audit.port';
+import type { ITransactionManager } from '../../../../shared/database/transaction-manager.port';
+import { TRANSACTION_MANAGER } from '../../../../shared/database/transaction-manager.port';
 import { EmailVerifiedEvent } from '../../domain/events/auth-events';
 
 @Injectable()
@@ -22,6 +24,8 @@ export class VerifyEmailUseCase {
     private readonly userRepo: IUserAuthRepository,
     @Inject(AUDIT_PORT)
     private readonly audit: IAuditPort,
+    @Inject(TRANSACTION_MANAGER)
+    private readonly tx: ITransactionManager,
     private readonly config: ConfigService,
     private readonly eventEmitter: EventEmitter2,
     private readonly logger: LoggerService,
@@ -49,18 +53,22 @@ export class VerifyEmailUseCase {
       throw new BadRequestException('Invalid verification link');
     }
 
-    await this.userRepo.setEmailVerified(userId);
+    await this.tx.runInTx(async () => {
+      await this.userRepo.setEmailVerified(userId);
+      await this.audit.log(
+        {
+          action: 'auth.email_verified',
+          resourceType: 'USER',
+          resourceId: userId,
+        },
+        { strict: true },
+      );
+    });
 
     this.eventEmitter.emit(
       'auth.email_verified',
       new EmailVerifiedEvent(userId),
     );
-
-    await this.audit.log({
-      action: 'auth.email_verified',
-      resourceType: 'USER',
-      resourceId: userId,
-    });
 
     this.logger.info('Email verified', { traceId, userId });
   }

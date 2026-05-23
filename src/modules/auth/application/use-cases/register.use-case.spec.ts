@@ -59,6 +59,7 @@ function build(opts: { emailTaken?: boolean; breached?: boolean }) {
     sendPasswordChangedNotification: jest.fn().mockResolvedValue(undefined),
   };
   const audit = { log: jest.fn().mockResolvedValue(undefined) };
+  const tx = { runInTx: jest.fn((fn: () => Promise<unknown>) => fn()) };
   const config = { get: jest.fn().mockReturnValue('http://localhost:3000') };
   const eventEmitter = { emit: jest.fn() };
 
@@ -69,6 +70,7 @@ function build(opts: { emailTaken?: boolean; breached?: boolean }) {
     breachedPwd,
     emailPort as never,
     audit,
+    tx as never,
     config as never,
     eventEmitter as never,
     logger as never,
@@ -108,6 +110,7 @@ describe('RegisterUseCase', () => {
     expect(emailPort.sendVerificationLink).toHaveBeenCalledTimes(1);
     expect(audit.log).toHaveBeenCalledWith(
       expect.objectContaining({ action: 'auth.registered' }),
+      { strict: true },
     );
     expect(eventEmitter.emit).toHaveBeenCalledWith(
       'auth.registered',

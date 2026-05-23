@@ -12,6 +12,8 @@ import type { IGoogleAuthPort } from '../../domain/ports/outbound/google-auth.po
 import { GOOGLE_AUTH_PORT } from '../../domain/ports/outbound/google-auth.port';
 import type { IAuditPort } from '../../../../shared/activity-log/audit.port';
 import { AUDIT_PORT } from '../../../../shared/activity-log/audit.port';
+import type { ITransactionManager } from '../../../../shared/database/transaction-manager.port';
+import { TRANSACTION_MANAGER } from '../../../../shared/database/transaction-manager.port';
 import {
   GoogleAuthEvent,
   UserRegisteredEvent,
@@ -40,6 +42,8 @@ export class GoogleAuthUseCase {
     private readonly googleAuth: IGoogleAuthPort,
     @Inject(AUDIT_PORT)
     private readonly audit: IAuditPort,
+    @Inject(TRANSACTION_MANAGER)
+    private readonly tx: ITransactionManager,
     private readonly tokenIssuer: AuthTokenIssuer,
     private readonly eventEmitter: EventEmitter2,
     private readonly logger: LoggerService,
@@ -57,56 +61,76 @@ export class GoogleAuthUseCase {
       throw new UnauthorizedException('Invalid Google ID token');
     }
 
-    let user = await this.userRepo.findByGoogleId(googleUser.googleId);
-    let isNewUser = false;
+    const existing = await this.userRepo.findByGoogleId(googleUser.googleId);
+    const byEmail = existing
+      ? null
+      : await this.userRepo.findByEmail(googleUser.email);
 
-    if (!user) {
-      const byEmail = await this.userRepo.findByEmail(googleUser.email);
-      if (byEmail) {
-        await this.userRepo.setGoogleId(byEmail.id, googleUser.googleId);
-        if (googleUser.emailVerified && byEmail.emailVerifiedAt === null) {
-          await this.userRepo.setEmailVerified(byEmail.id);
-        }
-        user = { ...byEmail, googleId: googleUser.googleId };
-      } else {
-        const placeholder = randomBytes(32).toString('hex');
-        const hashedPassword = await this.passwordHasher.hash(placeholder);
-        user = await this.userRepo.create({
-          name: googleUser.name,
-          email: googleUser.email,
-          hashedPassword,
-          termsAndConditions: true,
-        });
-        await this.userRepo.setGoogleId(user.id, googleUser.googleId);
-        if (googleUser.emailVerified) {
-          await this.userRepo.setEmailVerified(user.id);
-        }
-        isNewUser = true;
-
-        this.eventEmitter.emit(
-          'auth.registered',
-          new UserRegisteredEvent(user.id, user.email),
-        );
-        await this.emailPort.sendWelcomeEmail({
-          to: user.email,
-          name: googleUser.name,
-        });
-      }
+    // Pre-hash outside the tx — bcrypt is CPU-bound and would needlessly
+    // hold a Postgres connection.
+    let preparedPlaceholder: string | null = null;
+    if (!existing && !byEmail) {
+      const placeholder = randomBytes(32).toString('hex');
+      preparedPlaceholder = await this.passwordHasher.hash(placeholder);
     }
 
-    const tokens = await this.tokenIssuer.issue(user);
+    const { user, isNewUser, tokens } = await this.tx.runInTx(async () => {
+      let resolvedUser = existing;
+      let createdNew = false;
+
+      if (!resolvedUser) {
+        if (byEmail) {
+          await this.userRepo.setGoogleId(byEmail.id, googleUser.googleId);
+          if (googleUser.emailVerified && byEmail.emailVerifiedAt === null) {
+            await this.userRepo.setEmailVerified(byEmail.id);
+          }
+          resolvedUser = { ...byEmail, googleId: googleUser.googleId };
+        } else {
+          const created = await this.userRepo.create({
+            name: googleUser.name,
+            email: googleUser.email,
+            hashedPassword: preparedPlaceholder!,
+            termsAndConditions: true,
+          });
+          await this.userRepo.setGoogleId(created.id, googleUser.googleId);
+          if (googleUser.emailVerified) {
+            await this.userRepo.setEmailVerified(created.id);
+          }
+          resolvedUser = created;
+          createdNew = true;
+        }
+      }
+
+      const issued = await this.tokenIssuer.issue(resolvedUser);
+      await this.audit.log(
+        {
+          action: 'auth.google_login',
+          resourceType: 'USER',
+          resourceId: resolvedUser.id,
+          metadata: { isNewUser: createdNew },
+        },
+        { strict: true },
+      );
+      return { user: resolvedUser, isNewUser: createdNew, tokens: issued };
+    });
+
+    // Side-effects MUST live outside the tx — emails and event fan-out can
+    // not be rolled back if anything inside the tx aborts.
+    if (isNewUser) {
+      this.eventEmitter.emit(
+        'auth.registered',
+        new UserRegisteredEvent(user.id, user.email),
+      );
+      await this.emailPort.sendWelcomeEmail({
+        to: user.email,
+        name: googleUser.name,
+      });
+    }
 
     this.eventEmitter.emit(
       'auth.google_login',
       new GoogleAuthEvent(user.id, isNewUser),
     );
-
-    await this.audit.log({
-      action: 'auth.google_login',
-      resourceType: 'USER',
-      resourceId: user.id,
-      metadata: { isNewUser },
-    });
 
     this.logger.info('GoogleAuth end', { traceId, userId: user.id, isNewUser });
     return { ...tokens, isNewUser };

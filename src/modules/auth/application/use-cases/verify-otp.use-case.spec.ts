@@ -117,9 +117,11 @@ describe('VerifyOtpUseCase', () => {
     expect(tokenIssuer.issue).toHaveBeenCalledTimes(1);
     expect(audit.log).toHaveBeenCalledWith(
       expect.objectContaining({ action: 'auth.otp_verified' }),
+      { strict: true },
     );
     expect(audit.log).toHaveBeenCalledWith(
       expect.objectContaining({ action: 'auth.login' }),
+      { strict: true },
     );
   });
 

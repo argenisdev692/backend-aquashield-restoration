@@ -19,6 +19,8 @@ import type { IEmailPort } from '../../domain/ports/outbound/email.port';
 import { EMAIL_PORT } from '../../domain/ports/outbound/email.port';
 import type { IAuditPort } from '../../../../shared/activity-log/audit.port';
 import { AUDIT_PORT } from '../../../../shared/activity-log/audit.port';
+import type { ITransactionManager } from '../../../../shared/database/transaction-manager.port';
+import { TRANSACTION_MANAGER } from '../../../../shared/database/transaction-manager.port';
 import { UserRegisteredEvent } from '../../domain/events/auth-events';
 import type { IBreachedPasswordPort } from '../../../../shared/security/breached-password.port';
 import {
@@ -49,6 +51,8 @@ export class RegisterUseCase {
     private readonly emailPort: IEmailPort,
     @Inject(AUDIT_PORT)
     private readonly audit: IAuditPort,
+    @Inject(TRANSACTION_MANAGER)
+    private readonly tx: ITransactionManager,
     private readonly config: ConfigService,
     private readonly eventEmitter: EventEmitter2,
     private readonly logger: LoggerService,
@@ -74,17 +78,28 @@ export class RegisterUseCase {
     }
 
     const hashedPassword = await this.passwordHasher.hash(dto.password);
-    const user = await this.userRepo.create({
-      name: dto.name,
-      lastName: dto.lastName,
-      email: dto.email,
-      phone: dto.phone,
-      hashedPassword,
-      termsAndConditions: dto.termsAndConditions,
+    const user = await this.tx.runInTx(async () => {
+      const created = await this.userRepo.create({
+        name: dto.name,
+        lastName: dto.lastName,
+        email: dto.email,
+        phone: dto.phone,
+        hashedPassword,
+        termsAndConditions: dto.termsAndConditions,
+      });
+      await this.historyRepo.addEntry(created.id, hashedPassword);
+      await this.audit.log(
+        {
+          action: 'auth.registered',
+          resourceType: 'USER',
+          resourceId: created.id,
+        },
+        { strict: true },
+      );
+      return created;
     });
 
-    await this.historyRepo.addEntry(user.id, hashedPassword);
-
+    // Side-effects MUST live outside the tx — Postgres cannot un-send email.
     const verificationLink = this.buildVerificationLink(user.id, dto.email);
     await this.emailPort.sendVerificationLink({
       to: dto.email,
@@ -97,12 +112,6 @@ export class RegisterUseCase {
       'auth.registered',
       new UserRegisteredEvent(user.id, dto.email),
     );
-
-    await this.audit.log({
-      action: 'auth.registered',
-      resourceType: 'USER',
-      resourceId: user.id,
-    });
 
     this.logger.info('User registered', { traceId, userId: user.id });
     return {

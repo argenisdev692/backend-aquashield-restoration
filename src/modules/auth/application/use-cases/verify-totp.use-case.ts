@@ -9,6 +9,8 @@ import { TOTP_PORT } from '../../domain/ports/outbound/totp.port';
 import { UserLoggedInEvent } from '../../domain/events/auth-events';
 import type { IAuditPort } from '../../../../shared/activity-log/audit.port';
 import { AUDIT_PORT } from '../../../../shared/activity-log/audit.port';
+import type { ITransactionManager } from '../../../../shared/database/transaction-manager.port';
+import { TRANSACTION_MANAGER } from '../../../../shared/database/transaction-manager.port';
 import type { VerifyTotpInput } from '../dtos/verify-totp.dto';
 import { AuthTokenIssuer } from '../services/auth-token-issuer.service';
 
@@ -28,6 +30,8 @@ export class VerifyTotpUseCase {
     private readonly totp: ITotpPort,
     @Inject(AUDIT_PORT)
     private readonly audit: IAuditPort,
+    @Inject(TRANSACTION_MANAGER)
+    private readonly tx: ITransactionManager,
     private readonly tokenIssuer: AuthTokenIssuer,
     private readonly eventEmitter: EventEmitter2,
     private readonly logger: LoggerService,
@@ -58,20 +62,28 @@ export class VerifyTotpUseCase {
       throw new UnauthorizedException('Invalid TOTP code');
     }
 
-    await this.audit.log({
-      action: 'auth.totp_verified',
-      resourceType: 'USER',
-      resourceId: user.id,
+    const tokens = await this.tx.runInTx(async () => {
+      await this.audit.log(
+        {
+          action: 'auth.totp_verified',
+          resourceType: 'USER',
+          resourceId: user.id,
+        },
+        { strict: true },
+      );
+      const issued = await this.tokenIssuer.issue(user);
+      await this.audit.log(
+        {
+          action: 'auth.login',
+          resourceType: 'USER',
+          resourceId: user.id,
+        },
+        { strict: true },
+      );
+      return issued;
     });
-
-    const tokens = await this.tokenIssuer.issue(user);
 
     this.eventEmitter.emit('auth.login', new UserLoggedInEvent(user.id));
-    await this.audit.log({
-      action: 'auth.login',
-      resourceType: 'USER',
-      resourceId: user.id,
-    });
 
     this.logger.info('User logged in via TOTP', { traceId, userId: user.id });
     return { requiresTotp: false, ...tokens };

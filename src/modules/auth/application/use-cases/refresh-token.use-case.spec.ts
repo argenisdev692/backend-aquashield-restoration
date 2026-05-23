@@ -102,6 +102,7 @@ describe('RefreshTokenUseCase', () => {
     });
     expect(audit.log).toHaveBeenCalledWith(
       expect.objectContaining({ action: 'auth.token_refreshed' }),
+      { strict: true },
     );
   });
 

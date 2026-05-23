@@ -135,6 +135,7 @@ describe('ResetPasswordUseCase', () => {
     expect(sessionRepo.revokeAllForUser).toHaveBeenCalledWith('u1');
     expect(audit.log).toHaveBeenCalledWith(
       expect.objectContaining({ action: 'auth.password_reset' }),
+      { strict: true },
     );
     expect(eventEmitter.emit).toHaveBeenCalledWith(
       'auth.password_reset',

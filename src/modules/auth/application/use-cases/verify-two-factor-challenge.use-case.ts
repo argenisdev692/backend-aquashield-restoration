@@ -85,19 +85,24 @@ export class VerifyTwoFactorChallengeUseCase {
     const token = TrustedDeviceToken.generate();
     const ua = this.cls.get<string>(CLS_KEYS.USER_AGENT) ?? null;
     const ip = this.cls.get<string>(CLS_KEYS.IP_ADDRESS) ?? null;
-    await this.trustedDeviceRepo.save({
-      userId,
-      deviceTokenHash: token.hash,
-      label: deviceLabelFromUserAgent(ua),
-      userAgent: ua,
-      ipAddress: ip,
-      expiresAt: new Date(Date.now() + TRUSTED_DEVICE_TTL_MS),
-    });
-    await this.audit.log({
-      action: 'auth.trusted_device_added',
-      resourceType: 'USER',
-      resourceId: userId,
-      metadata: { label: deviceLabelFromUserAgent(ua) },
+    await this.tx.runInTx(async () => {
+      await this.trustedDeviceRepo.save({
+        userId,
+        deviceTokenHash: token.hash,
+        label: deviceLabelFromUserAgent(ua),
+        userAgent: ua,
+        ipAddress: ip,
+        expiresAt: new Date(Date.now() + TRUSTED_DEVICE_TTL_MS),
+      });
+      await this.audit.log(
+        {
+          action: 'auth.trusted_device_added',
+          resourceType: 'USER',
+          resourceId: userId,
+          metadata: { label: deviceLabelFromUserAgent(ua) },
+        },
+        { strict: true },
+      );
     });
     return { token: token.raw, ttlMs: TRUSTED_DEVICE_TTL_MS };
   }
@@ -174,7 +179,17 @@ export class VerifyTwoFactorChallengeUseCase {
 
     const tokens = await this.tx.runInTx(async () => {
       await this.otpRepo.markUsed(stored.id);
-      return this.tokenIssuer.issue(user);
+      const issued = await this.tokenIssuer.issue(user);
+      await this.audit.log(
+        {
+          action: 'auth.login',
+          resourceType: 'USER',
+          resourceId: user.id,
+          metadata: { method: 'otp' },
+        },
+        { strict: true },
+      );
+      return issued;
     });
 
     this.eventEmitter.emit(
@@ -182,13 +197,6 @@ export class VerifyTwoFactorChallengeUseCase {
       new OtpVerifiedEvent(user.id, 'login'),
     );
     this.eventEmitter.emit('auth.login', new UserLoggedInEvent(user.id));
-
-    await this.audit.log({
-      action: 'auth.login',
-      resourceType: 'USER',
-      resourceId: user.id,
-      metadata: { method: 'otp' },
-    });
 
     this.logger.info('Two-factor OTP verified', { traceId, userId: user.id });
     return tokens;
@@ -223,16 +231,21 @@ export class VerifyTwoFactorChallengeUseCase {
       throw new UnauthorizedException('Invalid TOTP code');
     }
 
-    const tokens = await this.tokenIssuer.issue(user);
+    const tokens = await this.tx.runInTx(async () => {
+      const issued = await this.tokenIssuer.issue(user);
+      await this.audit.log(
+        {
+          action: 'auth.login',
+          resourceType: 'USER',
+          resourceId: user.id,
+          metadata: { method: 'totp' },
+        },
+        { strict: true },
+      );
+      return issued;
+    });
 
     this.eventEmitter.emit('auth.login', new UserLoggedInEvent(user.id));
-
-    await this.audit.log({
-      action: 'auth.login',
-      resourceType: 'USER',
-      resourceId: user.id,
-      metadata: { method: 'totp' },
-    });
 
     this.logger.info('Two-factor TOTP verified', { traceId, userId: user.id });
     return tokens;
@@ -274,23 +287,28 @@ export class VerifyTwoFactorChallengeUseCase {
       throw new UnauthorizedException('Invalid backup code');
     }
 
-    const tokens = await this.tx.runInTx(async () => {
+    const { tokens, remaining } = await this.tx.runInTx(async () => {
       await this.backupCodeRepo.markUsed(matched.id);
-      return this.tokenIssuer.issue(user);
+      const issued = await this.tokenIssuer.issue(user);
+      const remainingInTx = await this.backupCodeRepo.countUnusedByUserId(
+        user.id,
+      );
+      await this.audit.log(
+        {
+          action: 'auth.login',
+          resourceType: 'USER',
+          resourceId: user.id,
+          metadata: {
+            method: 'backup_code',
+            backupCodesRemaining: remainingInTx,
+          },
+        },
+        { strict: true },
+      );
+      return { tokens: issued, remaining: remainingInTx };
     });
 
-    const remaining = await this.backupCodeRepo.countUnusedByUserId(user.id);
-
     this.eventEmitter.emit('auth.login', new UserLoggedInEvent(user.id));
-    await this.audit.log(
-      {
-        action: 'auth.login',
-        resourceType: 'USER',
-        resourceId: user.id,
-        metadata: { method: 'backup_code', backupCodesRemaining: remaining },
-      },
-      { strict: true },
-    );
 
     this.logger.warn('Two-factor backup code used', {
       traceId,

@@ -79,26 +79,38 @@ export class VerifyOtpUseCase {
     await this.cache.del(this.attemptKey(user.id, dto.type));
 
     // Consuming the OTP and (when TOTP is not required) minting a session
-    // happen atomically so `markUsed` never sticks without a session.
+    // happen atomically so `markUsed` never sticks without a session or an
+    // audit row.
     const sessionTokens = await this.tx.runInTx(async () => {
       await this.otpRepo.markUsed(stored.id);
+      await this.audit.log(
+        {
+          action: 'auth.otp_verified',
+          resourceType: 'USER',
+          resourceId: user.id,
+          metadata: { type: dto.type },
+        },
+        { strict: true },
+      );
       if (user.totpEnabled) {
         return null;
       }
-      return this.tokenIssuer.issue(user);
+      const issued = await this.tokenIssuer.issue(user);
+      await this.audit.log(
+        {
+          action: 'auth.login',
+          resourceType: 'USER',
+          resourceId: user.id,
+        },
+        { strict: true },
+      );
+      return issued;
     });
 
     this.eventEmitter.emit(
       'auth.otp_verified',
       new OtpVerifiedEvent(user.id, dto.type),
     );
-
-    await this.audit.log({
-      action: 'auth.otp_verified',
-      resourceType: 'USER',
-      resourceId: user.id,
-      metadata: { type: dto.type },
-    });
 
     // If TOTP is enabled, a second factor is still required.
     if (sessionTokens === null) {
@@ -112,11 +124,6 @@ export class VerifyOtpUseCase {
     const tokens = sessionTokens;
 
     this.eventEmitter.emit('auth.login', new UserLoggedInEvent(user.id));
-    await this.audit.log({
-      action: 'auth.login',
-      resourceType: 'USER',
-      resourceId: user.id,
-    });
 
     this.logger.info('User logged in', { traceId, userId: user.id });
     return { requiresTotp: false, ...tokens };

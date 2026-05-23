@@ -52,6 +52,7 @@ function build(opts: { valid?: boolean; user?: typeof user | null }) {
     verify: jest.fn().mockResolvedValue(opts.valid ?? true),
   };
   const audit = { log: jest.fn().mockResolvedValue(undefined) };
+  const tx = { runInTx: jest.fn((fn: () => Promise<unknown>) => fn()) };
   const tokenIssuer = {
     issue: jest.fn().mockResolvedValue({
       accessToken: 'at',
@@ -65,6 +66,7 @@ function build(opts: { valid?: boolean; user?: typeof user | null }) {
     userRepo,
     totp,
     audit,
+    tx as never,
     tokenIssuer as never,
     eventEmitter as never,
     logger as never,
@@ -85,9 +87,11 @@ describe('VerifyTotpUseCase', () => {
     expect(tokenIssuer.issue).toHaveBeenCalledTimes(1);
     expect(audit.log).toHaveBeenCalledWith(
       expect.objectContaining({ action: 'auth.totp_verified' }),
+      { strict: true },
     );
     expect(audit.log).toHaveBeenCalledWith(
       expect.objectContaining({ action: 'auth.login' }),
+      { strict: true },
     );
   });
 
