@@ -86,6 +86,10 @@ const PERMISSIONS: readonly PermissionSeed[] = [
   { name: "blog-categories:update",  module: "blog-categories", subject: "BLOG_CATEGORY", action: "update",  description: "Edit blog categories" },
   { name: "blog-categories:delete",  module: "blog-categories", subject: "BLOG_CATEGORY", action: "delete",  description: "Soft-delete blog categories" },
   { name: "blog-categories:restore", module: "blog-categories", subject: "BLOG_CATEGORY", action: "restore", description: "Restore soft-deleted blog categories" },
+  // database backups (super-admin only — granted via "ALL", never mapped to lower roles)
+  { name: "database-backups:read",   module: "database-backups", subject: "DATABASE_BACKUP", action: "read",   description: "List and download database backups" },
+  { name: "database-backups:create", module: "database-backups", subject: "DATABASE_BACKUP", action: "create", description: "Trigger a database backup manually" },
+  { name: "database-backups:delete", module: "database-backups", subject: "DATABASE_BACKUP", action: "delete", description: "Delete a database backup from storage" },
 ];
 
 const ROLE_GRANTS: Readonly<Record<string, readonly string[] | "ALL">> = {

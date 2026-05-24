@@ -30,6 +30,7 @@ import { AppointmentsModule } from './modules/appointments/appointments.module';
 import { ContactSupportModule } from './modules/contact-support/contact-support.module';
 import { RolesModule } from './modules/roles/roles.module';
 import { UserPermissionsModule } from './modules/user-permissions/user-permissions.module';
+import { BackupModule } from './modules/backup/backup.module';
 
 @Module({
   imports: [
@@ -91,6 +92,7 @@ import { UserPermissionsModule } from './modules/user-permissions/user-permissio
     ContactSupportModule,
     RolesModule,
     UserPermissionsModule,
+    BackupModule,
   ],
   controllers: [AppController],
   providers: [AppService, { provide: APP_GUARD, useClass: ThrottlerGuard }],

@@ -23,6 +23,7 @@ export type Subjects =
   | 'CONTENT'
   | 'BLOG_CATEGORY'
   | 'ACTIVITY_LOG'
+  | 'DATABASE_BACKUP'
   | 'ALL';
 
 export type AppAbility = MongoAbility<[Action, Subjects]>;

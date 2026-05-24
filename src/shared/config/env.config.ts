@@ -84,6 +84,20 @@ export const EnvSchema = z.object({
   R2_PUBLIC_BASE_URL: z.string().url(),
   R2_ENDPOINT: z.string().url().optional(),
   R2_USE_PATH_STYLE_ENDPOINT: booleanFromString.default(false),
+
+  // ── Database backups (BackupModule) ────────────────────────
+  // pg_dump binary — bare command resolved from PATH by default.
+  BACKUP_PG_DUMP_BIN: z.string().min(1).default('pg_dump'),
+  // Local temp dir for the dump file before it's uploaded. Must be on a
+  // disk with enough free space for a full database snapshot.
+  BACKUP_TMP_DIR: z.string().optional(),
+  // Number of newest COMPLETED backups to keep — older ones are pruned
+  // by BackupRetentionListener after each successful run.
+  BACKUP_RETENTION_COUNT: z.coerce.number().int().min(1).max(365).default(30),
+  // Override the R2 bucket for backups. Falls back to R2_BUCKET_NAME.
+  BACKUP_R2_BUCKET_NAME: z.string().min(1).optional(),
+  // Key prefix under the bucket.
+  BACKUP_R2_PREFIX: z.string().default('backups'),
 });
 
 export type EnvVars = z.infer<typeof EnvSchema>;
