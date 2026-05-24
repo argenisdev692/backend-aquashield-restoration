@@ -89,7 +89,7 @@ describe('BulkDeletePostsHandler', () => {
       }),
       { strict: true },
     );
-    expect(mockCache.delByPattern).toHaveBeenCalledWith('http:*:/posts*');
+    expect(mockCache.delByPattern).toHaveBeenCalledWith('posts-service:post:*');
   });
 
   it('sets resourceId to the single id when only one is deleted', async () => {

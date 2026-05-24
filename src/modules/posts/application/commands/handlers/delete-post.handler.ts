@@ -31,6 +31,7 @@ export class DeletePostHandler implements ICommandHandler<DeletePostCommand> {
     this.logger.setContext(DeletePostHandler.name);
   }
 
+  @Transactional()
   async execute(command: DeletePostCommand): Promise<void> {
     const { id } = command;
     const traceId = this.cls.get<string>('traceId');
@@ -50,7 +51,6 @@ export class DeletePostHandler implements ICommandHandler<DeletePostCommand> {
     });
   }
 
-  @Transactional()
   private async persist(command: DeletePostCommand): Promise<void> {
     const { id, actorId } = command;
 

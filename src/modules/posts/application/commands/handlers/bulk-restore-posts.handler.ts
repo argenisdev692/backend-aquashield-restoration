@@ -31,6 +31,7 @@ export class BulkRestorePostsHandler implements ICommandHandler<BulkRestorePosts
     this.logger.setContext(BulkRestorePostsHandler.name);
   }
 
+  @Transactional()
   async execute(command: BulkRestorePostsCommand): Promise<{ count: number }> {
     const { ids } = command;
     const traceId = this.cls.get<string>('traceId');
@@ -55,7 +56,6 @@ export class BulkRestorePostsHandler implements ICommandHandler<BulkRestorePosts
     return result;
   }
 
-  @Transactional()
   private async persist(command: BulkRestorePostsCommand): Promise<{ count: number }> {
     const { ids, actorId } = command;
 

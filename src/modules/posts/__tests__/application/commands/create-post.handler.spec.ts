@@ -17,6 +17,8 @@ import {
   AUDIT_PORT,
 } from '../../../../../shared/activity-log/audit.port';
 import { CACHE_PORT, ICachePort } from '../../../../../shared/cache/cache.port';
+import { AI_POST_GENERATION_PORT } from '../../../domain/ports/ai-post-generation.port';
+import type { AiPostGenerationPort } from '../../../domain/ports/ai-post-generation.port';
 import { PostCreatedEvent } from '../../../domain/events/post-created.domain-event';
 import { LoggerService } from '../../../../../logger/logger.service';
 import { ClsService } from 'nestjs-cls';
@@ -57,6 +59,8 @@ describe('CreatePostHandler', () => {
       del: jest.fn(),
       delByPattern: jest.fn(),
     };
+    // Acceptable cast in tests only: Jest manual mock of complex injectable services.
+    // Production code has zero `any` / `as unknown as`. Documented exception per BACKEND-NEST §0.
     mockLogger = {
       info: jest.fn(),
       warn: jest.fn(),
@@ -67,12 +71,26 @@ describe('CreatePostHandler', () => {
     mockCls = { get: jest.fn().mockReturnValue('trace-123') } as unknown as jest.Mocked<ClsService>;
     mockEventEmitter = { emit: jest.fn() } as unknown as jest.Mocked<EventEmitter2>;
 
+    const mockAiGeneration: jest.Mocked<AiPostGenerationPort> = {
+      generatePreview: jest.fn().mockResolvedValue({
+        postContent: 'AI generated content',
+        postTitleSlug: 'ai-generated-slug',
+        postExcerpt: 'AI excerpt',
+        metaTitle: 'AI meta title',
+        metaDescription: 'AI meta desc',
+        metaKeywords: 'ai,keywords',
+        generatedImageUrl: null,
+        sources: [],
+      }),
+    };
+
     const module: TestingModule = await Test.createTestingModule({
       providers: [
         CreatePostHandler,
         { provide: POST_REPOSITORY, useValue: mockRepo },
         { provide: AUDIT_PORT, useValue: mockAudit },
         { provide: CACHE_PORT, useValue: mockCache },
+        { provide: AI_POST_GENERATION_PORT, useValue: mockAiGeneration },
         { provide: LoggerService, useValue: mockLogger },
         { provide: ClsService, useValue: mockCls },
         { provide: EventEmitter2, useValue: mockEventEmitter },
@@ -97,7 +115,7 @@ describe('CreatePostHandler', () => {
       }),
       { strict: true },
     );
-    expect(mockCache.delByPattern).toHaveBeenCalledWith('http:*:/posts*');
+    expect(mockCache.delByPattern).toHaveBeenCalledWith('posts-service:post:*');
     expect(mockEventEmitter.emit).toHaveBeenCalledWith(
       'post.created',
       expect.any(PostCreatedEvent),

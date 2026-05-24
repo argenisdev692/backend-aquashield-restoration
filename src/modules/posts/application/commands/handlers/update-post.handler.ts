@@ -13,6 +13,10 @@ import type { ICachePort } from '../../../../../shared/cache/cache.port';
 import { PostUpdatedEvent } from '../../../domain/events/post-updated.domain-event';
 import { LoggerService } from '../../../../../logger/logger.service';
 import { POSTS_CACHE_PATTERN } from '../../posts-cache.constants';
+import {
+  sanitizeRichContent,
+  sanitizePlainText,
+} from '../../../../../shared/utils/content-sanitizer';
 
 @Injectable()
 @CommandHandler(UpdatePostCommand)
@@ -31,6 +35,7 @@ export class UpdatePostHandler implements ICommandHandler<UpdatePostCommand> {
     this.logger.setContext(UpdatePostHandler.name);
   }
 
+  @Transactional()
   async execute(command: UpdatePostCommand): Promise<void> {
     const { id } = command;
     const traceId = this.cls.get<string>('traceId');
@@ -51,7 +56,6 @@ export class UpdatePostHandler implements ICommandHandler<UpdatePostCommand> {
     });
   }
 
-  @Transactional()
   private async persist(command: UpdatePostCommand): Promise<void> {
     const { id, dto, actorId } = command;
 
@@ -60,15 +64,16 @@ export class UpdatePostHandler implements ICommandHandler<UpdatePostCommand> {
       throw new NotFoundException(`Post with id ${id} not found`);
     }
 
+    // Server-side sanitization on every update (same rules as create).
     post.updateDetails({
-      postTitle: dto.postTitle,
-      postTitleSlug: dto.postTitleSlug,
-      postContent: dto.postContent,
-      postExcerpt: dto.postExcerpt,
+      postTitle: dto.postTitle ? sanitizePlainText(dto.postTitle) : undefined,
+      postTitleSlug: dto.postTitleSlug ? sanitizePlainText(dto.postTitleSlug) : undefined,
+      postContent: dto.postContent ? sanitizeRichContent(dto.postContent) : undefined,
+      postExcerpt: dto.postExcerpt !== undefined ? sanitizePlainText(dto.postExcerpt) : undefined,
       postCoverImage: dto.postCoverImage,
-      metaTitle: dto.metaTitle,
-      metaDescription: dto.metaDescription,
-      metaKeywords: dto.metaKeywords,
+      metaTitle: dto.metaTitle !== undefined ? sanitizePlainText(dto.metaTitle) : undefined,
+      metaDescription: dto.metaDescription !== undefined ? sanitizePlainText(dto.metaDescription) : undefined,
+      metaKeywords: dto.metaKeywords !== undefined ? sanitizePlainText(dto.metaKeywords) : undefined,
       categoryId: dto.categoryId,
       postStatus: dto.postStatus,
       scheduledAt: dto.scheduledAt,

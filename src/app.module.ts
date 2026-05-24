@@ -22,6 +22,7 @@ import { SecurityModule } from './shared/security/security.module';
 import { DatabaseModule } from './shared/database/database.module';
 import { PrismaService } from './shared/database/prisma.service';
 import { QueueModule } from './shared/messaging/queue.module';
+import { AiModule } from './shared/external/ai/ai.module';
 import { AuthModule } from './modules/auth/auth.module';
 import { CompanyDataModule } from './modules/companydata/companydata.module';
 import { BlogCategoryModule } from './modules/blog-category/blog-category.module';
@@ -61,6 +62,7 @@ import { PostsModule } from './modules/posts/posts.module';
     QueueModule,
     EventEmitterModule.forRoot(),
     ScheduleModule.forRoot(),
+    AiModule,
     ThrottlerModule.forRootAsync({
       inject: [ConfigService],
       useFactory: (config: ConfigService) => ({

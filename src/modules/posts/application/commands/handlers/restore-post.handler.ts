@@ -31,6 +31,7 @@ export class RestorePostHandler implements ICommandHandler<RestorePostCommand> {
     this.logger.setContext(RestorePostHandler.name);
   }
 
+  @Transactional()
   async execute(command: RestorePostCommand): Promise<void> {
     const { id } = command;
     const traceId = this.cls.get<string>('traceId');
@@ -50,7 +51,6 @@ export class RestorePostHandler implements ICommandHandler<RestorePostCommand> {
     });
   }
 
-  @Transactional()
   private async persist(command: RestorePostCommand): Promise<void> {
     const { id, actorId } = command;
 

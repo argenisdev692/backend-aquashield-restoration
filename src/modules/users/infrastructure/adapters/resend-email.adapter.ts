@@ -3,15 +3,8 @@ import { ConfigService } from '@nestjs/config';
 import { Resend } from 'resend';
 import sanitize from 'sanitize-html';
 import { ClsService } from 'nestjs-cls';
-import {
-  type IPolicy,
-  ConsecutiveBreaker,
-  ExponentialBackoff,
-  circuitBreaker,
-  handleAll,
-  retry,
-  wrap,
-} from 'cockatiel';
+import { type IPolicy } from 'cockatiel';
+import { createExternalServicePolicy } from '../../../../shared/external/resilience';
 import { LoggerService } from '../../../../logger/logger.service';
 import type { IEmailPort } from '../../domain/ports/outbound/email.port';
 
@@ -32,17 +25,9 @@ export class ResendEmailAdapter implements IEmailPort, OnModuleInit {
     this.from = this.config.getOrThrow<string>('RESEND_FROM_EMAIL');
     this.resend = new Resend(apiKey);
 
-    const retryPolicy = retry(handleAll, {
-      maxAttempts: 2,
-      backoff: new ExponentialBackoff(),
-    });
-
-    const breaker = circuitBreaker(handleAll, {
-      halfOpenAfter: 30_000,
-      breaker: new ConsecutiveBreaker(5),
-    });
-
-    this.resilience = wrap(retryPolicy, breaker);
+    // Centralized resilience policy for transactional email.
+    // 'email' profile is tuned for providers that can be a bit flaky under load.
+    this.resilience = createExternalServicePolicy('resend', 'email');
   }
 
   async sendPasswordSetupLink(params: {

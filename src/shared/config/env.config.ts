@@ -98,6 +98,15 @@ export const EnvSchema = z.object({
   BACKUP_R2_BUCKET_NAME: z.string().min(1).optional(),
   // Key prefix under the bucket.
   BACKUP_R2_PREFIX: z.string().default('backups'),
+
+  GEMINI_API_KEY: z.string().min(1),
+  GEMINI_TEXT_MODEL: z.string().default('gemini-2.5-flash'),
+  GEMINI_IMAGE_MODEL: z.string().default('gemini-2.0-flash-exp-image-generation'),
+
+  TAVILY_API_KEY: z.string().min(1),
+  TAVILY_SEARCH_URL: z.string().url().default('https://api.tavily.com/search'),
+  TAVILY_SEARCH_DEPTH: z.enum(['basic', 'advanced']).default('advanced'),
+  TAVILY_MAX_RESULTS: z.coerce.number().int().min(1).max(20).default(8),
 });
 
 export type EnvVars = z.infer<typeof EnvSchema>;

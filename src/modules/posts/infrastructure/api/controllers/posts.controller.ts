@@ -14,6 +14,7 @@ import {
   Res,
   StreamableFile,
 } from '@nestjs/common';
+import { Throttle } from '@nestjs/throttler';
 import type { Response } from 'express';
 import { CommandBus, QueryBus } from '@nestjs/cqrs';
 import {
@@ -29,6 +30,8 @@ import {
   ApiParam,
   ApiQuery,
   ApiProduces,
+  ApiOperation,
+  ApiBody,
 } from '@nestjs/swagger';
 import { ZodValidationPipe } from '../../../../../core/pipes/zod-validation.pipe';
 import { JwtAuthGuard } from '../../../../../core/guards/jwt-auth.guard';
@@ -68,6 +71,12 @@ import {
   BulkIdsDto,
   BulkIdsSchema,
 } from '../../../application/dtos/bulk-ids.dto';
+import {
+  GeneratePostPreviewDto,
+  GeneratePostPreviewSchema,
+} from '../../../application/dtos/generate-post-preview.dto';
+import { GeneratePostPreviewCommand } from '../../../application/commands/generate-post-preview.command';
+import { GeneratePostPreviewResponse } from '../presenters/generate-post-preview.response';
 import type {
   PostReadModel,
   PaginatedResult,
@@ -94,6 +103,43 @@ export class PostsController {
 
   @Post()
   @CheckAbilities({ action: Action.Create, subject: 'CONTENT' })
+  @ApiOperation({
+    summary: 'Create a new post (manual or AI-assisted)',
+    description:
+      'Creates a blog post.\n\n' +
+      'Two mutually compatible flows:\n\n' +
+      '1. Manual creation — client provides full postContent + SEO fields.\n\n' +
+      '2. AI-assisted creation (recommended for speed) — set `generateWithAi: true`. The backend will:\n' +
+      '   - Call Tavily for fresh research (E-E-A-T grounding)\n' +
+      '   - Generate the full Markdown article + SEO fields with Gemini using the official 10 E-E-A-T writing rules\n' +
+      '   - Optionally generate and upload a hero image to R2\n' +
+      '   - All generation + external side-effects happen BEFORE the database transaction.\n\n' +
+      'Client-provided values always override AI-generated ones (postContent, SEO fields, postCoverImage).\n\n' +
+      'When using the AI flow you only need to send the title + generateWithAi (niche and wordCount are optional).\n\n' +
+      'Requires valid GEMINI_API_KEY and TAVILY_API_KEY when generateWithAi is true.',
+  })
+  @ApiBody({
+    description: 'Post payload. Use generateWithAi for fully automated creation.',
+    examples: {
+      'Manual creation': {
+        value: {
+          postTitle: 'Guía completa de React Server Components',
+          postContent: '# Introducción\n\n...',
+          postStatus: 'draft',
+          categoryId: 'uuid-of-category',
+        },
+      },
+      'AI-assisted creation (minimal)': {
+        value: {
+          postTitle: 'Cómo optimizar el rendimiento de React en 2026',
+          generateWithAi: true,
+          aiNiche: 'Desarrollo Web',
+          aiWordCount: 1400,
+          postStatus: 'draft',
+        },
+      },
+    },
+  })
   @ApiCreatedResponse({ type: CreatePostResponse })
   @ApiBadRequestResponse({ description: 'Validation failed' })
   @ApiUnauthorizedResponse()
@@ -106,6 +152,60 @@ export class PostsController {
       new CreatePostCommand(dto, user.id),
     );
     return { id };
+  }
+
+  @Post('ai/generate-preview')
+  @Throttle({ default: { limit: 5, ttl: 60_000 } })
+  @CheckAbilities({ action: Action.Create, subject: 'CONTENT' })
+  @ApiOperation({
+    summary: 'Generate post content with AI (Gemini + Tavily research)',
+    description:
+      'Triggers a full AI content generation pipeline for a blog post.\n\n' +
+      'The system performs:\n' +
+      '1. Web research via Tavily (E-E-A-T grounding)\n' +
+      '2. Article generation with Google Gemini using the exact 10 E-E-A-T writing rules and SEO structure from the content pipeline spec\n' +
+      '3. SEO metadata generation (slug, excerpt, meta title/description/keywords)\n' +
+      '4. Hero image generation (when supported by the model) and upload to R2\n\n' +
+      'The generated content is returned for human review/editing before final submission.\n\n' +
+      'Rate limited to 5 requests per 60 seconds.\n\n' +
+      'Requires valid GEMINI_API_KEY and TAVILY_API_KEY.',
+  })
+  @ApiBody({
+    description: 'AI generation parameters',
+    examples: {
+      'React performance (Spanish tech niche)': {
+        value: {
+          topic: 'Cómo optimizar el rendimiento de React en aplicaciones grandes',
+          niche: 'Desarrollo Web',
+          wordCount: 1400,
+        },
+      },
+    },
+  })
+  @ApiOkResponse({
+    type: GeneratePostPreviewResponse,
+    description: 'AI-generated post preview ready for review. Includes Markdown content, SEO fields, optional hero image URL, and research sources.',
+  })
+  @ApiBadRequestResponse({ description: 'Validation failed' })
+  @ApiUnauthorizedResponse()
+  async generatePreview(
+    @Body(new ZodValidationPipe(GeneratePostPreviewSchema))
+    dto: GeneratePostPreviewDto,
+    @CurrentUser() user: AuthenticatedUser,
+  ): Promise<GeneratePostPreviewResponse> {
+    const preview = await this.commandBus.execute(
+      new GeneratePostPreviewCommand(dto, user.id),
+    );
+    return {
+      post_content: preview.postContent,
+      post_title_slug: preview.postTitleSlug,
+      post_excerpt: preview.postExcerpt,
+      meta_title: preview.metaTitle,
+      meta_description: preview.metaDescription,
+      meta_keywords: preview.metaKeywords,
+      generated_image_url: preview.generatedImageUrl,
+      sources: preview.sources,
+    };
   }
 
   @Get()
