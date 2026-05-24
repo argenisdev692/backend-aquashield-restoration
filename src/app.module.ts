@@ -31,6 +31,7 @@ import { ContactSupportModule } from './modules/contact-support/contact-support.
 import { RolesModule } from './modules/roles/roles.module';
 import { UserPermissionsModule } from './modules/user-permissions/user-permissions.module';
 import { BackupModule } from './modules/backup/backup.module';
+import { PostsModule } from './modules/posts/posts.module';
 
 @Module({
   imports: [
@@ -93,6 +94,7 @@ import { BackupModule } from './modules/backup/backup.module';
     RolesModule,
     UserPermissionsModule,
     BackupModule,
+    PostsModule,
   ],
   controllers: [AppController],
   providers: [AppService, { provide: APP_GUARD, useClass: ThrottlerGuard }],

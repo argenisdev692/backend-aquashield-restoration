@@ -16,6 +16,7 @@ model BlogCategory {
   deletedAt   DateTime? @map("deleted_at") @db.Timestamp(6)
 
   user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+  posts Post[]
 
   @@unique([userId, name], map: "uq_blog_categories_user_name")
   @@index([deletedAt], map: "idx_blog_categories_deleted_at")
