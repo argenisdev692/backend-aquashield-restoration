@@ -19,6 +19,7 @@ import { EventEmitter2 } from '@nestjs/event-emitter';
 import { ClsService } from 'nestjs-cls';
 import { LoggerService } from '../../../../logger/logger.service';
 import type { IAuditPort } from '../../../../shared/activity-log/audit.port';
+import type { ICachePort } from '../../../../shared/cache/cache.port';
 import type { IBackupRepository } from '../../domain/ports/backup.repository.interface';
 import type { IDbDumper } from '../../domain/ports/db-dumper.port';
 import type { IBackupStoragePort } from '../../domain/ports/backup-storage.port';
@@ -50,6 +51,7 @@ describe('RunBackupHandler', () => {
   let dumper: jest.Mocked<IDbDumper>;
   let storage: jest.Mocked<IBackupStoragePort>;
   let audit: jest.Mocked<IAuditPort>;
+  let cache: jest.Mocked<ICachePort>;
   let events: EventEmitter2;
   let emitSpy: jest.SpyInstance;
   let handler: RunBackupHandler;
@@ -77,7 +79,9 @@ describe('RunBackupHandler', () => {
           createdAt: savedBackup.createdAt,
         });
       }),
+      findReadModelById: jest.fn(),
       findAll: jest.fn(),
+      findAllForExport: jest.fn(),
       findCompletedBeyond: jest.fn(),
       delete: jest.fn(),
     } as jest.Mocked<IBackupRepository>;
@@ -100,6 +104,13 @@ describe('RunBackupHandler', () => {
 
     audit = { log: jest.fn().mockResolvedValue(undefined) } as jest.Mocked<IAuditPort>;
 
+    cache = {
+      get: jest.fn(),
+      set: jest.fn(),
+      del: jest.fn(),
+      delByPattern: jest.fn().mockResolvedValue(undefined),
+    } as jest.Mocked<ICachePort>;
+
     events = new EventEmitter2();
     emitSpy = jest.spyOn(events, 'emit');
 
@@ -108,6 +119,7 @@ describe('RunBackupHandler', () => {
       dumper,
       storage,
       audit,
+      cache,
       mockLogger(),
       mockCls(),
       events,
@@ -154,6 +166,8 @@ describe('RunBackupHandler', () => {
         sizeBytes: 9_999,
       }),
     );
+
+    expect(cache.delByPattern).toHaveBeenCalledWith('http:*:/backups*');
   });
 
   it('flips the row to FAILED when pg_dump throws, audits + emits failure', async () => {

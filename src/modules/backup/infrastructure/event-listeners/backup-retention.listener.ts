@@ -1,6 +1,7 @@
 import { Inject, Injectable } from '@nestjs/common';
 import { OnEvent } from '@nestjs/event-emitter';
 import { ConfigService } from '@nestjs/config';
+import { ClsService } from 'nestjs-cls';
 import { LoggerService } from '../../../../logger/logger.service';
 import type { IBackupRepository } from '../../domain/ports/backup.repository.interface';
 import { BACKUP_REPOSITORY } from '../../domain/ports/backup.repository.interface';
@@ -28,6 +29,7 @@ export class BackupRetentionListener {
     @Inject(BACKUP_STORAGE_PORT) private readonly storage: IBackupStoragePort,
     config: ConfigService,
     private readonly logger: LoggerService,
+    private readonly cls: ClsService,
   ) {
     this.logger.setContext(BackupRetentionListener.name);
     this.keep = config.get<number>('BACKUP_RETENTION_COUNT', DEFAULT_KEEP);
@@ -35,9 +37,11 @@ export class BackupRetentionListener {
 
   @OnEvent('backup.completed')
   async handle(event: BackupCompletedEvent): Promise<void> {
+    const traceId = this.cls.isActive() ? this.cls.get<string>('traceId') : undefined;
     const stale = await this.repo.findCompletedBeyond(this.keep);
     if (stale.length === 0) {
       this.logger.info('BackupRetentionListener nothing to prune', {
+        traceId,
         keep: this.keep,
         triggerBackupId: event.backupId,
       });
@@ -45,6 +49,7 @@ export class BackupRetentionListener {
     }
 
     this.logger.info('BackupRetentionListener pruning', {
+      traceId,
       keep: this.keep,
       pruneCount: stale.length,
       triggerBackupId: event.backupId,
@@ -59,6 +64,7 @@ export class BackupRetentionListener {
         await this.repo.delete(id);
       } catch (err) {
         this.logger.warn('BackupRetentionListener row delete failed', {
+          traceId,
           backupId: id,
           objectKey,
           error: err instanceof Error ? err.message : String(err),

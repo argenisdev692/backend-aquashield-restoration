@@ -1,5 +1,6 @@
 import { Injectable } from '@nestjs/common';
 import { OnEvent } from '@nestjs/event-emitter';
+import { ClsService } from 'nestjs-cls';
 import { LoggerService } from '../../../../logger/logger.service';
 import { BackupFailedEvent } from '../../domain/events/backup-completed.domain-event';
 
@@ -19,13 +20,17 @@ import { BackupFailedEvent } from '../../domain/events/backup-completed.domain-e
  */
 @Injectable()
 export class BackupFailedListener {
-  constructor(private readonly logger: LoggerService) {
+  constructor(
+    private readonly logger: LoggerService,
+    private readonly cls: ClsService,
+  ) {
     this.logger.setContext(BackupFailedListener.name);
   }
 
   @OnEvent('backup.failed')
   handle(event: BackupFailedEvent): void {
     this.logger.error('Backup failed', {
+      traceId: this.cls.isActive() ? this.cls.get<string>('traceId') : undefined,
       backupId: event.backupId,
       error: event.error,
       occurredAt: event.occurredAt.toISOString(),

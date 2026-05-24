@@ -1,6 +1,8 @@
 import type {
   DatabaseBackup as DatabaseBackupRow,
   Prisma,
+} from '../../../../../generated/prisma/client';
+import {
   DatabaseBackupStatus as PrismaBackupStatus,
   DatabaseBackupTrigger as PrismaBackupTrigger,
 } from '../../../../../generated/prisma/client';
@@ -10,7 +12,7 @@ import {
   BackupStatus,
   BackupTrigger,
 } from '../../../domain/value-objects/backup-status.vo';
-import type { BackupReadModel } from '../../../application/read-models/backup.read-model';
+import type { BackupReadModel } from '../../../domain/read-models/backup.read-model';
 
 /**
  * The ONLY contact point between the Prisma row shape and the rest of the
@@ -76,19 +78,41 @@ export class BackupMapper {
     };
   }
 
+  private static readonly STATUS_TO_DOMAIN: Record<PrismaBackupStatus, BackupStatus> = {
+    [PrismaBackupStatus.PENDING]: BackupStatus.Pending,
+    [PrismaBackupStatus.COMPLETED]: BackupStatus.Completed,
+    [PrismaBackupStatus.FAILED]: BackupStatus.Failed,
+  };
+
+  private static readonly STATUS_TO_PRISMA: Record<BackupStatus, PrismaBackupStatus> = {
+    [BackupStatus.Pending]: PrismaBackupStatus.PENDING,
+    [BackupStatus.Completed]: PrismaBackupStatus.COMPLETED,
+    [BackupStatus.Failed]: PrismaBackupStatus.FAILED,
+  };
+
+  private static readonly TRIGGER_TO_DOMAIN: Record<PrismaBackupTrigger, BackupTrigger> = {
+    [PrismaBackupTrigger.SCHEDULER]: BackupTrigger.Scheduler,
+    [PrismaBackupTrigger.MANUAL]: BackupTrigger.Manual,
+  };
+
+  private static readonly TRIGGER_TO_PRISMA: Record<BackupTrigger, PrismaBackupTrigger> = {
+    [BackupTrigger.Scheduler]: PrismaBackupTrigger.SCHEDULER,
+    [BackupTrigger.Manual]: PrismaBackupTrigger.MANUAL,
+  };
+
   private static statusToDomain(s: PrismaBackupStatus): BackupStatus {
-    return s as unknown as BackupStatus;
+    return this.STATUS_TO_DOMAIN[s];
   }
 
   private static statusToPrisma(s: BackupStatus): PrismaBackupStatus {
-    return s as unknown as PrismaBackupStatus;
+    return this.STATUS_TO_PRISMA[s];
   }
 
   private static triggerToDomain(t: PrismaBackupTrigger): BackupTrigger {
-    return t as unknown as BackupTrigger;
+    return this.TRIGGER_TO_DOMAIN[t];
   }
 
   private static triggerToPrisma(t: BackupTrigger): PrismaBackupTrigger {
-    return t as unknown as PrismaBackupTrigger;
+    return this.TRIGGER_TO_PRISMA[t];
   }
 }

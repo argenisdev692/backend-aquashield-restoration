@@ -7,6 +7,7 @@ import type {
   IBackupRepository,
   PaginatedBackups,
 } from '../../../domain/ports/backup.repository.interface';
+import type { BackupReadModel } from '../../../domain/read-models/backup.read-model';
 import { DatabaseBackupStatus } from '../../../../../generated/prisma/client';
 import { BackupMapper } from '../mappers/backup.mapper';
 
@@ -37,6 +38,11 @@ export class PrismaBackupRepository implements IBackupRepository {
     return row ? BackupMapper.toDomain(row) : null;
   }
 
+  async findReadModelById(id: string): Promise<BackupReadModel | null> {
+    const row = await this.prisma.databaseBackup.findUnique({ where: { id } });
+    return row ? BackupMapper.toReadModel(row) : null;
+  }
+
   async findAll(filters: BackupListFilters): Promise<PaginatedBackups> {
     const take = Math.min(filters.limit, 100);
     const skip = (filters.page - 1) * filters.limit;
@@ -54,6 +60,14 @@ export class PrismaBackupRepository implements IBackupRepository {
       page: filters.page,
       limit: filters.limit,
     };
+  }
+
+  async findAllForExport(maxRows: number): Promise<BackupReadModel[]> {
+    const rows = await this.prisma.databaseBackup.findMany({
+      orderBy: { createdAt: 'desc' },
+      take: maxRows,
+    });
+    return rows.map((r) => BackupMapper.toReadModel(r));
   }
 
   async findCompletedBeyond(

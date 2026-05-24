@@ -22,6 +22,8 @@ import {
   ApiNotFoundResponse,
   ApiOkResponse,
   ApiParam,
+  ApiProduces,
+  ApiQuery,
   ApiTags,
   ApiUnauthorizedResponse,
 } from '@nestjs/swagger';
@@ -44,10 +46,22 @@ import { DeleteBackupCommand } from '../../../application/commands/delete-backup
 import { GetBackupsListQuery } from '../../../application/queries/get-backups-list.query';
 import { GetBackupByIdQuery } from '../../../application/queries/get-backup-by-id.query';
 import { GetBackupDownloadQuery } from '../../../application/queries/get-backup-download.query';
-import type { BackupReadModel } from '../../../application/read-models/backup.read-model';
+import {
+  ExportBackupsQuery,
+  type ExportBackupsResult,
+} from '../../../application/queries/export-backups.query';
+import {
+  ExportBackupsDto,
+  ExportBackupsSchema,
+} from '../../../application/dtos/export-backups.dto';
+import type { BackupReadModel } from '../../../domain/read-models/backup.read-model';
 import type { PaginatedBackups } from '../../../domain/ports/backup.repository.interface';
 import type { BackupDownload } from '../../../application/queries/handlers/get-backup-download.handler';
 import { BackupTrigger } from '../../../domain/value-objects/backup-status.vo';
+import {
+  BackupNotDownloadableException,
+  BackupNotFoundException,
+} from '../../../domain/exceptions/backup-domain.exception';
 import {
   ListBackupsQueryDto,
   ListBackupsQuerySchema,
@@ -123,6 +137,45 @@ export class BackupController {
     };
   }
 
+  @Get('export')
+  @SkipCache()
+  @CheckAbilities({ action: Action.Read, subject: 'DATABASE_BACKUP' })
+  @ApiProduces(
+    'text/csv',
+    'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+    'application/pdf',
+  )
+  @ApiOkResponse({
+    description: 'CSV, XLSX (default) or PDF report of the backup catalog.',
+    content: {
+      'text/csv': {},
+      'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet': {},
+      'application/pdf': {},
+    },
+  })
+  @ApiBadRequestResponse({ description: 'Validation failed' })
+  @ApiUnauthorizedResponse()
+  @ApiForbiddenResponse({ description: 'Insufficient permissions' })
+  @ApiQuery({ name: 'format', required: false, enum: ['csv', 'xlsx', 'pdf'] })
+  async export(
+    @Query(new ZodValidationPipe(ExportBackupsSchema))
+    query: ExportBackupsDto,
+    @CurrentUser() actor: AuthenticatedUser,
+    @Res({ passthrough: true }) res: Response,
+  ): Promise<StreamableFile> {
+    const result = await this.queryBus.execute<
+      ExportBackupsQuery,
+      ExportBackupsResult
+    >(new ExportBackupsQuery(query.format, actor.id));
+
+    res.setHeader('Content-Type', result.contentType);
+    res.setHeader(
+      'Content-Disposition',
+      `attachment; filename="${result.filename}"`,
+    );
+    return new StreamableFile(result.buffer);
+  }
+
   @Get(':id/download')
   @SkipCache()
   @CheckAbilities({ action: Action.Read, subject: 'DATABASE_BACKUP' })
@@ -152,10 +205,11 @@ export class BackupController {
       });
       return new StreamableFile(download.body);
     } catch (err) {
-      const message = err instanceof Error ? err.message : String(err);
-      if (message.includes('not found')) throw new NotFoundException(message);
-      if (message.includes('cannot be downloaded') || message.includes('no downloadable')) {
-        throw new BadRequestException(message);
+      if (err instanceof BackupNotFoundException) {
+        throw new NotFoundException(err.message);
+      }
+      if (err instanceof BackupNotDownloadableException) {
+        throw new BadRequestException(err.message);
       }
       throw err;
     }
@@ -191,7 +245,7 @@ export class BackupController {
     try {
       await this.commandBus.execute(new DeleteBackupCommand(id, actor.id));
     } catch (err) {
-      if (err instanceof Error && err.message.includes('not found')) {
+      if (err instanceof BackupNotFoundException) {
         throw new NotFoundException(err.message);
       }
       throw err;

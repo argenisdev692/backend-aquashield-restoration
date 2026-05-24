@@ -26,7 +26,8 @@
       "Bash(node *)",
       "Bash(rmdir domain/value-objects)",
       "Bash(powershell *)",
-      "Bash(bash *)"
+      "Bash(bash *)",
+      "Bash(rmdir \"src/modules/backup/application/read-models\")"
     ]
   }
 }

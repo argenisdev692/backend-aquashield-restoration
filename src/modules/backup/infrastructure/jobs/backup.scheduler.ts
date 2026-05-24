@@ -1,6 +1,8 @@
+import { randomUUID } from 'node:crypto';
 import { Injectable } from '@nestjs/common';
 import { Cron, CronExpression } from '@nestjs/schedule';
 import { CommandBus } from '@nestjs/cqrs';
+import { ClsService } from 'nestjs-cls';
 import { LoggerService } from '../../../../logger/logger.service';
 import { RunBackupCommand } from '../../application/commands/run-backup.command';
 import { BackupTrigger } from '../../domain/value-objects/backup-status.vo';
@@ -24,6 +26,7 @@ export class BackupScheduler {
   constructor(
     private readonly commandBus: CommandBus,
     private readonly logger: LoggerService,
+    private readonly cls: ClsService,
   ) {
     this.logger.setContext(BackupScheduler.name);
   }
@@ -34,22 +37,31 @@ export class BackupScheduler {
     timeZone: 'UTC',
   })
   async runDailyBackup(): Promise<void> {
-    this.logger.info('BackupScheduler.runDailyBackup tick', {
-      job: JOB_NAME,
+    // Synthesise a traceId for this tick so downstream handlers/adapters
+    // can correlate every log line of the run with the cron invocation.
+    const traceId = `cron-${JOB_NAME}-${randomUUID()}`;
+    await this.cls.run(async () => {
+      this.cls.set('traceId', traceId);
+      this.logger.info('BackupScheduler.runDailyBackup tick', {
+        traceId,
+        job: JOB_NAME,
+      });
+      try {
+        const id = await this.commandBus.execute<RunBackupCommand, string>(
+          new RunBackupCommand(BackupTrigger.Scheduler, null),
+        );
+        this.logger.info('BackupScheduler.runDailyBackup completed', {
+          traceId,
+          job: JOB_NAME,
+          backupId: id,
+        });
+      } catch (err) {
+        this.logger.error('BackupScheduler.runDailyBackup failed', {
+          traceId,
+          job: JOB_NAME,
+          error: err instanceof Error ? err.message : String(err),
+        });
+      }
     });
-    try {
-      const id = await this.commandBus.execute<RunBackupCommand, string>(
-        new RunBackupCommand(BackupTrigger.Scheduler, null),
-      );
-      this.logger.info('BackupScheduler.runDailyBackup completed', {
-        job: JOB_NAME,
-        backupId: id,
-      });
-    } catch (err) {
-      this.logger.error('BackupScheduler.runDailyBackup failed', {
-        job: JOB_NAME,
-        error: err instanceof Error ? err.message : String(err),
-      });
-    }
   }
 }

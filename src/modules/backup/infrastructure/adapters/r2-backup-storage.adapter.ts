@@ -9,6 +9,7 @@ import {
   DeleteObjectCommand,
   NoSuchKey,
 } from '@aws-sdk/client-s3';
+import { ClsService } from 'nestjs-cls';
 import { LoggerService } from '../../../../logger/logger.service';
 import type { IBackupStoragePort } from '../../domain/ports/backup-storage.port';
 
@@ -31,6 +32,7 @@ export class R2BackupStorageAdapter implements IBackupStoragePort {
   constructor(
     config: ConfigService,
     private readonly logger: LoggerService,
+    private readonly cls: ClsService,
   ) {
     this.logger.setContext(R2BackupStorageAdapter.name);
     this.client = new S3Client({
@@ -57,6 +59,7 @@ export class R2BackupStorageAdapter implements IBackupStoragePort {
     const objectKey = this.buildKey(params.backupId);
     this.logger.info('R2BackupStorageAdapter.uploadFromFile', {
       layer: 'adapter',
+      traceId: this.traceId(),
       backupId: params.backupId,
       objectKey,
       sizeBytes: params.sizeBytes,
@@ -82,15 +85,21 @@ export class R2BackupStorageAdapter implements IBackupStoragePort {
       );
       this.logger.info('R2BackupStorageAdapter.delete', {
         layer: 'adapter',
+        traceId: this.traceId(),
         objectKey,
       });
     } catch (err) {
       this.logger.warn('R2BackupStorageAdapter.delete failed', {
         layer: 'adapter',
+        traceId: this.traceId(),
         objectKey,
         error: err instanceof Error ? err.message : String(err),
       });
     }
+  }
+
+  private traceId(): string | undefined {
+    return this.cls.isActive() ? this.cls.get<string>('traceId') : undefined;
   }
 
   async download(objectKey: string): Promise<{

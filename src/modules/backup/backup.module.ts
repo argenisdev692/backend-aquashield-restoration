@@ -18,6 +18,7 @@ import { DeleteBackupHandler } from './application/commands/handlers/delete-back
 import { GetBackupByIdHandler } from './application/queries/handlers/get-backup-by-id.handler';
 import { GetBackupsListHandler } from './application/queries/handlers/get-backups-list.handler';
 import { GetBackupDownloadHandler } from './application/queries/handlers/get-backup-download.handler';
+import { ExportBackupsHandler } from './application/queries/handlers/export-backups.handler';
 
 import { PrismaBackupRepository } from './infrastructure/persistence/repositories/prisma-backup.repository';
 import { PgDumpAdapter } from './infrastructure/adapters/pg-dump.adapter';
@@ -39,6 +40,7 @@ import { BACKUP_STORAGE_PORT } from './domain/ports/backup-storage.port';
     GetBackupByIdHandler,
     GetBackupsListHandler,
     GetBackupDownloadHandler,
+    ExportBackupsHandler,
 
     PrismaBackupRepository,
     PgDumpAdapter,

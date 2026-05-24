@@ -4,7 +4,7 @@ import { ClsService } from 'nestjs-cls';
 import { LoggerService } from '../../../../../logger/logger.service';
 import type { IBackupRepository } from '../../../domain/ports/backup.repository.interface';
 import { BACKUP_REPOSITORY } from '../../../domain/ports/backup.repository.interface';
-import type { BackupReadModel } from '../../read-models/backup.read-model';
+import type { BackupReadModel } from '../../../domain/read-models/backup.read-model';
 import { GetBackupByIdQuery } from '../get-backup-by-id.query';
 
 @QueryHandler(GetBackupByIdQuery)
@@ -26,20 +26,6 @@ export class GetBackupByIdHandler
       traceId: this.cls.get<string>('traceId'),
       backupId: query.backupId,
     });
-    const backup = await this.repo.findById(query.backupId);
-    if (!backup) return null;
-    return {
-      id: backup.id.value,
-      status: backup.status,
-      triggeredBy: backup.triggeredBy,
-      actorId: backup.actorId,
-      objectKey: backup.objectKey,
-      sizeBytes: backup.sizeBytes,
-      checksum: backup.checksum,
-      error: backup.error,
-      startedAt: backup.startedAt,
-      completedAt: backup.completedAt,
-      createdAt: backup.createdAt,
-    };
+    return this.repo.findReadModelById(query.backupId);
   }
 }

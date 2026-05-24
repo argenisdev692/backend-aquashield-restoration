@@ -1,10 +1,14 @@
 import { z } from 'zod';
 import { createZodDto } from 'nestjs-zod';
+import {
+  BackupStatus,
+  BackupTrigger,
+} from '../../../domain/value-objects/backup-status.vo';
 
 export const BackupResponseSchema = z.object({
   id: z.string().uuid(),
-  status: z.enum(['PENDING', 'COMPLETED', 'FAILED']),
-  triggeredBy: z.enum(['SCHEDULER', 'MANUAL']),
+  status: z.enum(BackupStatus),
+  triggeredBy: z.enum(BackupTrigger),
   actorId: z.string().uuid().nullable(),
   objectKey: z.string().nullable(),
   sizeBytes: z.number().int().nonnegative().nullable(),

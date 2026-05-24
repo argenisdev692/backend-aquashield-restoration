@@ -8,6 +8,8 @@ import { ClsService } from 'nestjs-cls';
 import { LoggerService } from '../../../../../logger/logger.service';
 import type { IAuditPort } from '../../../../../shared/activity-log/audit.port';
 import { AUDIT_PORT } from '../../../../../shared/activity-log/audit.port';
+import type { ICachePort } from '../../../../../shared/cache/cache.port';
+import { CACHE_PORT } from '../../../../../shared/cache/cache.port';
 import type { IBackupRepository } from '../../../domain/ports/backup.repository.interface';
 import { BACKUP_REPOSITORY } from '../../../domain/ports/backup.repository.interface';
 import type { IDbDumper } from '../../../domain/ports/db-dumper.port';
@@ -37,11 +39,14 @@ import { RunBackupCommand } from '../run-backup.command';
  */
 @CommandHandler(RunBackupCommand)
 export class RunBackupHandler implements ICommandHandler<RunBackupCommand> {
+  private static readonly CACHE_PATTERN = 'http:*:/backups*';
+
   constructor(
     @Inject(BACKUP_REPOSITORY) private readonly repo: IBackupRepository,
     @Inject(DB_DUMPER) private readonly dumper: IDbDumper,
     @Inject(BACKUP_STORAGE_PORT) private readonly storage: IBackupStoragePort,
     @Inject(AUDIT_PORT) private readonly audit: IAuditPort,
+    @Inject(CACHE_PORT) private readonly cache: ICachePort,
     private readonly logger: LoggerService,
     private readonly cls: ClsService,
     private readonly events: EventEmitter2,
@@ -80,6 +85,10 @@ export class RunBackupHandler implements ICommandHandler<RunBackupCommand> {
         checksum: dump.checksum,
       });
 
+      // Side-effects MUST live outside the tx. Cache invalidation runs
+      // before the event emit so listeners that read fresh state see it.
+      await this.cache.delByPattern(RunBackupHandler.CACHE_PATTERN);
+
       this.events.emit(
         'backup.completed',
         new BackupCompletedEvent(backupId, upload.objectKey, dump.sizeBytes),
@@ -103,6 +112,7 @@ export class RunBackupHandler implements ICommandHandler<RunBackupCommand> {
       // for manual cleanup.
       try {
         await this.markFailed({ backupId, error: message });
+        await this.cache.delByPattern(RunBackupHandler.CACHE_PATTERN);
         this.events.emit('backup.failed', new BackupFailedEvent(backupId, message));
       } catch (flipErr) {
         this.logger.error('RunBackupHandler markFailed also failed', {

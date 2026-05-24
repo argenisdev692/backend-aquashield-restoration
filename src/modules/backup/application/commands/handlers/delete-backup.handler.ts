@@ -5,6 +5,8 @@ import { ClsService } from 'nestjs-cls';
 import { LoggerService } from '../../../../../logger/logger.service';
 import type { IAuditPort } from '../../../../../shared/activity-log/audit.port';
 import { AUDIT_PORT } from '../../../../../shared/activity-log/audit.port';
+import type { ICachePort } from '../../../../../shared/cache/cache.port';
+import { CACHE_PORT } from '../../../../../shared/cache/cache.port';
 import type { IBackupRepository } from '../../../domain/ports/backup.repository.interface';
 import { BACKUP_REPOSITORY } from '../../../domain/ports/backup.repository.interface';
 import type { IBackupStoragePort } from '../../../domain/ports/backup-storage.port';
@@ -25,10 +27,13 @@ import { DeleteBackupCommand } from '../delete-backup.command';
 export class DeleteBackupHandler
   implements ICommandHandler<DeleteBackupCommand>
 {
+  private static readonly CACHE_PATTERN = 'http:*:/backups*';
+
   constructor(
     @Inject(BACKUP_REPOSITORY) private readonly repo: IBackupRepository,
     @Inject(BACKUP_STORAGE_PORT) private readonly storage: IBackupStoragePort,
     @Inject(AUDIT_PORT) private readonly audit: IAuditPort,
+    @Inject(CACHE_PORT) private readonly cache: ICachePort,
     private readonly logger: LoggerService,
     private readonly cls: ClsService,
   ) {
@@ -44,6 +49,9 @@ export class DeleteBackupHandler
     });
 
     const objectKey = await this.runWrite(command);
+
+    // Side-effects MUST live outside the tx.
+    await this.cache.delByPattern(DeleteBackupHandler.CACHE_PATTERN);
 
     if (objectKey) {
       await this.storage.delete(objectKey);
