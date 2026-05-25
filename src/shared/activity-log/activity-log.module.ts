@@ -1,6 +1,7 @@
 import { Global, Module } from '@nestjs/common';
 import { ActivityLogService } from './activity-log.service';
 import { ActivityLogQueryService } from './activity-log-query.service';
+import { ActivityLogRetentionScheduler } from './infrastructure/jobs/activity-log-retention.scheduler';
 import { AUDIT_PORT } from './audit.port';
 
 /**
@@ -12,6 +13,7 @@ import { AUDIT_PORT } from './audit.port';
   providers: [
     ActivityLogService,
     ActivityLogQueryService,
+    ActivityLogRetentionScheduler,
     { provide: AUDIT_PORT, useExisting: ActivityLogService },
   ],
   exports: [AUDIT_PORT, ActivityLogQueryService],
