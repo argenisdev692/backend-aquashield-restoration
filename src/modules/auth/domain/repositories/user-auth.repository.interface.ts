@@ -86,6 +86,8 @@ export interface IUserAuthRepository {
   getPasswordConfirmedAt(userId: string): Promise<Date | null>;
   setGoogleId(userId: string, googleId: string): Promise<void>;
   updateProfile(userId: string, data: UpdateProfileData): Promise<void>;
+  /** Sets or clears the profile photo public URL (stored in profile_photo_path). */
+  updateProfilePhoto(userId: string, photoUrl: string | null): Promise<void>;
   /** Locks the account until the given timestamp. */
   setLockedUntil(userId: string, until: Date): Promise<void>;
   /** Clears any active lockout. Idempotent. */

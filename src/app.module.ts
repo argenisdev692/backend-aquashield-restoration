@@ -19,6 +19,7 @@ import { ActivityLogModule } from './shared/activity-log/activity-log.module';
 import { CacheModule } from './shared/cache/cache.module';
 import { CryptoModule } from './shared/crypto/crypto.module';
 import { SecurityModule } from './shared/security/security.module';
+import { ImageModule } from './shared/image/image.module';
 import { DatabaseModule } from './shared/database/database.module';
 import { PrismaService } from './shared/database/prisma.service';
 import { QueueModule } from './shared/messaging/queue.module';
@@ -59,6 +60,7 @@ import { SocialMediaModule } from './modules/social-media/social-media.module';
     CacheModule,
     CryptoModule,
     SecurityModule,
+    ImageModule,
     ActivityLogModule,
     QueueModule,
     EventEmitterModule.forRoot(),
@@ -82,6 +84,11 @@ import { SocialMediaModule } from './modules/social-media/social-media.module';
             name: 'long',
             ttl: 60000,
             limit: 100,
+          },
+          {
+            name: 'profilePhoto',
+            ttl: 60_000,
+            limit: 5,
           },
         ],
       }),

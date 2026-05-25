@@ -258,6 +258,13 @@ export class PrismaUserAuthRepository implements IUserAuthRepository {
     });
   }
 
+  async updateProfilePhoto(userId: string, photoUrl: string | null): Promise<void> {
+    await this.prisma.user.update({
+      where: { id: userId },
+      data: { profilePhotoPath: photoUrl },
+    });
+  }
+
   private toAuthRow(row: {
     id: string;
     email: string;

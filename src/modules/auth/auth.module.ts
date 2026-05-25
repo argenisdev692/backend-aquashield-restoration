@@ -3,6 +3,9 @@ import { JwtModule } from '@nestjs/jwt';
 import { ConfigModule, ConfigService } from '@nestjs/config';
 
 import { AuthController } from './infrastructure/api/controllers/auth.controller';
+import { ImageModule } from '../../shared/image/image.module';
+import { StorageModule } from '../../shared/storage/storage.module';
+import { CacheModule } from '../../shared/cache/cache.module';
 
 // ─── Use Cases ────────────────────────────────────────────────────────────────
 import { LoginUseCase } from './application/use-cases/login.use-case';
@@ -12,6 +15,7 @@ import { RefreshTokenUseCase } from './application/use-cases/refresh-token.use-c
 import { RegisterUseCase } from './application/use-cases/register.use-case';
 import { GetMeUseCase } from './application/use-cases/get-me.use-case';
 import { UpdateProfileUseCase } from './application/use-cases/update-profile.use-case';
+import { UploadProfilePhotoUseCase } from './application/use-cases/upload-profile-photo.use-case';
 import { RequestPasswordResetUseCase } from './application/use-cases/request-password-reset.use-case';
 import { ValidateResetTokenUseCase } from './application/use-cases/validate-reset-token.use-case';
 import { ResetPasswordUseCase } from './application/use-cases/reset-password.use-case';
@@ -85,6 +89,9 @@ import { GOOGLE_AUTH_PORT } from './domain/ports/outbound/google-auth.port';
         verifyOptions: { algorithms: ['HS256'] },
       }),
     }),
+    ImageModule,
+    StorageModule,
+    CacheModule,
   ],
   controllers: [AuthController],
   providers: [
@@ -96,6 +103,7 @@ import { GOOGLE_AUTH_PORT } from './domain/ports/outbound/google-auth.port';
     RegisterUseCase,
     GetMeUseCase,
     UpdateProfileUseCase,
+    UploadProfilePhotoUseCase,
     RequestPasswordResetUseCase,
     ValidateResetTokenUseCase,
     ResetPasswordUseCase,

@@ -10,8 +10,13 @@ import {
   UseGuards,
   ParseUUIDPipe,
   Res,
+  UseInterceptors,
+  UploadedFile,
+  ParseFilePipeBuilder,
+  HttpStatus,
 } from '@nestjs/common';
 import type { Response } from 'express';
+import { FileInterceptor } from '@nestjs/platform-express';
 import {
   ApiTags,
   ApiCreatedResponse,
@@ -24,11 +29,14 @@ import {
   ApiNoContentResponse,
   ApiParam,
   ApiQuery,
+  ApiConsumes,
+  ApiBody,
 } from '@nestjs/swagger';
 import { Throttle } from '@nestjs/throttler';
 import { ZodValidationPipe } from 'nestjs-zod';
 import { JwtAuthGuard } from '../../../../../core/guards/jwt-auth.guard';
 import { CurrentUser } from '../../../../../core/decorators/current-user.decorator';
+import { SkipCache } from '../../../../../core/decorators/skip-cache.decorator';
 import type { AuthenticatedUser } from '../../../../../core/access/actions.enum';
 import { FreshPasswordGuard } from '../guards/fresh-password.guard';
 
@@ -39,6 +47,7 @@ import { RefreshTokenUseCase } from '../../../application/use-cases/refresh-toke
 import { RegisterUseCase } from '../../../application/use-cases/register.use-case';
 import { GetMeUseCase } from '../../../application/use-cases/get-me.use-case';
 import { UpdateProfileUseCase } from '../../../application/use-cases/update-profile.use-case';
+import { UploadProfilePhotoUseCase } from '../../../application/use-cases/upload-profile-photo.use-case';
 import { RequestPasswordResetUseCase } from '../../../application/use-cases/request-password-reset.use-case';
 import { ValidateResetTokenUseCase } from '../../../application/use-cases/validate-reset-token.use-case';
 import { ResetPasswordUseCase } from '../../../application/use-cases/reset-password.use-case';
@@ -156,6 +165,7 @@ export class AuthController {
     private readonly registerUseCase: RegisterUseCase,
     private readonly getMeUseCase: GetMeUseCase,
     private readonly updateProfileUseCase: UpdateProfileUseCase,
+    private readonly uploadProfilePhotoUseCase: UploadProfilePhotoUseCase,
     private readonly requestPasswordResetUseCase: RequestPasswordResetUseCase,
     private readonly validateResetTokenUseCase: ValidateResetTokenUseCase,
     private readonly resetPasswordUseCase: ResetPasswordUseCase,
@@ -303,6 +313,40 @@ export class AuthController {
   ): Promise<MessageResponse> {
     await this.updateProfileUseCase.execute(user.id, dto);
     return { message: 'Profile updated successfully' };
+  }
+
+  @Post('profile-photo')
+  @UseGuards(JwtAuthGuard)
+  @ApiBearerAuth()
+  @Throttle({ profilePhoto: { limit: 5, ttl: 60_000 } })
+  @ApiConsumes('multipart/form-data')
+  @ApiBody({
+    schema: {
+      type: 'object',
+      properties: { file: { type: 'string', format: 'binary' } },
+      required: ['file'],
+    },
+  })
+  @UseInterceptors(FileInterceptor('file'))
+  @SkipCache()
+  @ApiOkResponse({ type: MessageResponse })
+  @ApiBadRequestResponse({ description: 'Invalid file' })
+  @ApiUnauthorizedResponse({ description: 'Authentication required' })
+  async uploadProfilePhoto(
+    @CurrentUser() user: AuthenticatedUser,
+    @UploadedFile(
+      new ParseFilePipeBuilder()
+        .addFileTypeValidator({ fileType: /^(image\/jpeg|image\/png|image\/webp)$/ })
+        .addMaxSizeValidator({ maxSize: 5 * 1024 * 1024 })
+        .build({ errorHttpStatusCode: HttpStatus.UNPROCESSABLE_ENTITY }),
+    )
+    file: Express.Multer.File,
+  ): Promise<MessageResponse> {
+    await this.uploadProfilePhotoUseCase.execute(user.id, {
+      buffer: file.buffer,
+      mimeType: file.mimetype,
+    });
+    return { message: 'Profile photo updated successfully' };
   }
 
   // ─── Password Reset ────────────────────────────────────────────────────────
