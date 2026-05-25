@@ -8,6 +8,11 @@ model SocialMediaGeneration {
   networks         Json     @db.JsonB
   generatedPosts   Json     @map("generated_posts") @db.JsonB
   r2Key            String?  @map("r2_key") @db.VarChar(500)
+  viralityScore    Float?   @map("virality_score")
+  roiScore         Float?   @map("roi_score")
+  aiDetectionScore Json?    @map("ai_detection_score") @db.JsonB
+  analysisReportKey String?  @map("analysis_report_key") @db.VarChar(500)
+  analysisReportUrl String?  @map("analysis_report_url") @db.VarChar(2048)
   createdAt        DateTime @default(now()) @map("created_at") @db.Timestamp(6)
 
   @@index([userId], map: "idx_social_media_generations_user_id")

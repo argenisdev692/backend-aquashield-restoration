@@ -24,6 +24,16 @@ export class PrismaSocialMediaRepository implements ISocialMediaRepository {
     return SocialMediaMapper.toDomain(created);
   }
 
+  async update(aggregate: SocialMediaGenerationAggregate): Promise<SocialMediaGeneration> {
+    const snapshot = aggregate.toSnapshot();
+    const data = SocialMediaMapper.toUpdate(snapshot);
+    const updated = await this.prisma.socialMediaGeneration.update({
+      where: { id: snapshot.id },
+      data,
+    });
+    return SocialMediaMapper.toDomain(updated);
+  }
+
   async findById(id: string): Promise<SocialMediaGeneration | null> {
     const record = await this.prisma.socialMediaGeneration.findUnique({
       where: { id },

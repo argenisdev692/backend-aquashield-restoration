@@ -27,6 +27,11 @@ export interface ISocialMediaRepository {
   save(aggregate: SocialMediaGenerationAggregate): Promise<SocialMediaGeneration>;
 
   /**
+   * Updates an existing aggregate (write path for partial updates).
+   */
+  update(aggregate: SocialMediaGenerationAggregate): Promise<SocialMediaGeneration>;
+
+  /**
    * Reads return the plain data shape (sufficient for read models / presenters).
    */
   findById(id: string): Promise<SocialMediaGeneration | null>;

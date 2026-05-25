@@ -27,6 +27,13 @@ export const GeneratedPostSchema = z.object({
   image: GeneratedPostImageSchema.optional(),
 });
 
+export const AiDetectionScoreSchema = z.object({
+  aiGenerated: z.number().min(0).max(100),
+  aiParaphrased: z.number().min(0).max(100),
+  humanWritten: z.number().min(0).max(100),
+  showsAiSigns: z.number().min(0).max(100),
+});
+
 export const SocialMediaGenerationResponseSchema = z.object({
   id: z.string().uuid(),
   userId: z.string().uuid(),
@@ -37,6 +44,11 @@ export const SocialMediaGenerationResponseSchema = z.object({
   networks: z.record(z.string(), z.boolean()),
   generatedPosts: z.record(z.string(), GeneratedPostSchema),
   r2Key: z.string().nullable().optional(),
+  viralityScore: z.number().nullable().optional(),
+  roiScore: z.number().nullable().optional(),
+  aiDetectionScore: AiDetectionScoreSchema.nullable().optional(),
+  analysisReportKey: z.string().nullable().optional(),
+  analysisReportUrl: z.string().url().nullable().optional(),
   createdAt: z.string().datetime(),
 });
 

@@ -2,6 +2,16 @@ import { SocialNetwork, GeneratedPost, GeneratedPostImage } from './social-media
 import { SocialNetworkVO } from '../value-objects/social-network.vo';
 
 /**
+ * AI Detection Score for social media posts.
+ */
+export interface AiDetectionScore {
+  aiGenerated: number;
+  aiParaphrased: number;
+  humanWritten: number;
+  showsAiSigns: number;
+}
+
+/**
  * Domain Exception for Social Media Generation invariants.
  */
 export class SocialMediaGenerationDomainException extends Error {
@@ -31,6 +41,11 @@ export class SocialMediaGenerationAggregate {
     private readonly _networks: Map<SocialNetwork, boolean>,
     private readonly _generatedPosts: Map<SocialNetwork, GeneratedPost>,
     private readonly _r2Key: string | null,
+    private _viralityScore: number | null,
+    private _roiScore: number | null,
+    private _aiDetectionScore: AiDetectionScore | null,
+    private _analysisReportKey: string | null,
+    private _analysisReportUrl: string | null,
     private readonly _createdAt: Date,
   ) {}
 
@@ -46,6 +61,11 @@ export class SocialMediaGenerationAggregate {
     networks: Partial<Record<SocialNetwork, boolean>>;
     generatedPosts?: Partial<Record<SocialNetwork, GeneratedPost>>;
     r2Key?: string | null;
+    viralityScore?: number | null;
+    roiScore?: number | null;
+    aiDetectionScore?: AiDetectionScore | null;
+    analysisReportKey?: string | null;
+    analysisReportUrl?: string | null;
     createdAt?: Date;
   }): SocialMediaGenerationAggregate {
     const id = params.id ?? crypto.randomUUID();
@@ -92,6 +112,11 @@ export class SocialMediaGenerationAggregate {
       networksMap,
       postsMap,
       params.r2Key ?? null,
+      params.viralityScore ?? null,
+      params.roiScore ?? null,
+      params.aiDetectionScore ?? null,
+      params.analysisReportKey ?? null,
+      params.analysisReportUrl ?? null,
       params.createdAt ?? new Date(),
     );
   }
@@ -142,6 +167,26 @@ export class SocialMediaGenerationAggregate {
     return this._r2Key;
   }
 
+  get viralityScore(): number | null {
+    return this._viralityScore;
+  }
+
+  get roiScore(): number | null {
+    return this._roiScore;
+  }
+
+  get aiDetectionScore(): AiDetectionScore | null {
+    return this._aiDetectionScore;
+  }
+
+  get analysisReportKey(): string | null {
+    return this._analysisReportKey;
+  }
+
+  get analysisReportUrl(): string | null {
+    return this._analysisReportUrl;
+  }
+
   get createdAt(): Date {
     return this._createdAt;
   }
@@ -186,6 +231,35 @@ export class SocialMediaGenerationAggregate {
     }
   }
 
+  /**
+   * Sets the virality score from Tavily research.
+   */
+  setViralityScore(score: number): void {
+    this._viralityScore = score;
+  }
+
+  /**
+   * Sets the ROI score from Tavily research.
+   */
+  setRoiScore(score: number): void {
+    this._roiScore = score;
+  }
+
+  /**
+   * Sets the AI detection score from content analysis.
+   */
+  setAiDetectionScore(score: AiDetectionScore): void {
+    this._aiDetectionScore = score;
+  }
+
+  /**
+   * Sets the analysis report key and URL after PDF generation.
+   */
+  setAnalysisReport(key: string, url: string): void {
+    this._analysisReportKey = key;
+    this._analysisReportUrl = url;
+  }
+
   // ── Serialization for persistence boundary ─────────────────────────────────
 
   toSnapshot(): {
@@ -198,6 +272,11 @@ export class SocialMediaGenerationAggregate {
     networks: Partial<Record<SocialNetwork, boolean>>;
     generatedPosts: Partial<Record<SocialNetwork, GeneratedPost>>;
     r2Key: string | null;
+    viralityScore: number | null;
+    roiScore: number | null;
+    aiDetectionScore: AiDetectionScore | null;
+    analysisReportKey: string | null;
+    analysisReportUrl: string | null;
     createdAt: Date;
   } {
     return {
@@ -210,6 +289,11 @@ export class SocialMediaGenerationAggregate {
       networks: this.networks,
       generatedPosts: this.generatedPosts,
       r2Key: this._r2Key,
+      viralityScore: this._viralityScore,
+      roiScore: this._roiScore,
+      aiDetectionScore: this._aiDetectionScore,
+      analysisReportKey: this._analysisReportKey,
+      analysisReportUrl: this._analysisReportUrl,
       createdAt: this._createdAt,
     };
   }

@@ -3,6 +3,7 @@ import type {
   SocialMediaGeneration,
   SocialNetwork,
   GeneratedPost,
+  AiDetectionScore,
 } from '../../../domain/entities/social-media-generation.entity';
 
 type PrismaSocialMediaGeneration = Prisma.SocialMediaGenerationGetPayload<{}>;
@@ -27,6 +28,11 @@ export class SocialMediaMapper {
         Record<SocialNetwork, GeneratedPost>
       >,
       r2Key: row.r2Key,
+      viralityScore: (row as any).viralityScore as number | null,
+      roiScore: (row as any).roiScore as number | null,
+      aiDetectionScore: (row as any).aiDetectionScore as AiDetectionScore | null,
+      analysisReportKey: (row as any).analysisReportKey as string | null,
+      analysisReportUrl: (row as any).analysisReportUrl as string | null,
       createdAt: row.createdAt,
     };
   }
@@ -44,7 +50,28 @@ export class SocialMediaMapper {
       networks: snapshot.networks as Prisma.InputJsonValue,
       generatedPosts: snapshot.generatedPosts as Prisma.InputJsonValue,
       r2Key: snapshot.r2Key ?? null,
+      viralityScore: snapshot.viralityScore ?? null,
+      roiScore: snapshot.roiScore ?? null,
+      aiDetectionScore: snapshot.aiDetectionScore 
+        ? (JSON.parse(JSON.stringify(snapshot.aiDetectionScore)) as Prisma.InputJsonValue)
+        : null,
+      analysisReportKey: snapshot.analysisReportKey ?? null,
+      analysisReportUrl: snapshot.analysisReportUrl ?? null,
       createdAt: snapshot.createdAt,
-    };
+    } as Prisma.SocialMediaGenerationUncheckedCreateInput;
+  }
+
+  static toUpdate(
+    snapshot: SocialMediaSnapshot,
+  ): Prisma.SocialMediaGenerationUncheckedUpdateInput {
+    return {
+      viralityScore: snapshot.viralityScore ?? null,
+      roiScore: snapshot.roiScore ?? null,
+      aiDetectionScore: snapshot.aiDetectionScore 
+        ? (JSON.parse(JSON.stringify(snapshot.aiDetectionScore)) as Prisma.InputJsonValue)
+        : null,
+      analysisReportKey: snapshot.analysisReportKey ?? null,
+      analysisReportUrl: snapshot.analysisReportUrl ?? null,
+    } as Prisma.SocialMediaGenerationUncheckedUpdateInput;
   }
 }

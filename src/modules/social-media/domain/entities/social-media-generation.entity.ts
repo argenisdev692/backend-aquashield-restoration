@@ -17,6 +17,13 @@ export interface GeneratedPost {
   image?: GeneratedPostImage;
 }
 
+export interface AiDetectionScore {
+  aiGenerated: number;
+  aiParaphrased: number;
+  humanWritten: number;
+  showsAiSigns: number;
+}
+
 export interface SocialMediaGeneration {
   id: string;
   userId: string;
@@ -27,6 +34,11 @@ export interface SocialMediaGeneration {
   networks: Partial<Record<SocialNetwork, boolean>>;
   generatedPosts: Partial<Record<SocialNetwork, GeneratedPost>>;
   r2Key?: string | null;
+  viralityScore?: number | null;
+  roiScore?: number | null;
+  aiDetectionScore?: AiDetectionScore | null;
+  analysisReportKey?: string | null;
+  analysisReportUrl?: string | null;
   createdAt: Date;
 }
 

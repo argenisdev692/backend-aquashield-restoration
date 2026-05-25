@@ -8,6 +8,8 @@ import { POST_GENERATOR_PORT } from './domain/ports/post-generator.port';
 import { IMAGE_GENERATOR_PORT } from './domain/ports/image-generator.port';
 import { SOCIAL_MEDIA_REPOSITORY } from './domain/ports/social-media-repository.port';
 import { SOCIAL_MEDIA_JOB_PORT } from './domain/ports/social-media-job.port';
+import { VIRALITY_RESEARCH_PORT } from './domain/ports/virality-research.port';
+import { AI_DETECTION_PORT } from './domain/ports/ai-detection.port';
 
 // Application - Commands
 import { GeneratePostCommand } from './application/commands/generate-post.command';
@@ -31,6 +33,8 @@ import { ListSocialMediaHandler } from './application/queries/handlers/list-soci
 import { TavilyTopicFinderAdapter } from './infrastructure/adapters/tavily-topic-finder.adapter';
 import { GeminiPostGeneratorAdapter } from './infrastructure/adapters/gemini-post-generator.adapter';
 import { GeminiImageGeneratorAdapter } from './infrastructure/adapters/gemini-image-generator.adapter';
+import { TavilyViralityResearchAdapter } from './infrastructure/adapters/tavily-virality-research.adapter';
+import { StubAiDetectionAdapter } from './infrastructure/adapters/stub/stub-ai-detection.adapter';
 
 // Infrastructure - Jobs (BullMQ)
 import { SocialMediaGenerationProcessor } from './infrastructure/jobs/social-media-generation.processor';
@@ -107,6 +111,14 @@ const QueryHandlers = [
     {
       provide: IMAGE_GENERATOR_PORT,
       useClass: GeminiImageGeneratorAdapter,
+    },
+    {
+      provide: VIRALITY_RESEARCH_PORT,
+      useClass: TavilyViralityResearchAdapter,
+    },
+    {
+      provide: AI_DETECTION_PORT,
+      useClass: StubAiDetectionAdapter,
     },
   ],
   exports: [SOCIAL_MEDIA_REPOSITORY],

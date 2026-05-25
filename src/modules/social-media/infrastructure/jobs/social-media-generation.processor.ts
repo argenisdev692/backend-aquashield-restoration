@@ -3,6 +3,7 @@ import { Inject, Injectable } from '@nestjs/common';
 import { Job } from 'bullmq';
 import { ClsService } from 'nestjs-cls';
 import { EventEmitter2 } from '@nestjs/event-emitter';
+import PDFDocument from 'pdfkit';
 import { LoggerService } from '../../../../logger/logger.service';
 import { TOPIC_FINDER_PORT } from '../../domain/ports/topic-finder.port';
 import type { ITopicFinderPort } from '../../domain/ports/topic-finder.port';
@@ -22,10 +23,16 @@ import type {
   GeneratedPostImage,
 } from '../../domain/entities/social-media-generation.entity';
 import { SocialMediaGenerationAggregate } from '../../domain/entities/social-media-generation.aggregate';
+import type { AiDetectionScore } from '../../domain/entities/social-media-generation.aggregate';
 import { SocialMediaGenerationCreatedEvent } from '../../domain/events/social-media-generation-created.event';
 import { CACHE_PORT, type ICachePort } from '../../../../shared/cache/cache.port';
 import { SOCIAL_MEDIA_CACHE_PATTERN } from '../../application/social-media-cache.constants';
 import { SocialMediaGateway } from '../gateways/social-media.gateway';
+import { VIRALITY_RESEARCH_PORT } from '../../domain/ports/virality-research.port';
+import type { IViralityResearchPort } from '../../domain/ports/virality-research.port';
+import type { ViralityResearchResult } from '../../domain/ports/virality-research.port';
+import { AI_DETECTION_PORT } from '../../domain/ports/ai-detection.port';
+import type { IAiDetectionPort } from '../../domain/ports/ai-detection.port';
 
 export interface SocialMediaGenerationJobData {
   actorId: string;
@@ -56,6 +63,10 @@ export class SocialMediaGenerationProcessor extends WorkerHost {
     private readonly cache: ICachePort,
     @Inject(IMAGE_GENERATOR_PORT)
     private readonly imageGenerator: IImageGeneratorPort,
+    @Inject(VIRALITY_RESEARCH_PORT)
+    private readonly viralityResearch: IViralityResearchPort,
+    @Inject(AI_DETECTION_PORT)
+    private readonly aiDetection: IAiDetectionPort,
     private readonly storage: StorageService,
     private readonly logger: LoggerService,
     private readonly cls: ClsService,
@@ -64,6 +75,160 @@ export class SocialMediaGenerationProcessor extends WorkerHost {
   ) {
     super();
     this.logger.setContext(SocialMediaGenerationProcessor.name);
+  }
+
+  private buildAnalysisReport(input: {
+    generationId: string;
+    niche: string;
+    topicTitle: string;
+    topicDescription: string | null;
+    language: string | null;
+    networks: SocialNetwork[];
+    generatedPosts: Partial<Record<SocialNetwork, GeneratedPost>>;
+    viralityScore: number | null;
+    roiScore: number | null;
+    aiDetectionScore: AiDetectionScore | null;
+    viralityResult: ViralityResearchResult | null;
+  }): Promise<Buffer> {
+    return new Promise<Buffer>((resolve, reject) => {
+      const doc = new PDFDocument({ size: 'A4', margin: 48 });
+      const chunks: Buffer[] = [];
+
+      doc.on('data', (chunk: Buffer) => chunks.push(chunk));
+      doc.on('end', () => resolve(Buffer.concat(chunks)));
+      doc.on('error', reject);
+
+      // ─── Header ──────────────────────────────────────────────
+      doc.fontSize(22).font('Helvetica-Bold').text('Social Media Analysis Report', { align: 'center' });
+      doc.moveDown(0.3);
+      doc.fontSize(10).font('Helvetica').fillColor('#64748b')
+        .text(`Generated: ${new Date().toISOString()}`, { align: 'center' })
+        .fillColor('#000');
+      doc.moveDown(0.5);
+
+      doc.moveTo(48, doc.y).lineTo(547, doc.y).strokeColor('#e2e8f0').stroke();
+      doc.moveDown(0.8);
+
+      // ─── Topic Info ───────────────────────────────────────────
+      doc.fontSize(14).font('Helvetica-Bold').text('Topic Information');
+      doc.moveDown(0.3);
+      doc.fontSize(10).font('Helvetica');
+      doc.text(`Niche: ${input.niche}`);
+      doc.text(`Topic: ${input.topicTitle}`);
+      if (input.topicDescription) {
+        doc.text(`Description: ${input.topicDescription}`, { width: 500 });
+      }
+      if (input.language) doc.text(`Language: ${input.language}`);
+      doc.text(`Networks: ${input.networks.join(', ')}`);
+      doc.moveDown(0.5);
+
+      // ─── Scores ──────────────────────────────────────────────
+      doc.fontSize(14).font('Helvetica-Bold').text('Performance Scores');
+      doc.moveDown(0.4);
+
+      const vScore = input.viralityScore ?? 0;
+      const vColor = vScore >= 70 ? '#16a34a' : vScore >= 40 ? '#ca8a04' : '#dc2626';
+      doc.fontSize(10).font('Helvetica-Bold').text('Virality Score');
+      doc.font('Helvetica').fillColor(vColor).text(`${vScore}/100`, { indent: 20 }).fillColor('#000');
+      doc.moveDown(0.2);
+
+      const rScore = input.roiScore ?? 0;
+      const rColor = rScore >= 70 ? '#16a34a' : rScore >= 40 ? '#ca8a04' : '#dc2626';
+      doc.font('Helvetica-Bold').text('ROI Score');
+      doc.font('Helvetica').fillColor(rColor).text(`${rScore}/100`, { indent: 20 }).fillColor('#000');
+      doc.moveDown(0.2);
+
+      if (input.aiDetectionScore) {
+        const ai = input.aiDetectionScore;
+        doc.font('Helvetica-Bold').text('AI Detection Breakdown');
+        doc.font('Helvetica').text(`  Human Written: ${ai.humanWritten}%`, { indent: 20 });
+        doc.text(`  Shows AI Signs: ${ai.showsAiSigns}%`, { indent: 20 });
+        doc.text(`  AI Generated: ${ai.aiGenerated}%`, { indent: 20 });
+        doc.text(`  AI Paraphrased: ${ai.aiParaphrased}%`, { indent: 20 });
+      }
+      doc.moveDown(0.5);
+
+      // ─── Lead Metrics ────────────────────────────────────────
+      if (input.viralityResult?.leadMetrics) {
+        const lm = input.viralityResult.leadMetrics;
+        doc.fontSize(14).font('Helvetica-Bold').text('Lead Generation Metrics');
+        doc.moveDown(0.3);
+        doc.fontSize(10).font('Helvetica');
+        doc.text(`Estimated CPL: $${lm.estimatedCpl.toFixed(2)}`);
+        doc.text(`Estimated Conversion Rate: ${lm.estimatedConversionRate}%`);
+        doc.text(`Market Size: ${lm.marketSize}`);
+        doc.text(`Competitiveness: ${lm.competitiveness}`);
+        doc.text(`Projected Leads/Month: ${lm.projectedLeadsPerMonth}`);
+        doc.moveDown(0.5);
+      }
+
+      // ─── Trending Topics ─────────────────────────────────────
+      if (input.viralityResult?.trendingTopics?.length) {
+        doc.fontSize(14).font('Helvetica-Bold').text('Trending Topics');
+        doc.moveDown(0.3);
+        doc.fontSize(10).font('Helvetica');
+        for (const topic of input.viralityResult.trendingTopics) {
+          doc.text(`• ${topic}`, { indent: 10 });
+        }
+        doc.moveDown(0.5);
+      }
+
+      // ─── Similar Posts ───────────────────────────────────────
+      if (input.viralityResult?.similarPosts?.length) {
+        doc.fontSize(14).font('Helvetica-Bold').text('Similar Posts Found');
+        doc.moveDown(0.3);
+        for (const p of input.viralityResult.similarPosts) {
+          doc.fontSize(10).font('Helvetica-Bold').text(p.title);
+          doc.font('Helvetica').fontSize(9).fillColor('#64748b')
+            .text(`Engagement: ${p.engagementEstimate}  ·  ${p.url}`)
+            .fillColor('#000');
+          doc.fontSize(9).text(p.snippet, { indent: 10 });
+          doc.moveDown(0.2);
+        }
+        doc.moveDown(0.3);
+      }
+
+      // ─── Recommendations ─────────────────────────────────────
+      if (input.viralityResult?.recommendations?.length) {
+        doc.fontSize(14).font('Helvetica-Bold').text('AI Recommendations');
+        doc.moveDown(0.3);
+        doc.fontSize(10).font('Helvetica');
+        for (const rec of input.viralityResult.recommendations) {
+          doc.text(`• ${rec}`, { indent: 10 });
+        }
+        doc.moveDown(0.5);
+      }
+
+      // ─── Generated Posts ─────────────────────────────────────
+      doc.fontSize(14).font('Helvetica-Bold').text('Generated Posts');
+      doc.moveDown(0.3);
+      for (const [network, post] of Object.entries(input.generatedPosts)) {
+        if (post) {
+          doc.fontSize(10).font('Helvetica-Bold').text(`${network.toUpperCase()}`);
+          doc.font('Helvetica').fontSize(9).text(`  Body: ${post.body.substring(0, 200)}${post.body.length > 200 ? '...' : ''}`, { indent: 10 });
+          if (post.hashtags?.length) {
+            doc.text(`  Hashtags: ${post.hashtags.join(', ')}`, { indent: 10 });
+          }
+          if (post.hook) {
+            doc.text(`  Hook: ${post.hook}`, { indent: 10 });
+          }
+          if (post.image?.url) {
+            doc.text(`  Image: ${post.image.url}`, { indent: 10 });
+          }
+          doc.moveDown(0.15);
+        }
+      }
+
+      // ─── Footer ──────────────────────────────────────────────
+      doc.moveDown(1);
+      doc.moveTo(48, doc.y).lineTo(547, doc.y).strokeColor('#e2e8f0').stroke();
+      doc.moveDown(0.5);
+      doc.fontSize(8).font('Helvetica').fillColor('#94a3b8')
+        .text(`Generation ID: ${input.generationId}  ·  Vidula Social Media Engine`, { align: 'center' })
+        .fillColor('#000');
+
+      doc.end();
+    });
   }
 
   async process(
@@ -107,7 +272,31 @@ export class SocialMediaGenerationProcessor extends WorkerHost {
     const { actorId, topicTitle, topicDescription, activeNetworks, language = 'es' } = job.data;
     const traceId = this.cls.get<string>('traceId') ?? job.id;
 
-    // 1. Generate posts via Gemini (single structured call)
+    // 1. Virality Research (Tavily) — real-time trend analysis
+    this.logger.info('Running virality research', { traceId, topicTitle });
+    let viralityResult: ViralityResearchResult | null = null;
+    try {
+      viralityResult = await this.viralityResearch.research({
+        niche: topicTitle,
+        topicTitle,
+        topicDescription: topicDescription || null,
+        language,
+      });
+      this.logger.info('Virality research completed', {
+        traceId,
+        score: viralityResult.score,
+        roiScore: viralityResult.roiScore,
+        topics: viralityResult.trendingTopics.length,
+      });
+    } catch (researchErr) {
+      this.logger.warn('Virality research failed, continuing without it', {
+        traceId,
+        error: researchErr instanceof Error ? researchErr.message : String(researchErr),
+      });
+      viralityResult = null;
+    }
+
+    // 2. Generate posts via Gemini (single structured call)
     const generatedPostsMap = await this.generator.generatePosts({
       topicTitle,
       topicDescription,
@@ -128,7 +317,33 @@ export class SocialMediaGenerationProcessor extends WorkerHost {
       }
     }
 
-    // 1.5 Image generation (Google Gen AI via shared IAiClient)
+    // 2.5 AI Detection check — verify content passes as human-written
+    let aiDetectionScore: AiDetectionScore | null = null;
+    try {
+      const combinedText = Object.values(generatedPosts)
+        .map((p) => p?.body || '')
+        .join(' ');
+      
+      if (combinedText.length > 0) {
+        aiDetectionScore = await this.aiDetection.analyze({
+          text: combinedText,
+          language,
+        });
+        this.logger.info('AI detection analysis completed', {
+          traceId,
+          humanWritten: aiDetectionScore.humanWritten,
+          showsAiSigns: aiDetectionScore.showsAiSigns,
+        });
+      }
+    } catch (detectionErr) {
+      this.logger.warn('AI detection failed, continuing without it', {
+        traceId,
+        error: detectionErr instanceof Error ? detectionErr.message : String(detectionErr),
+      });
+      aiDetectionScore = null;
+    }
+
+    // 3. Image generation (Google Gen AI via shared IAiClient)
     // Best-effort: a failure here must never break the text post generation.
     let sharedImage: GeneratedPostImage | undefined;
     try {
@@ -169,7 +384,7 @@ export class SocialMediaGenerationProcessor extends WorkerHost {
       });
     }
 
-    // 2. Persist using rich Aggregate (Full Hex/DDD)
+    // 4. Persist using rich Aggregate (Full Hex/DDD)
     const aggregate = SocialMediaGenerationAggregate.create({
       userId: actorId,
       niche: topicTitle,
@@ -181,11 +396,47 @@ export class SocialMediaGenerationProcessor extends WorkerHost {
         {} as Record<SocialNetwork, boolean>,
       ),
       generatedPosts,
+      viralityScore: viralityResult?.score ?? null,
+      roiScore: viralityResult?.roiScore ?? null,
+      aiDetectionScore: aiDetectionScore ?? null,
     });
 
     const saved = await this.repo.save(aggregate);
 
-    // 3. Upload history JSON to R2 (best effort, outside the core mutation)
+    // 5. Generate Analysis Report PDF
+    try {
+      this.logger.info('Generating social media analysis report', { traceId, generationId: saved.id });
+      const reportBuffer = await this.buildAnalysisReport({
+        generationId: saved.id,
+        niche: saved.niche,
+        topicTitle: saved.topicTitle,
+        topicDescription: saved.topicDescription ?? null,
+        language: saved.language ?? null,
+        networks: activeNetworks,
+        generatedPosts,
+        viralityScore: saved.viralityScore ?? null,
+        roiScore: saved.roiScore ?? null,
+        aiDetectionScore: saved.aiDetectionScore ?? null,
+        viralityResult,
+      });
+
+      const reportKey = `social-media/analysis/${saved.id}/social_media_analysis_report.pdf`;
+      await this.storage.upload(reportKey, reportBuffer, 'application/pdf');
+      const reportUrl = this.storage.publicUrl(reportKey);
+      
+      aggregate.setAnalysisReport(reportKey, reportUrl);
+      await this.repo.update(aggregate);
+
+      this.logger.info('Analysis report generated', { traceId, generationId: saved.id, reportUrl });
+    } catch (reportErr) {
+      this.logger.warn('Failed to generate analysis report, continuing', {
+        traceId,
+        generationId: saved.id,
+        error: reportErr instanceof Error ? reportErr.message : String(reportErr),
+      });
+    }
+
+    // 6. Upload history JSON to R2 (best effort, outside the core mutation)
     let r2Key: string | undefined;
     try {
       const historyPayload = {
@@ -196,6 +447,10 @@ export class SocialMediaGenerationProcessor extends WorkerHost {
         posts: generatedPosts,
         language,
         hasImage: !!sharedImage,
+        viralityScore: saved.viralityScore,
+        roiScore: saved.roiScore,
+        aiDetectionScore: saved.aiDetectionScore,
+        analysisReportUrl: saved.analysisReportUrl,
       };
       const buffer = Buffer.from(JSON.stringify(historyPayload, null, 2), 'utf8');
       r2Key = `social-media/posts/${actorId}/${saved.id}.json`;
@@ -207,7 +462,7 @@ export class SocialMediaGenerationProcessor extends WorkerHost {
       });
     }
 
-    // 4. Audit (strict) — must succeed or the mutation is considered failed
+    // 7. Audit (strict) — must succeed or the mutation is considered failed
     await this.audit.log(
       {
         action: 'social-media.post.generated',
@@ -218,15 +473,17 @@ export class SocialMediaGenerationProcessor extends WorkerHost {
           topic: topicTitle,
           networks: activeNetworks,
           language,
+          viralityScore: saved.viralityScore,
+          roiScore: saved.roiScore,
         },
       },
       { strict: true },
     );
 
-    // 5. Invalidate list cache so GET /social-media reflects the new item
+    // 8. Invalidate list cache so GET /social-media reflects the new item
     await this.cache.delByPattern(SOCIAL_MEDIA_CACHE_PATTERN);
 
-    // 6. Domain event LAST (after save + audit + cache per Canonical Mutation Pattern)
+    // 9. Domain event LAST (after save + audit + cache per Canonical Mutation Pattern)
     this.eventEmitter.emit(
       'social-media.generation.created',
       new SocialMediaGenerationCreatedEvent(
