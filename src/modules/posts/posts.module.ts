@@ -42,6 +42,9 @@ import { PostEventListener } from './infrastructure/event-listeners/post-event.l
 // Scheduler
 import { PostScheduler } from './infrastructure/scheduler/post.scheduler';
 
+// WebSocket Gateway
+import { PostsGateway } from './infrastructure/gateways/posts.gateway';
+
 @Module({
   controllers: [PostsController],
   imports: [
@@ -75,6 +78,7 @@ import { PostScheduler } from './infrastructure/scheduler/post.scheduler';
     PostEventListener,
     PostScheduler,
     AiPostGenerationProcessor,
+    PostsGateway,
   ],
 })
 export class PostsModule {}

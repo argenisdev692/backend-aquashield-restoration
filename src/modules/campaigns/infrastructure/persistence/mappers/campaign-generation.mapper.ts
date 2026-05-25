@@ -1,5 +1,6 @@
 import { CampaignGenerationStatus } from '../../../../../generated/prisma/client';
-import { CampaignGeneration } from '../../../domain/entities/campaign-generation.aggregate';
+import { Prisma } from '../../../../../generated/prisma/client';
+import { CampaignGeneration, AiDetectionScore } from '../../../domain/entities/campaign-generation.aggregate';
 import { FunnelStage } from '../../../domain/value-objects/funnel-stage.vo';
 import { VideoFormat } from '../../../domain/value-objects/video-format.vo';
 import { VideoFormatVO } from '../../../domain/value-objects/video-format.vo';
@@ -28,6 +29,12 @@ export class CampaignGenerationMapper {
     durationSeconds: number;
     language: string;
     generateImages: boolean;
+    aiObservations: string | null;
+    viralityScore: number | null;
+    roiScore: number | null;
+    aiDetectionScore: unknown;
+    analysisReportKey: string | null;
+    analysisReportUrl: string | null;
     status: string;
     errorMessage: string | null;
     createdAt: Date;
@@ -67,6 +74,12 @@ export class CampaignGenerationMapper {
       durationSeconds: row.durationSeconds as 15 | 20, // validated at aggregate level + DB constraint
       language: row.language,
       generateImages: row.generateImages,
+      aiObservations: row.aiObservations,
+      viralityScore: row.viralityScore,
+      roiScore: row.roiScore,
+      aiDetectionScore: row.aiDetectionScore as AiDetectionScore | null | undefined,
+      analysisReportKey: row.analysisReportKey,
+      analysisReportUrl: row.analysisReportUrl,
       status: CampaignStatusVO.create(row.status).value,
       errorMessage: row.errorMessage ?? undefined,
       stageResults,
@@ -93,6 +106,12 @@ export class CampaignGenerationMapper {
     durationSeconds: 15 | 20;
     language: string;
     generateImages: boolean;
+    aiObservations: string | null;
+    viralityScore: number | null;
+    roiScore: number | null;
+    aiDetectionScore: Prisma.InputJsonValue;
+    analysisReportKey: string | null;
+    analysisReportUrl: string | null;
     status: CampaignGenerationStatus;
     errorMessage: string | null;
   } {
@@ -110,6 +129,12 @@ export class CampaignGenerationMapper {
       durationSeconds: aggregate.durationSeconds,
       language: aggregate.language,
       generateImages: aggregate.generateImages,
+      aiObservations: aggregate.aiObservations,
+      viralityScore: aggregate.viralityScore,
+      roiScore: aggregate.roiScore,
+      aiDetectionScore: (aggregate.aiDetectionScore as unknown as Prisma.InputJsonValue) ?? Prisma.JsonNull,
+      analysisReportKey: aggregate.analysisReportKey,
+      analysisReportUrl: aggregate.analysisReportUrl,
       status: aggregate.status as CampaignGenerationStatus,
       errorMessage: aggregate.errorMessage,
     };

@@ -15,6 +15,15 @@ export const StageExportInfoSchema = z.object({
 
 export type StageExportInfo = z.infer<typeof StageExportInfoSchema>;
 
+export const AiDetectionScoreSchema = z.object({
+  aiGenerated: z.number(),
+  aiParaphrased: z.number(),
+  humanWritten: z.number(),
+  showsAiSigns: z.number(),
+});
+
+export type AiDetectionScoreDto = z.infer<typeof AiDetectionScoreSchema>;
+
 /**
  * Full status response for GET /campaigns/export/:id
  */
@@ -31,6 +40,12 @@ export const CampaignExportStatusResponseSchema = z.object({
   durationSeconds: z.number().int(),
   language: z.string(),
   generateImages: z.boolean(),
+  aiObservations: z.string().nullable(),
+  viralityScore: z.number().nullable(),
+  roiScore: z.number().nullable(),
+  aiDetectionScore: AiDetectionScoreSchema.nullable(),
+  analysisReportKey: z.string().nullable(),
+  analysisReportUrl: z.string().nullable(),
   status: z.enum(['pending', 'processing', 'completed', 'failed', 'partial']),
   errorMessage: z.string().nullable(),
   stageExports: z.array(StageExportInfoSchema),
@@ -53,6 +68,8 @@ export const CampaignExportListItemSchema = z.object({
   stagesRequested: z.number().int(),
   stagesCompleted: z.number().int(),
   hasErrors: z.boolean(),
+  viralityScore: z.number().nullable(),
+  roiScore: z.number().nullable(),
   createdAt: z.string().datetime(),
 });
 

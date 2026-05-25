@@ -66,7 +66,7 @@ export class GeneratePostPreviewHandler
     // 2. Enqueue job (idempotent via deterministic jobId)
     const job = await this.aiQueue.add(
       'generate-post-preview',
-      { topic, niche, wordCount },
+      { topic, niche, wordCount, userId: command.actorId },
       { jobId },
     );
 

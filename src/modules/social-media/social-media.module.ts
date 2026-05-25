@@ -45,6 +45,9 @@ import { SocialMediaController } from './infrastructure/api/controllers/social-m
 // Infrastructure - Event Listeners
 import { SocialMediaGenerationCreatedListener } from './infrastructure/event-listeners/social-media-generation-created.listener';
 
+// Infrastructure - Gateways
+import { SocialMediaGateway } from './infrastructure/gateways/social-media.gateway';
+
 // Shared
 import { StorageModule } from '../../shared/storage/storage.module';
 import { QUEUE_NAMES } from '../../shared/messaging/queues.constants';
@@ -80,6 +83,9 @@ const QueryHandlers = [
 
     // Domain Event Listeners (Full Hex/DDD)
     SocialMediaGenerationCreatedListener,
+
+    // WebSocket Gateway
+    SocialMediaGateway,
 
     // Port bindings
     {

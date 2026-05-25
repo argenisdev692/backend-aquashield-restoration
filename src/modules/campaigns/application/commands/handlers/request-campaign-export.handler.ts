@@ -80,6 +80,7 @@ export class RequestCampaignExportHandler
       durationSeconds: dto.durationSeconds,
       language: dto.language ?? 'es',
       generateImages: dto.generateImages ?? false,
+      aiObservations: dto.aiObservations ?? null,
     });
 
     // 4. Persist (this also creates the stage export placeholder rows)
@@ -115,6 +116,9 @@ export class RequestCampaignExportHandler
         companyNameSnapshot: companyName,
         niche: dto.niche,
         location: dto.location,
+        city: dto.city,
+        state: dto.state,
+        country: dto.country,
         phone: dto.phone,
         website: dto.website,
         stages: dto.stages,
@@ -122,6 +126,7 @@ export class RequestCampaignExportHandler
         durationSeconds: dto.durationSeconds,
         language: dto.language ?? 'es',
         generateImages: dto.generateImages ?? false,
+        aiObservations: dto.aiObservations,
       }),
     );
 

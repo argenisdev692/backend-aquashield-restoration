@@ -54,6 +54,8 @@ export class ListMyCampaignExportsHandler
         stagesRequested,
         stagesCompleted,
         hasErrors,
+        viralityScore: agg.viralityScore,
+        roiScore: agg.roiScore,
         createdAt: agg.createdAt.toISOString(),
       };
     });

@@ -33,6 +33,12 @@ model CampaignGeneration {
   durationSeconds      Int                      @map("duration_seconds")
   language             String                   @default("es") @db.VarChar(10)
   generateImages       Boolean                  @default(false) @map("generate_images")
+  aiObservations       String?                  @map("ai_observations") @db.Text
+  viralityScore        Float?                   @map("virality_score")
+  roiScore             Float?                   @map("roi_score")
+  aiDetectionScore     Json?                    @map("ai_detection_score") @db.JsonB
+  analysisReportKey    String?                  @map("analysis_report_key") @db.VarChar(500)
+  analysisReportUrl    String?                  @map("analysis_report_url") @db.VarChar(2048)
   status               CampaignGenerationStatus @default(pending) @map("status")
   errorMessage         String?                  @map("error_message") @db.Text
   createdAt            DateTime                 @default(now()) @map("created_at") @db.Timestamp(6)

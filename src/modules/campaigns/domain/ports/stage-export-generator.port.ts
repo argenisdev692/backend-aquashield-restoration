@@ -51,6 +51,8 @@ export interface GenerateStageExportInput {
   durationSeconds: 15 | 20;
   language: string;
   generateImages: boolean;
+  aiObservations?: string | null;
+  viralityRecommendations?: string[];
 }
 
 /**

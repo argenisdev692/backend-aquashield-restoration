@@ -11,6 +11,9 @@ export class CampaignExportRequestedEvent {
       companyNameSnapshot: string;
       niche: string;
       location: string;
+      city?: string;
+      state?: string;
+      country?: string;
       phone: string;
       website?: string;
       stages: string[];
@@ -18,6 +21,7 @@ export class CampaignExportRequestedEvent {
       durationSeconds: number;
       language: string;
       generateImages: boolean;
+      aiObservations?: string;
     },
     public readonly occurredAt: Date = new Date(),
   ) {}

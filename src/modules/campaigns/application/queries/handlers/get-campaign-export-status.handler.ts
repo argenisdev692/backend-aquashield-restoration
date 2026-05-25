@@ -59,6 +59,12 @@ export class GetCampaignExportStatusHandler
       durationSeconds: aggregate.durationSeconds,
       language: aggregate.language,
       generateImages: aggregate.generateImages,
+      aiObservations: aggregate.aiObservations,
+      viralityScore: aggregate.viralityScore,
+      roiScore: aggregate.roiScore,
+      aiDetectionScore: aggregate.aiDetectionScore,
+      analysisReportKey: aggregate.analysisReportKey,
+      analysisReportUrl: aggregate.analysisReportUrl,
       status: aggregate.status,
       errorMessage: aggregate.errorMessage,
       stageExports: aggregate.stageResults.map((r: StageExportResult) => ({

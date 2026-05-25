@@ -10,11 +10,13 @@ import {
 import { CACHE_PORT, type ICachePort } from '../../../../shared/cache/cache.port';
 import { QUEUE_NAMES } from '../../../../shared/messaging/queues.constants';
 import { GeneratedPostPreview } from '../../domain/value-objects/generated-post-preview.vo';
+import { PostsGateway } from '../gateways/posts.gateway';
 
 export interface AiPostGenerationJobData {
   topic: string;
   niche: string;
   wordCount: number;
+  userId: string;
 }
 
 const AI_PREVIEW_TTL_SECONDS = 86_400; // 24 hours — strong cost saving for repeated identical generations
@@ -45,6 +47,7 @@ export class AiPostGenerationProcessor extends WorkerHost {
     private readonly cache: ICachePort,
     private readonly logger: LoggerService,
     private readonly cls: ClsService,
+    private readonly gateway: PostsGateway,
   ) {
     super();
     this.logger.setContext(AiPostGenerationProcessor.name);
@@ -53,7 +56,7 @@ export class AiPostGenerationProcessor extends WorkerHost {
   async process(
     job: Job<AiPostGenerationJobData>,
   ): Promise<GeneratedPostPreview> {
-    const { topic, niche, wordCount } = job.data;
+    const { topic, niche, wordCount, userId } = job.data;
     const traceId = this.cls.get<string>('traceId') ?? job.id;
 
     this.logger.info('AiPostGenerationProcessor start', {
@@ -63,6 +66,47 @@ export class AiPostGenerationProcessor extends WorkerHost {
       niche,
       wordCount,
     });
+
+    try {
+      const result = await this.doProcess(job);
+
+      this.gateway.broadcastGenerationCompleted({
+        userId,
+        jobId: job.id as string,
+        topic,
+        niche,
+        wordCount,
+        hasImage: !!result.generatedImageUrl,
+        sourcesCount: result.sources.length,
+      });
+
+      return result;
+    } catch (err) {
+      const errorMessage = err instanceof Error ? err.message : String(err);
+      this.logger.error('AiPostGenerationProcessor failed', {
+        traceId,
+        jobId: job.id,
+        error: errorMessage,
+      });
+
+      this.gateway.broadcastGenerationFailed({
+        userId,
+        jobId: job.id as string,
+        topic,
+        niche,
+        wordCount,
+        error: errorMessage,
+      });
+
+      throw err;
+    }
+  }
+
+  private async doProcess(
+    job: Job<AiPostGenerationJobData>,
+  ): Promise<GeneratedPostPreview> {
+    const { topic, niche, wordCount } = job.data;
+    const traceId = this.cls.get<string>('traceId') ?? job.id;
 
     const cacheKey = buildAiPreviewCacheKey(topic, niche, wordCount);
 

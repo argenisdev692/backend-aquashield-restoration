@@ -25,6 +25,7 @@ import { SocialMediaGenerationAggregate } from '../../domain/entities/social-med
 import { SocialMediaGenerationCreatedEvent } from '../../domain/events/social-media-generation-created.event';
 import { CACHE_PORT, type ICachePort } from '../../../../shared/cache/cache.port';
 import { SOCIAL_MEDIA_CACHE_PATTERN } from '../../application/social-media-cache.constants';
+import { SocialMediaGateway } from '../gateways/social-media.gateway';
 
 export interface SocialMediaGenerationJobData {
   actorId: string;
@@ -59,6 +60,7 @@ export class SocialMediaGenerationProcessor extends WorkerHost {
     private readonly logger: LoggerService,
     private readonly cls: ClsService,
     private readonly eventEmitter: EventEmitter2,
+    private readonly gateway: SocialMediaGateway,
   ) {
     super();
     this.logger.setContext(SocialMediaGenerationProcessor.name);
@@ -76,6 +78,34 @@ export class SocialMediaGenerationProcessor extends WorkerHost {
       actorId,
       networks: activeNetworks,
     });
+
+    try {
+      return await this.doProcess(job);
+    } catch (err) {
+      const errorMessage = err instanceof Error ? err.message : String(err);
+      this.logger.error('SocialMediaGenerationProcessor failed', {
+        traceId,
+        jobId: job.id,
+        error: errorMessage,
+      });
+
+      this.gateway.broadcastGenerationFailed({
+        userId: actorId,
+        jobId: job.id as string,
+        topicTitle,
+        networks: activeNetworks,
+        error: errorMessage,
+      });
+
+      throw err;
+    }
+  }
+
+  private async doProcess(
+    job: Job<SocialMediaGenerationJobData>,
+  ): Promise<SocialMediaGenerationJobResult> {
+    const { actorId, topicTitle, topicDescription, activeNetworks, language = 'es' } = job.data;
+    const traceId = this.cls.get<string>('traceId') ?? job.id;
 
     // 1. Generate posts via Gemini (single structured call)
     const generatedPostsMap = await this.generator.generatePosts({

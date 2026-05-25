@@ -26,6 +26,8 @@ import { AUDIO_GENERATOR_PORT } from './domain/ports/audio-generator.port';
 import { IMAGE_GENERATOR_PORT } from './domain/ports/image-generator.port';
 import { PDF_BUILDER_PORT } from './domain/ports/pdf-builder.port';
 import { ZIP_PACKER_PORT } from './domain/ports/zip-packer.port';
+import { VIRALITY_RESEARCH_PORT } from './domain/ports/virality-research.port';
+import { AI_DETECTION_PORT } from './domain/ports/ai-detection.port';
 
 // Shared
 import { StorageModule } from '../../shared/storage/storage.module';
@@ -46,6 +48,8 @@ import { StubPdfBuilderAdapter } from './infrastructure/adapters/stub/stub-pdf-b
 import { StubZipPackerAdapter } from './infrastructure/adapters/stub/stub-zip-packer.adapter';
 import { StubAudioGeneratorAdapter } from './infrastructure/adapters/stub/stub-audio-generator.adapter';
 import { StubImageGeneratorAdapter } from './infrastructure/adapters/stub/stub-image-generator.adapter';
+import { StubViralityResearchAdapter } from './infrastructure/adapters/stub/stub-virality-research.adapter';
+import { StubAiDetectionAdapter } from './infrastructure/adapters/stub/stub-ai-detection.adapter';
 
 // Cross-context ACL for CompanyData (business name resolution)
 import { COMPANY_DATA_LOOKUP_PORT } from './domain/ports/outbound/company-data-lookup.port';
@@ -115,6 +119,14 @@ import { CompanyDataRepository } from '../companydata/companydata.repository';
     {
       provide: IMAGE_GENERATOR_PORT,
       useClass: StubImageGeneratorAdapter,
+    },
+    {
+      provide: VIRALITY_RESEARCH_PORT,
+      useClass: StubViralityResearchAdapter,
+    },
+    {
+      provide: AI_DETECTION_PORT,
+      useClass: StubAiDetectionAdapter,
     },
 
     // Cross-context ACL: resolve real company name from CompanyData at request time

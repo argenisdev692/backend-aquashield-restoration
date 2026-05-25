@@ -13,6 +13,9 @@ export const RequestCampaignExportSchema = z.object({
   companyDataId: z.string().uuid('companyDataId must be a valid UUID'),
   niche: z.string().min(1).max(255),
   location: z.string().min(1).max(255),
+  city: z.string().max(255).optional(),
+  state: z.string().max(255).optional(),
+  country: z.string().max(100).optional(),
   phone: z.string().min(3).max(50),
   website: z.string().url().max(2048).optional().or(z.literal('')),
   stages: z
@@ -23,6 +26,10 @@ export const RequestCampaignExportSchema = z.object({
   durationSeconds: z.union([z.literal(15), z.literal(20)]),
   language: z.string().min(2).max(10).default('es'),
   generateImages: z.boolean().default(false),
+  aiObservations: z
+    .string()
+    .max(400, 'aiObservations must be at most 400 characters')
+    .optional(),
 });
 
 export type RequestCampaignExportDto = z.infer<typeof RequestCampaignExportSchema>;

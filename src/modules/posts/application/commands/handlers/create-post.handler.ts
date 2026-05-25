@@ -84,7 +84,7 @@ export class CreatePostHandler implements ICommandHandler<CreatePostCommand> {
 
     this.eventEmitter.emit(
       'post.created',
-      new PostCreatedEvent(id),
+      new PostCreatedEvent(id, command.actorId),
     );
 
     this.logger.info('CreatePostHandler end', {

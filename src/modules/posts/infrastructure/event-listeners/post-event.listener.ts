@@ -8,12 +8,14 @@ import { PostDeletedEvent } from '../../domain/events/post-deleted.domain-event'
 import { PostRestoredEvent } from '../../domain/events/post-restored.domain-event';
 import { PostsBulkDeletedEvent } from '../../domain/events/posts-bulk-deleted.domain-event';
 import { PostsBulkRestoredEvent } from '../../domain/events/posts-bulk-restored.domain-event';
+import { PostsGateway } from '../gateways/posts.gateway';
 
 @Injectable()
 export class PostEventListener {
   constructor(
     private readonly logger: LoggerService,
     private readonly cls: ClsService,
+    private readonly gateway: PostsGateway,
   ) {
     this.logger.setContext(PostEventListener.name);
   }
@@ -22,6 +24,11 @@ export class PostEventListener {
   handlePostCreated(event: PostCreatedEvent): void {
     this.logger.info('Post created event received', {
       traceId: this.cls.get<string>('traceId'),
+      postId: event.postId,
+    });
+
+    this.gateway.broadcastPostCreated({
+      userId: event.userId,
       postId: event.postId,
     });
   }

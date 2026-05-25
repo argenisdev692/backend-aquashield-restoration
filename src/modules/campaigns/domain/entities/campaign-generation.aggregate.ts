@@ -15,6 +15,13 @@ import { CampaignExportRequestedEvent } from '../events/campaign-export-requeste
  * - companyDataId: the source of truth at request time
  * - companyNameSnapshot: immutable copy of the company name for this export
  */
+export interface AiDetectionScore {
+  aiGenerated: number;
+  aiParaphrased: number;
+  humanWritten: number;
+  showsAiSigns: number;
+}
+
 export interface CampaignGenerationProps {
   id?: string;
   userId: string;
@@ -29,6 +36,12 @@ export interface CampaignGenerationProps {
   durationSeconds: 15 | 20;
   language: string;
   generateImages: boolean;
+  aiObservations?: string | null;
+  viralityScore?: number | null;
+  roiScore?: number | null;
+  aiDetectionScore?: AiDetectionScore | null;
+  analysisReportKey?: string | null;
+  analysisReportUrl?: string | null;
   status?: CampaignStatus;
   errorMessage?: string | null;
   stageResults?: StageExportResult[];
@@ -51,6 +64,12 @@ export class CampaignGeneration {
     public readonly durationSeconds: 15 | 20,
     public readonly language: string,
     public readonly generateImages: boolean,
+    public readonly aiObservations: string | null,
+    private _viralityScore: number | null,
+    private _roiScore: number | null,
+    private _aiDetectionScore: AiDetectionScore | null,
+    private _analysisReportKey: string | null,
+    private _analysisReportUrl: string | null,
     private _status: CampaignStatusVO,
     private _errorMessage: string | null,
     private readonly _stageResults: StageExportResult[],
@@ -88,6 +107,12 @@ export class CampaignGeneration {
       props.durationSeconds,
       props.language ?? 'es',
       props.generateImages ?? false,
+      props.aiObservations ?? null,
+      props.viralityScore ?? null,
+      props.roiScore ?? null,
+      props.aiDetectionScore ?? null,
+      null,
+      null,
       props.status ? CampaignStatusVO.create(props.status) : CampaignStatusVO.pending(),
       props.errorMessage ?? null,
       props.stageResults ?? [],
@@ -113,6 +138,7 @@ export class CampaignGeneration {
             durationSeconds: props.durationSeconds,
             language: props.language ?? 'es',
             generateImages: props.generateImages ?? false,
+            aiObservations: props.aiObservations ?? undefined,
           },
         ),
       );
@@ -125,6 +151,26 @@ export class CampaignGeneration {
 
   get status(): CampaignStatus {
     return this._status.value;
+  }
+
+  get viralityScore(): number | null {
+    return this._viralityScore;
+  }
+
+  get roiScore(): number | null {
+    return this._roiScore;
+  }
+
+  get aiDetectionScore(): AiDetectionScore | null {
+    return this._aiDetectionScore;
+  }
+
+  get analysisReportKey(): string | null {
+    return this._analysisReportKey;
+  }
+
+  get analysisReportUrl(): string | null {
+    return this._analysisReportUrl;
   }
 
   get errorMessage(): string | null {
@@ -185,6 +231,27 @@ export class CampaignGeneration {
     this.touch();
   }
 
+  setViralityScore(score: number): void {
+    this._viralityScore = score;
+    this.touch();
+  }
+
+  setRoiScore(score: number): void {
+    this._roiScore = score;
+    this.touch();
+  }
+
+  setAiDetectionScore(score: AiDetectionScore): void {
+    this._aiDetectionScore = score;
+    this.touch();
+  }
+
+  setAnalysisReport(key: string, url: string): void {
+    this._analysisReportKey = key;
+    this._analysisReportUrl = url;
+    this.touch();
+  }
+
   fail(reason: string): void {
     this._status = CampaignStatusVO.failed();
     this._errorMessage = reason;
@@ -220,6 +287,12 @@ export class CampaignGeneration {
       props.durationSeconds,
       props.language ?? 'es',
       props.generateImages ?? false,
+      props.aiObservations ?? null,
+      props.viralityScore ?? null,
+      props.roiScore ?? null,
+      props.aiDetectionScore ?? null,
+      props.analysisReportKey ?? null,
+      props.analysisReportUrl ?? null,
       CampaignStatusVO.create(props.status ?? 'pending'),
       props.errorMessage ?? null,
       props.stageResults ?? [],
