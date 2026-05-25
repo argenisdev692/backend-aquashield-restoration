@@ -26,6 +26,9 @@ export class SocialMediaGenerationCreatedListener {
       networks: event.networks,
       hasImage: event.hasImage,
       language: event.language,
+      viralityScore: event.viralityScore,
+      roiScore: event.roiScore,
+      analysisReportUrl: event.analysisReportUrl,
     });
 
     this.gateway.broadcastGenerationCompleted({
@@ -35,6 +38,10 @@ export class SocialMediaGenerationCreatedListener {
       networks: event.networks,
       hasImage: event.hasImage,
       language: event.language,
+      viralityScore: event.viralityScore,
+      roiScore: event.roiScore,
+      aiDetectionScore: event.aiDetectionScore,
+      analysisReportUrl: event.analysisReportUrl,
     });
   }
 }

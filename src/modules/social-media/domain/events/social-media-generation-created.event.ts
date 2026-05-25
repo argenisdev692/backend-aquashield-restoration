@@ -11,5 +11,14 @@ export class SocialMediaGenerationCreatedEvent {
     public readonly networks: string[],
     public readonly hasImage: boolean,
     public readonly language: string,
+    public readonly viralityScore: number | null,
+    public readonly roiScore: number | null,
+    public readonly aiDetectionScore: {
+      aiGenerated: number;
+      aiParaphrased: number;
+      humanWritten: number;
+      showsAiSigns: number;
+    } | null,
+    public readonly analysisReportUrl: string | null,
   ) {}
 }

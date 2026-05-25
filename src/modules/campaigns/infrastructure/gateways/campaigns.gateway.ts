@@ -117,10 +117,26 @@ export class CampaignsGateway
     });
   }
 
-  broadcastExportCompleted(generationId: string, status: string) {
+  broadcastExportCompleted(
+    generationId: string,
+    status: string,
+    viralityScore: number | null = null,
+    roiScore: number | null = null,
+    aiDetectionScore: {
+      aiGenerated: number;
+      aiParaphrased: number;
+      humanWritten: number;
+      showsAiSigns: number;
+    } | null = null,
+    analysisReportUrl: string | null = null,
+  ) {
     this.server.to(`campaign:${generationId}`).emit('campaign:export:completed', {
       generationId,
       status,
+      viralityScore,
+      roiScore,
+      aiDetectionScore,
+      analysisReportUrl,
       timestamp: new Date().toISOString(),
     });
   }

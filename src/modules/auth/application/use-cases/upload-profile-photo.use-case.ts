@@ -7,7 +7,7 @@ import type { IAuditPort } from '../../../../shared/activity-log/audit.port';
 import { AUDIT_PORT } from '../../../../shared/activity-log/audit.port';
 import type { ITransactionManager } from '../../../../shared/database/transaction-manager.port';
 import { TRANSACTION_MANAGER } from '../../../../shared/database/transaction-manager.port';
-import { StorageService } from '../../../../shared/storage/storage.service';
+import { STORAGE_PORT, type IStoragePort } from '../../../../shared/storage/storage.port';
 import { CacheService } from '../../../../shared/cache/cache.service';
 import {
   ImageProcessorService,
@@ -34,7 +34,8 @@ export class UploadProfilePhotoUseCase {
     private readonly audit: IAuditPort,
     @Inject(TRANSACTION_MANAGER)
     private readonly tx: ITransactionManager,
-    private readonly storage: StorageService,
+    @Inject(STORAGE_PORT)
+    private readonly storage: IStoragePort,
     private readonly cache: CacheService,
     private readonly imageProcessor: ImageProcessorService,
     private readonly logger: LoggerService,

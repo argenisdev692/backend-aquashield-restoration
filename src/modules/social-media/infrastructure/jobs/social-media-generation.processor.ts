@@ -15,7 +15,7 @@ import { SOCIAL_MEDIA_REPOSITORY } from '../../domain/ports/social-media-reposit
 import type { ISocialMediaRepository } from '../../domain/ports/social-media-repository.port';
 import { AUDIT_PORT } from '../../../../shared/activity-log/audit.port';
 import type { IAuditPort } from '../../../../shared/activity-log/audit.port';
-import { StorageService } from '../../../../shared/storage/storage.service';
+import { STORAGE_PORT, type IStoragePort } from '../../../../shared/storage/storage.port';
 import { QUEUE_NAMES } from '../../../../shared/messaging/queues.constants';
 import type {
   SocialNetwork,
@@ -67,7 +67,8 @@ export class SocialMediaGenerationProcessor extends WorkerHost {
     private readonly viralityResearch: IViralityResearchPort,
     @Inject(AI_DETECTION_PORT)
     private readonly aiDetection: IAiDetectionPort,
-    private readonly storage: StorageService,
+    @Inject(STORAGE_PORT)
+    private readonly storage: IStoragePort,
     private readonly logger: LoggerService,
     private readonly cls: ClsService,
     private readonly eventEmitter: EventEmitter2,
@@ -493,6 +494,10 @@ export class SocialMediaGenerationProcessor extends WorkerHost {
         Object.keys(saved.networks).filter((k) => saved.networks[k as SocialNetwork]),
         !!sharedImage,
         language,
+        saved.viralityScore ?? null,
+        saved.roiScore ?? null,
+        saved.aiDetectionScore ?? null,
+        saved.analysisReportUrl ?? null,
       ),
     );
 

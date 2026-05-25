@@ -5,7 +5,7 @@ import { EventEmitter2 } from '@nestjs/event-emitter';
 import { ClsService } from 'nestjs-cls';
 import PDFDocument from 'pdfkit';
 import { LoggerService } from '../../../../logger/logger.service';
-import { StorageService } from '../../../../shared/storage/storage.service';
+import { STORAGE_PORT, type IStoragePort } from '../../../../shared/storage/storage.port';
 import { QUEUE_NAMES } from '../../../../shared/messaging/queues.constants';
 
 import type { ICampaignGenerationRepository } from '../../domain/ports/campaign-generation.repository.port';
@@ -100,7 +100,8 @@ export class CampaignExportProcessor extends WorkerHost {
     @Inject(AI_DETECTION_PORT)
     private readonly aiDetection: IAiDetectionPort,
 
-    private readonly storage: StorageService,
+    @Inject(STORAGE_PORT)
+    private readonly storage: IStoragePort,
     private readonly eventEmitter: EventEmitter2,
     private readonly logger: LoggerService,
     private readonly cls: ClsService,
@@ -574,6 +575,11 @@ export class CampaignExportProcessor extends WorkerHost {
           userId,
           aggregate.status as 'completed' | 'partial' | 'failed', // safe: complete() or fail() was just called
           aggregate.errorMessage ?? undefined,
+          new Date(),
+          aggregate.viralityScore,
+          aggregate.roiScore,
+          aggregate.aiDetectionScore,
+          aggregate.analysisReportUrl,
         ),
       );
 

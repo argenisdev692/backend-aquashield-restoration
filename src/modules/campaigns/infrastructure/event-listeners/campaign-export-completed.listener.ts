@@ -27,18 +27,32 @@ export class CampaignExportCompletedListener {
       traceId,
       generationId: event.generationId,
       status: event.status,
+      viralityScore: event.viralityScore,
+      roiScore: event.roiScore,
+      analysisReportUrl: event.analysisReportUrl,
     });
 
     if (event.status === 'failed') {
       this.gateway.broadcastExportFailed(event.generationId, event.errorMessage ?? 'Export failed');
     } else {
-      this.gateway.broadcastExportCompleted(event.generationId, event.status);
+      this.gateway.broadcastExportCompleted(
+        event.generationId,
+        event.status,
+        event.viralityScore,
+        event.roiScore,
+        event.aiDetectionScore,
+        event.analysisReportUrl,
+      );
     }
 
     // Also notify the owner personally
     this.gateway.broadcastToUser(event.userId, 'campaign:export:finished', {
       generationId: event.generationId,
       status: event.status,
+      viralityScore: event.viralityScore,
+      roiScore: event.roiScore,
+      aiDetectionScore: event.aiDetectionScore,
+      analysisReportUrl: event.analysisReportUrl,
     });
   }
 }

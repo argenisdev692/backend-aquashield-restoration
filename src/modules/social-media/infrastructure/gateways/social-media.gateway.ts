@@ -96,6 +96,15 @@ export class SocialMediaGateway
     networks: string[];
     hasImage: boolean;
     language: string;
+    viralityScore: number | null;
+    roiScore: number | null;
+    aiDetectionScore: {
+      aiGenerated: number;
+      aiParaphrased: number;
+      humanWritten: number;
+      showsAiSigns: number;
+    } | null;
+    analysisReportUrl: string | null;
   }) {
     this.server
       .to(`user:${data.userId}`)
