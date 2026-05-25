@@ -90,6 +90,11 @@ const PERMISSIONS: readonly PermissionSeed[] = [
   { name: "database-backups:read",   module: "database-backups", subject: "DATABASE_BACKUP", action: "read",   description: "List and download database backups" },
   { name: "database-backups:create", module: "database-backups", subject: "DATABASE_BACKUP", action: "create", description: "Trigger a database backup manually" },
   { name: "database-backups:delete", module: "database-backups", subject: "DATABASE_BACKUP", action: "delete", description: "Delete a database backup from storage" },
+  // social-media (super-admin only — AI-powered post generator for FB/IG/TT/LI; hard delete + export only)
+  { name: "social-media:create", module: "social-media", subject: "SOCIAL_MEDIA", action: "create", description: "Generate social media posts via AI (topics + generate)" },
+  { name: "social-media:read",   module: "social-media", subject: "SOCIAL_MEDIA", action: "read",   description: "View social media generation history" },
+  { name: "social-media:delete", module: "social-media", subject: "SOCIAL_MEDIA", action: "delete", description: "Hard-delete social media generations (individual + bulk)" },
+  { name: "social-media:export", module: "social-media", subject: "SOCIAL_MEDIA", action: "export", description: "Export social media generation history (csv/xlsx/pdf)" },
 ];
 
 const ROLE_GRANTS: Readonly<Record<string, readonly string[] | "ALL">> = {

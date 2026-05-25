@@ -9,6 +9,7 @@ export const QUEUE_NAMES = {
   EXPORT: 'export',
   NOTIFICATIONS: 'notifications',
   AI_GENERATION: 'ai-generation',
+  SOCIAL_MEDIA_GENERATION: 'social-media-generation',
 } as const;
 
 export type QueueName = (typeof QUEUE_NAMES)[keyof typeof QUEUE_NAMES];

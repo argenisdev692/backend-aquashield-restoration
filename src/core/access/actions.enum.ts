@@ -10,6 +10,7 @@ export enum Action {
   Restore = 'restore',
   Publish = 'publish',
   Assign = 'assign',
+  Export = 'export',
 }
 
 /** CASL subjects — mirrors the `subject` column in the `permissions` table. */
@@ -24,6 +25,7 @@ export type Subjects =
   | 'BLOG_CATEGORY'
   | 'ACTIVITY_LOG'
   | 'DATABASE_BACKUP'
+  | 'SOCIAL_MEDIA'
   | 'ALL';
 
 export type AppAbility = MongoAbility<[Action, Subjects]>;

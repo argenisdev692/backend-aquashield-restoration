@@ -1,0 +1,16 @@
+model SocialMediaGeneration {
+  id               String   @id @default(dbgenerated("uuid_generate_v7()")) @db.Uuid
+  userId           String   @map("user_id") @db.Uuid
+  niche            String   @db.VarChar(255)
+  topicTitle       String   @map("topic_title") @db.VarChar(500)
+  topicDescription String?  @map("topic_description") @db.Text
+  language         String?  @db.VarChar(10)
+  networks         Json     @db.JsonB
+  generatedPosts   Json     @map("generated_posts") @db.JsonB
+  r2Key            String?  @map("r2_key") @db.VarChar(500)
+  createdAt        DateTime @default(now()) @map("created_at") @db.Timestamp(6)
+
+  @@index([userId], map: "idx_social_media_generations_user_id")
+  @@index([createdAt], map: "idx_social_media_generations_created_at")
+  @@map("social_media_generations")
+}

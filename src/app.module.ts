@@ -33,6 +33,7 @@ import { RolesModule } from './modules/roles/roles.module';
 import { UserPermissionsModule } from './modules/user-permissions/user-permissions.module';
 import { BackupModule } from './modules/backup/backup.module';
 import { PostsModule } from './modules/posts/posts.module';
+import { SocialMediaModule } from './modules/social-media/social-media.module';
 
 @Module({
   imports: [
@@ -97,6 +98,7 @@ import { PostsModule } from './modules/posts/posts.module';
     UserPermissionsModule,
     BackupModule,
     PostsModule,
+    SocialMediaModule,
   ],
   controllers: [AppController],
   providers: [AppService, { provide: APP_GUARD, useClass: ThrottlerGuard }],
