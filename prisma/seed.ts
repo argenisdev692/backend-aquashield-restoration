@@ -95,6 +95,9 @@ const PERMISSIONS: readonly PermissionSeed[] = [
   { name: "social-media:read",   module: "social-media", subject: "SOCIAL_MEDIA", action: "read",   description: "View social media generation history" },
   { name: "social-media:delete", module: "social-media", subject: "SOCIAL_MEDIA", action: "delete", description: "Hard-delete social media generations (individual + bulk)" },
   { name: "social-media:export", module: "social-media", subject: "SOCIAL_MEDIA", action: "export", description: "Export social media generation history (csv/xlsx/pdf)" },
+  // campaigns (super-admin only — expensive AI video ad export pipeline: Gemini + optional ElevenLabs + ZIP + PDF)
+  { name: "campaigns:export", module: "campaigns", subject: "CAMPAIGN", action: "export", description: "Request and generate full campaign video exports (TOFU/MOFU/BOFU/LOYALTY) with AI assets" },
+  { name: "campaigns:read",   module: "campaigns", subject: "CAMPAIGN", action: "read",   description: "View campaign export status and download links" },
 ];
 
 const ROLE_GRANTS: Readonly<Record<string, readonly string[] | "ALL">> = {

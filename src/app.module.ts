@@ -35,6 +35,7 @@ import { UserPermissionsModule } from './modules/user-permissions/user-permissio
 import { BackupModule } from './modules/backup/backup.module';
 import { PostsModule } from './modules/posts/posts.module';
 import { SocialMediaModule } from './modules/social-media/social-media.module';
+import { CampaignsModule } from './modules/campaigns/campaigns.module';
 
 @Module({
   imports: [
@@ -90,6 +91,11 @@ import { SocialMediaModule } from './modules/social-media/social-media.module';
             ttl: 60_000,
             limit: 5,
           },
+          {
+            name: 'campaignExport',
+            ttl: 60_000,
+            limit: 3,
+          },
         ],
       }),
     }),
@@ -106,6 +112,7 @@ import { SocialMediaModule } from './modules/social-media/social-media.module';
     BackupModule,
     PostsModule,
     SocialMediaModule,
+    CampaignsModule,
   ],
   controllers: [AppController],
   providers: [AppService, { provide: APP_GUARD, useClass: ThrottlerGuard }],

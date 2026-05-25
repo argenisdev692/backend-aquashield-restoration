@@ -1,0 +1,66 @@
+// ============================================================
+//  Campaign Generation / Export — video ad scripts + assets
+//  - Heavy AI pipeline: Gemini (scripts + scenes + optional images)
+//    + optional ElevenLabs TTS (Rachel + 9:16/16:9 audio)
+//    + pdfkit production brief + archiver ZIP per stage
+//  - Persisted aggregate for request history, status, and download links
+//  - Soft delete supported (deletedAt)
+//  - stages stored as JSONB array for flexibility (TOFU/MOFU/BOFU/LOYALTY)
+//  - One row per stage export result (zip metadata + error isolation)
+// ============================================================
+
+enum CampaignGenerationStatus {
+  pending
+  processing
+  completed
+  failed
+  partial
+
+  @@map("campaign_generation_status")
+}
+
+model CampaignGeneration {
+  id                   String                   @id @default(dbgenerated("uuid_generate_v7()")) @db.Uuid
+  userId               String                   @map("user_id") @db.Uuid
+  companyDataId        String                   @map("company_data_id") @db.Uuid
+  companyNameSnapshot  String                   @map("company_name_snapshot") @db.VarChar(255)
+  niche                String                   @db.VarChar(255)
+  location             String                   @db.VarChar(255)
+  phone                String                   @db.VarChar(50)
+  website              String?                  @db.VarChar(2048)
+  stages               Json                     @db.JsonB
+  format               String                   @db.VarChar(10)
+  durationSeconds      Int                      @map("duration_seconds")
+  language             String                   @default("es") @db.VarChar(10)
+  generateImages       Boolean                  @default(false) @map("generate_images")
+  status               CampaignGenerationStatus @default(pending) @map("status")
+  errorMessage         String?                  @map("error_message") @db.Text
+  createdAt            DateTime                 @default(now()) @map("created_at") @db.Timestamp(6)
+  updatedAt            DateTime                 @default(now()) @map("updated_at") @db.Timestamp(6)
+  deletedAt            DateTime?                @map("deleted_at") @db.Timestamp(6)
+
+  stageExports         CampaignStageExport[]
+
+  @@index([userId, createdAt], map: "idx_campaign_generations_user_created")
+  @@index([companyDataId], map: "idx_campaign_generations_company_data_id")
+  @@index([status], map: "idx_campaign_generations_status")
+  @@index([deletedAt], map: "idx_campaign_generations_deleted_at")
+  @@map("campaign_generations")
+}
+
+model CampaignStageExport {
+  id           String    @id @default(dbgenerated("uuid_generate_v7()")) @db.Uuid
+  generationId String    @map("generation_id") @db.Uuid
+  stage        String    @db.VarChar(20)
+  zipKey       String?   @map("zip_key") @db.VarChar(500)
+  zipUrl       String?   @map("zip_url") @db.VarChar(2048)
+  sizeBytes    BigInt?   @map("size_bytes")
+  error        String?   @db.Text
+  createdAt    DateTime  @default(now()) @map("created_at") @db.Timestamp(6)
+
+  generation   CampaignGeneration @relation(fields: [generationId], references: [id], onDelete: Cascade)
+
+  @@index([generationId], map: "idx_stage_exports_generation_id")
+  @@unique([generationId, stage], map: "uq_stage_exports_generation_stage")
+  @@map("campaign_stage_exports")
+}

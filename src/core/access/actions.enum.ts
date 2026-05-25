@@ -26,6 +26,7 @@ export type Subjects =
   | 'ACTIVITY_LOG'
   | 'DATABASE_BACKUP'
   | 'SOCIAL_MEDIA'
+  | 'CAMPAIGN'
   | 'ALL';
 
 export type AppAbility = MongoAbility<[Action, Subjects]>;

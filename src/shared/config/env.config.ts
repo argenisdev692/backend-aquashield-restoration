@@ -107,6 +107,10 @@ export const EnvSchema = z.object({
   TAVILY_SEARCH_URL: z.string().url().default('https://api.tavily.com/search'),
   TAVILY_SEARCH_DEPTH: z.enum(['basic', 'advanced']).default('advanced'),
   TAVILY_MAX_RESULTS: z.coerce.number().int().min(1).max(20).default(8),
+
+  // ElevenLabs (optional — module-level feature flag via presence of key)
+  ELEVENLABS_API_KEY: z.string().optional(),
+  ELEVENLABS_VOICE_ID: z.string().default('Rachel'),
 });
 
 export type EnvVars = z.infer<typeof EnvSchema>;
