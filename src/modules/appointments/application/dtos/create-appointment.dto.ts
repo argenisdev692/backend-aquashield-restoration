@@ -14,7 +14,7 @@ export const CreateAppointmentSchema = z.object({
   country: z.string().min(1).max(100),
   message: z.string().nullable().optional(),
   smsConsent: z.boolean().default(false),
-  registrationDate: z.coerce.date().nullable().optional(),
+  registrationDate: z.string().datetime().nullable().optional(),
   statusLead: z
     .enum(['New', 'Called', 'Pending', 'Declined'])
     .nullable()

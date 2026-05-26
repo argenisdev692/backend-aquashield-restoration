@@ -26,7 +26,7 @@ export const UpdatePostSchema = z.object({
   ),
   categoryId: z.string().uuid().nullable().optional(),
   postStatus: z.enum(['draft', 'published', 'scheduled']).optional(),
-  scheduledAt: z.coerce.date().nullable().optional(),
+  scheduledAt: z.string().datetime().nullable().optional(),
 
   // AI generation trigger (option A) + parameters for the generation call
   generateWithAi: z
@@ -66,7 +66,7 @@ export const UpdatePostSchema = z.object({
   }
 ).refine(
   (data) => {
-    if (data.postStatus === 'scheduled' && data.scheduledAt && data.scheduledAt.getTime() <= Date.now()) {
+    if (data.postStatus === 'scheduled' && data.scheduledAt && new Date(data.scheduledAt).getTime() <= Date.now()) {
       return false;
     }
     return true;
@@ -79,7 +79,7 @@ export const UpdatePostSchema = z.object({
   (data) => {
     if (data.postStatus === 'scheduled' && data.scheduledAt) {
       const minDate = new Date(Date.now() + 24 * 60 * 60 * 1000);
-      if (data.scheduledAt.getTime() < minDate.getTime()) {
+      if (new Date(data.scheduledAt).getTime() < minDate.getTime()) {
         return false;
       }
     }
