@@ -1,10 +1,12 @@
 import { Module } from '@nestjs/common';
 import { CqrsModule } from '@nestjs/cqrs';
+import { JwtModule } from '@nestjs/jwt';
 import { BullModule } from '@nestjs/bullmq';
 import { CacheModule } from '../../shared/cache/cache.module';
 
 import { CampaignsController } from './infrastructure/api/controllers/campaigns.controller';
 import { CampaignsGateway } from './infrastructure/gateways/campaigns.gateway';
+import { WsJwtMiddleware } from '../../shared/websockets/ws-jwt.middleware';
 
 import { QUEUE_NAMES } from '../../shared/messaging/queues.constants';
 
@@ -59,6 +61,7 @@ import { CompanyDataRepository } from '../companydata/companydata.repository';
 @Module({
   imports: [
     CqrsModule,
+    JwtModule.register({}),
     CacheModule,
     StorageModule,
     BullModule.registerQueue({
@@ -91,6 +94,7 @@ import { CompanyDataRepository } from '../companydata/companydata.repository';
 
     // WebSocket Gateway
     CampaignsGateway,
+    WsJwtMiddleware,
 
     // Event Listeners
     CampaignExportRequestedListener,

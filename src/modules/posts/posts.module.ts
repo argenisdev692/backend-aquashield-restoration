@@ -1,5 +1,6 @@
 import { Module } from '@nestjs/common';
 import { CqrsModule } from '@nestjs/cqrs';
+import { JwtModule } from '@nestjs/jwt';
 import { BullModule } from '@nestjs/bullmq';
 import { PostsController } from './infrastructure/api/controllers/posts.controller';
 import { QUEUE_NAMES } from '../../shared/messaging/queues.constants';
@@ -44,11 +45,13 @@ import { PostScheduler } from './infrastructure/scheduler/post.scheduler';
 
 // WebSocket Gateway
 import { PostsGateway } from './infrastructure/gateways/posts.gateway';
+import { WsJwtMiddleware } from '../../shared/websockets/ws-jwt.middleware';
 
 @Module({
   controllers: [PostsController],
   imports: [
     CqrsModule,
+    JwtModule.register({}),
     StorageModule,
     BullModule.registerQueue({
       name: QUEUE_NAMES.AI_GENERATION,
@@ -80,6 +83,7 @@ import { PostsGateway } from './infrastructure/gateways/posts.gateway';
     PostScheduler,
     AiPostGenerationProcessor,
     PostsGateway,
+    WsJwtMiddleware,
   ],
 })
 export class PostsModule {}

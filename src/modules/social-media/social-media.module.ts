@@ -1,5 +1,6 @@
 import { Module } from '@nestjs/common';
 import { CqrsModule } from '@nestjs/cqrs';
+import { JwtModule } from '@nestjs/jwt';
 import { BullModule } from '@nestjs/bullmq';
 
 // Domain
@@ -51,6 +52,7 @@ import { SocialMediaGenerationCreatedListener } from './infrastructure/event-lis
 
 // Infrastructure - Gateways
 import { SocialMediaGateway } from './infrastructure/gateways/social-media.gateway';
+import { WsJwtMiddleware } from '../../shared/websockets/ws-jwt.middleware';
 
 // Shared
 import { StorageModule } from '../../shared/storage/storage.module';
@@ -72,6 +74,7 @@ const QueryHandlers = [
 @Module({
   imports: [
     CqrsModule,
+    JwtModule.register({}),
     StorageModule,
     BullModule.registerQueue({
       name: QUEUE_NAMES.SOCIAL_MEDIA_GENERATION,
@@ -90,6 +93,7 @@ const QueryHandlers = [
 
     // WebSocket Gateway
     SocialMediaGateway,
+    WsJwtMiddleware,
 
     // Port bindings
     {
