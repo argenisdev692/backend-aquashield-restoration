@@ -7,6 +7,7 @@ import helmet from 'helmet';
 import hpp from 'hpp';
 import { AppModule } from './app.module';
 import { RedisIoAdapter } from './shared/websockets/redis-io.adapter';
+import { Request, Response, NextFunction } from 'express';
 
 function corsOrigin(raw: string): boolean | string[] {
   if (raw.trim() === '*') return true;
@@ -26,6 +27,15 @@ async function bootstrap(): Promise<void> {
   // Security middleware (OWASP #5).
   app.use(helmet());
   app.use(hpp());
+
+  // Redirect root to /api/docs
+  app.use((req: Request, res: Response, next: NextFunction) => {
+    if (req.path === '/') {
+      return res.redirect(301, '/api/docs');
+    }
+    next();
+  });
+
   const origin = corsOrigin(config.get<string>('CORS_ORIGINS', '*'));
   const wildcardOrigin = origin === true;
   if (wildcardOrigin && isProd) {

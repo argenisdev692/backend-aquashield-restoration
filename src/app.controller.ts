@@ -1,6 +1,6 @@
 import { Controller, Get, Redirect } from '@nestjs/common';
 
-@Controller()
+@Controller({ path: '' })
 export class AppController {
   @Get()
   @Redirect('/api/docs', 301)
