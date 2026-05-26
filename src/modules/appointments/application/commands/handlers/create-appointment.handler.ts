@@ -87,7 +87,7 @@ export class CreateAppointmentHandler
       country: dto.country,
       message: dto.message ?? null,
       smsConsent: dto.smsConsent,
-      registrationDate: dto.registrationDate ?? null,
+      registrationDate: dto.registrationDate ? new Date(dto.registrationDate) : null,
       statusLead: dto.statusLead ?? null,
       followUpCalls: dto.followUpCalls ?? null,
       notes: dto.notes ?? null,

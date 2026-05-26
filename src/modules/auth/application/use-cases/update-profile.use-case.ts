@@ -31,7 +31,11 @@ export class UpdateProfileUseCase {
     this.logger.info('UpdateProfile start', { traceId, userId });
 
     await this.tx.runInTx(async () => {
-      await this.userRepo.updateProfile(userId, dto);
+      const profileData = {
+        ...dto,
+        dateOfBirth: dto.dateOfBirth ? new Date(dto.dateOfBirth) : undefined,
+      };
+      await this.userRepo.updateProfile(userId, profileData);
       await this.audit.log(
         {
           action: 'profile.updated',

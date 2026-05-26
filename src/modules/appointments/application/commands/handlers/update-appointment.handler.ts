@@ -82,12 +82,15 @@ export class UpdateAppointmentHandler
       throw new NotFoundException(`Appointment with id ${id} not found`);
     }
 
-    const { statusLead, ...otherProps } = dto;
+    const { statusLead, registrationDate, ...otherProps } = dto;
     let statusChange: StatusChange | null = null;
     if (statusLead) {
       statusChange = appointment.updateStatus(statusLead);
     }
-    appointment.updateDetails(otherProps);
+    appointment.updateDetails({
+      ...otherProps,
+      registrationDate: registrationDate ? new Date(registrationDate) : null,
+    });
 
     await this.repo.save(appointment);
 

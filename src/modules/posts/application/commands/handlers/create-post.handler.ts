@@ -114,7 +114,7 @@ export class CreatePostHandler implements ICommandHandler<CreatePostCommand> {
       categoryId: dto.categoryId,
       userId: actorId, // Set the creator/user ID
       postStatus: dto.postStatus,
-      scheduledAt: dto.scheduledAt,
+      scheduledAt: dto.scheduledAt ? new Date(dto.scheduledAt) : null,
     });
 
     await this.repo.save(post);

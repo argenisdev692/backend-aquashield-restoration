@@ -76,7 +76,7 @@ export class UpdatePostHandler implements ICommandHandler<UpdatePostCommand> {
       metaKeywords: dto.metaKeywords !== undefined ? sanitizePlainText(dto.metaKeywords) : undefined,
       categoryId: dto.categoryId,
       postStatus: dto.postStatus,
-      scheduledAt: dto.scheduledAt,
+      scheduledAt: dto.scheduledAt ? new Date(dto.scheduledAt) : null,
     });
 
     await this.repo.save(post);
