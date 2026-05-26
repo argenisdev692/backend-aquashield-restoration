@@ -66,6 +66,7 @@ import { PostsGateway } from './infrastructure/gateways/posts.gateway';
     GetPostsListHandler,
     ExportPostsHandler,
     { provide: POST_REPOSITORY, useClass: PrismaPostRepository },
+    ActivityLogService,
     { provide: AUDIT_PORT, useExisting: ActivityLogService },
     {
       provide: AI_POST_GENERATION_PORT,

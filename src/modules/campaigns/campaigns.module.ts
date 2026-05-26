@@ -83,6 +83,7 @@ import { CompanyDataRepository } from '../companydata/companydata.repository';
     },
 
     // Audit
+    ActivityLogService,
     {
       provide: AUDIT_PORT,
       useExisting: ActivityLogService,
