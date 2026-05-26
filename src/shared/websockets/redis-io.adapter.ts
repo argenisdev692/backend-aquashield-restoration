@@ -23,7 +23,7 @@ export class RedisIoAdapter extends IoAdapter {
   }
 
   async connect(): Promise<void> {
-    const logger = this.app.get(LoggerService);
+    const logger = await this.app.resolve(LoggerService);
     logger.setContext(RedisIoAdapter.name);
 
     const base = this.app.get<Redis>(REDIS_CLIENT);
