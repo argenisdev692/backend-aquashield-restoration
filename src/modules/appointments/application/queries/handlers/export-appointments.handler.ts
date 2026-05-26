@@ -167,7 +167,7 @@ export class ExportAppointmentsHandler
     rows: AppointmentReadModel[],
   ): Promise<ExportAppointmentsResult> {
     const wb = new ExcelJS.Workbook();
-    wb.creator = 'Vidula';
+    wb.creator = 'Aquashield Restoration LLC';
     wb.created = new Date();
 
     const sheet = wb.addWorksheet('Appointments');

@@ -367,7 +367,7 @@ export class RolesService {
 
   private async buildXlsx(roles: Role[], timestamp: string) {
     const wb = new ExcelJS.Workbook();
-    wb.creator = 'Vidula';
+    wb.creator = 'Aquashield Restoration LLC';
     wb.created = new Date();
 
     const sheet = wb.addWorksheet('Roles');

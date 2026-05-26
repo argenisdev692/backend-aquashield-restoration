@@ -37,7 +37,7 @@ export class Enable2faUseCase {
     await this.userRepo.updateTotpSecret(userId, secret.value);
 
     const uri = this.totp.generateUri({
-      issuer: 'Vidula',
+      issuer: 'Aquashield Restoration LLC',
       label: email,
       secret: secret.value,
     });

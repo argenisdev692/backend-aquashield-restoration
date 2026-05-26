@@ -166,7 +166,7 @@ export class ExportCampaignExportsHandler
     rows: Awaited<ReturnType<ICampaignGenerationRepository['findForExport']>>,
   ): Promise<CampaignExportFileResult> {
     const wb = new ExcelJS.Workbook();
-    wb.creator = 'Vidula';
+    wb.creator = 'Aquashield Restoration LLC';
     wb.created = new Date();
 
     const sheet = wb.addWorksheet('CampaignExports');

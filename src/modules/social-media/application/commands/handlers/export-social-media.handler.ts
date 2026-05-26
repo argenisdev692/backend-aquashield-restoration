@@ -129,7 +129,7 @@ export class ExportSocialMediaHandler implements ICommandHandler<ExportSocialMed
     rows: SocialMediaGeneration[],
   ): Promise<ExportSocialMediaResult> {
     const wb = new ExcelJS.Workbook();
-    wb.creator = 'Vidula';
+    wb.creator = 'Aquashield Restoration LLC';
     wb.created = new Date();
 
     const sheet = wb.addWorksheet('SocialMedia');

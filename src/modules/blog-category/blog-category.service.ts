@@ -463,7 +463,7 @@ export class BlogCategoryService {
     timestamp: string,
   ): Promise<{ buffer: Buffer; filename: string; contentType: string }> {
     const wb = new ExcelJS.Workbook();
-    wb.creator = 'Vidula';
+    wb.creator = 'Aquashield Restoration LLC';
     wb.created = new Date();
 
     const sheet = wb.addWorksheet('BlogCategories');

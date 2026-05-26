@@ -1,5 +1,5 @@
 # ============================================================
-#  VIDULA · docker-compose.yml
+#  Aquashield Restoration LLC · docker-compose.yml
 #
 #  Services in this stack:
 #    - redis  : cache + BullMQ queues + Socket.io adapter (multi-pod ready)
@@ -9,12 +9,12 @@
 #  When you containerize the app, uncomment the `app` service below.
 # ============================================================
 
-name: vidula
+name: AquashieldRestoration
 
 services:
   redis:
     image: redis:7-alpine
-    container_name: vidula-redis
+    container_name: aquashieldrestoration-redis
     restart: unless-stopped
     ports:
       - "${REDIS_PORT:-6379}:6379"
@@ -35,7 +35,7 @@ services:
       retries: 5
       start_period: 5s
     networks:
-      - vidula-net
+      - aquashieldrestoration-net
 
   app:
     build:
@@ -43,8 +43,8 @@ services:
       dockerfile: Dockerfile
       args:
         DATABASE_URL: ${DATABASE_URL}
-    image: vidula-app:local
-    container_name: vidula-app
+    image: aquashieldrestoration-app:local
+    container_name: aquashieldrestoration-app
     restart: unless-stopped
     init: true
     env_file: .env
@@ -66,13 +66,13 @@ services:
       retries: 5
       start_period: 20s
     networks:
-      - vidula-net
+      - aquashieldrestoration-net
 
 volumes:
   redis-data:
-    name: vidula-redis-data
+    name: aquashieldrestoration-redis-data
 
 networks:
-  vidula-net:
-    name: vidula-net
+  aquashieldrestoration-net:
+    name: aquashieldrestoration-net
     driver: bridge

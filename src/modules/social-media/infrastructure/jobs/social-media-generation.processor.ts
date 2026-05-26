@@ -225,7 +225,7 @@ export class SocialMediaGenerationProcessor extends WorkerHost {
       doc.moveTo(48, doc.y).lineTo(547, doc.y).strokeColor('#e2e8f0').stroke();
       doc.moveDown(0.5);
       doc.fontSize(8).font('Helvetica').fillColor('#94a3b8')
-        .text(`Generation ID: ${input.generationId}  ·  Vidula Social Media Engine`, { align: 'center' })
+        .text(`Generation ID: ${input.generationId}  ·  Aquashield Restoration LLC Social Media Engine`, { align: 'center' })
         .fillColor('#000');
 
       doc.end();

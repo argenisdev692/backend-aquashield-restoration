@@ -1,6 +1,6 @@
 # syntax=docker/dockerfile:1.7
 # ============================================================
-#  Vidula NestJS 11 — multi-stage Dockerfile (linear pipeline)
+#  Aquashield Restoration LLC NestJS 11 — multi-stage Dockerfile (linear pipeline)
 #
 #  Stages:
 #    1. deps     → npm ci (incl. dev) — cached
