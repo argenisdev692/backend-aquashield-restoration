@@ -4,7 +4,7 @@
 // ============================================================
 
 model CompanyData {
-  id            String    @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
+  id            String    @id @default(dbgenerated("uuid_generate_v7()")) @db.Uuid
   name          String?   @db.VarChar(255)
   companyName   String    @map("company_name") @db.VarChar(255)
   signaturePath String?   @map("signature_path") @db.VarChar(255)

@@ -6,7 +6,7 @@
 // ============================================================
 
 model PasswordHistory {
-  id           String   @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
+  id           String   @id @default(dbgenerated("uuid_generate_v7()")) @db.Uuid
   userId       String   @map("user_id") @db.Uuid
   passwordHash String   @map("password_hash") @db.VarChar(255)
   createdAt    DateTime @default(now()) @map("created_at") @db.Timestamp(6)

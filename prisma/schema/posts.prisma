@@ -14,7 +14,7 @@ enum PostStatus {
 }
 
 model Post {
-  id              String      @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
+  id              String      @id @default(dbgenerated("uuid_generate_v7()")) @db.Uuid
   postTitle       String      @map("post_title") @db.VarChar(255)
   postTitleSlug   String      @unique @map("post_title_slug") @db.VarChar(255)
   postContent     String      @map("post_content") @db.Text

@@ -20,7 +20,7 @@ enum CampaignGenerationStatus {
 }
 
 model CampaignGeneration {
-  id                   String                   @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
+  id                   String                   @id @default(dbgenerated("uuid_generate_v7()")) @db.Uuid
   userId               String                   @map("user_id") @db.Uuid
   companyDataId        String                   @map("company_data_id") @db.Uuid
   companyNameSnapshot  String                   @map("company_name_snapshot") @db.VarChar(255)
@@ -55,7 +55,7 @@ model CampaignGeneration {
 }
 
 model CampaignStageExport {
-  id           String    @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
+  id           String    @id @default(dbgenerated("uuid_generate_v7()")) @db.Uuid
   generationId String    @map("generation_id") @db.Uuid
   stage        String    @db.VarChar(20)
   zipKey       String?   @map("zip_key") @db.VarChar(500)

@@ -30,7 +30,7 @@ enum DatabaseBackupTrigger {
 }
 
 model DatabaseBackup {
-  id          String                @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
+  id          String                @id @default(dbgenerated("uuid_generate_v7()")) @db.Uuid
   objectKey   String?               @map("object_key") @db.VarChar(512)
   sizeBytes   BigInt?               @map("size_bytes")
   checksum    String?               @db.VarChar(64)
