@@ -6,7 +6,7 @@
 // ============================================================
 
 model BlogCategory {
-  id          String    @id @default(dbgenerated("uuid_generate_v7()")) @db.Uuid
+  id          String    @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
   name        String?   @map("blog_category_name") @db.VarChar(255)
   description String?   @map("blog_category_description") @db.VarChar(255)
   image       String?   @map("blog_category_image") @db.VarChar(255)
