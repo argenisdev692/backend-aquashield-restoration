@@ -1,5 +1,6 @@
 import { Module } from '@nestjs/common';
 import { CqrsModule } from '@nestjs/cqrs';
+import { JwtModule } from '@nestjs/jwt';
 import { CacheModule } from '../../shared/cache/cache.module';
 import { AppointmentsController } from './infrastructure/api/controllers/appointments.controller';
 import { PublicAppointmentsController } from './infrastructure/api/controllers/public-appointments.controller';
@@ -43,7 +44,7 @@ import { WsJwtMiddleware } from '../../shared/websockets/ws-jwt.middleware';
  */
 @Module({
   controllers: [AppointmentsController, PublicAppointmentsController],
-  imports: [CqrsModule, CacheModule],
+  imports: [CqrsModule, CacheModule, JwtModule.register({})],
   providers: [
     // Command Handlers
     CreateAppointmentHandler,
