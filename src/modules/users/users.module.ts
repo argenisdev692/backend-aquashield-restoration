@@ -63,6 +63,7 @@ import { ActivityLogService } from '../../shared/activity-log/activity-log.servi
     ResendEmailAdapter,
     BcryptPasswordHasherAdapter,
     UserEventListener,
+    ActivityLogService,
 
     { provide: USER_REPOSITORY, useExisting: PrismaUserRepository },
     {
