@@ -33,7 +33,7 @@ RUN node --version && npm --version
 
 # Use npm install instead of ci for more flexibility with lock file sync.
 # The cache mount speeds up rebuilds but is optional.
-RUN --mount=type=cache,target=/root/.npm \
+RUN --mount=type=cache,target=/root/.npm,id=npm \
     npm install
 
 
@@ -58,7 +58,7 @@ RUN npx prisma generate
 RUN npm run build
 
 # Drop devDependencies in-place so we can reuse this node_modules at runtime.
-RUN --mount=type=cache,target=/root/.npm \
+RUN --mount=type=cache,target=/root/.npm,id=npm \
     npm prune --omit=dev
 
 
