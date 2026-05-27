@@ -72,8 +72,12 @@ export function buildClsOptions(): ClsModuleOptions {
         if (trustedDevice) cls.set(CLS_KEYS.TRUSTED_DEVICE_TOKEN, trustedDevice);
 
         // Expose to pino-http customProps (automatic request logging).
-        req.traceId = traceId;
-        req.correlationId = correlationId;
+        try {
+          (req as ContextRequest).traceId = traceId;
+          (req as ContextRequest).correlationId = correlationId;
+        } catch {
+          // Ignore if request is not extensible
+        }
       },
     },
   };

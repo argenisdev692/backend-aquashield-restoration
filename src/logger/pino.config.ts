@@ -32,24 +32,41 @@ export function buildPinoParams({
       base: undefined,
       autoLogging: true,
       customProps: (req: IncomingMessage): Record<string, unknown> => {
-        const r = req as IncomingMessage & {
-          traceId?: string;
-          correlationId?: string;
-        };
-        return {
-          traceId: r.traceId,
-          correlationId: r.correlationId,
-        };
+        try {
+          const r = req as IncomingMessage & {
+            traceId?: string;
+            correlationId?: string;
+          };
+          return {
+            traceId: r.traceId,
+            correlationId: r.correlationId,
+          };
+        } catch {
+          // Fallback if request is in an invalid state during logging
+          return {};
+        }
       },
       customSuccessMessage: (
         _req: IncomingMessage,
         res: ServerResponse,
-      ): string => `request completed ${res.statusCode}`,
+      ): string => {
+        try {
+          return `request completed ${res.statusCode}`;
+        } catch {
+          return 'request completed';
+        }
+      },
       customErrorMessage: (
         _req: IncomingMessage,
         res: ServerResponse,
         err: Error,
-      ): string => `request failed ${res.statusCode} ${err.message}`,
+      ): string => {
+        try {
+          return `request failed ${res.statusCode} ${err.message}`;
+        } catch {
+          return `request failed ${err.message}`;
+        }
+      },
       transport: isProduction
         ? undefined
         : {
