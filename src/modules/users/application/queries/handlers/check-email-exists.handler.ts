@@ -8,9 +8,7 @@ import { maskEmail } from '../../../../../shared/utils/mask.util';
 import { CheckEmailExistsQuery } from '../check-email-exists.query';
 
 @QueryHandler(CheckEmailExistsQuery)
-export class CheckEmailExistsHandler
-  implements IQueryHandler<CheckEmailExistsQuery>
-{
+export class CheckEmailExistsHandler implements IQueryHandler<CheckEmailExistsQuery> {
   constructor(
     @Inject(USER_REPOSITORY)
     private readonly userRepo: IUserRepository,

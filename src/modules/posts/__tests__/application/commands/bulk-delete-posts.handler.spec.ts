@@ -73,7 +73,10 @@ describe('BulkDeletePostsHandler', () => {
   });
 
   it('bulk deletes, audits with ids in metadata, invalidates cache, and emits', async () => {
-    const ids = ['11111111-1111-1111-1111-111111111111', '22222222-2222-2222-2222-222222222222'];
+    const ids = [
+      '11111111-1111-1111-1111-111111111111',
+      '22222222-2222-2222-2222-222222222222',
+    ];
     const result = await handler.execute(
       new BulkDeletePostsCommand(ids, 'actor-1'),
     );

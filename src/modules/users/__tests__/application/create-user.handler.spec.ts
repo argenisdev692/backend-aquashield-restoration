@@ -1,6 +1,5 @@
 jest.mock('@nestjs-cls/transactional', () => ({
-  Transactional:
-    () => (_t: unknown, _k: string, d: PropertyDescriptor) => d,
+  Transactional: () => (_t: unknown, _k: string, d: PropertyDescriptor) => d,
 }));
 
 import { Test, TestingModule } from '@nestjs/testing';
@@ -63,7 +62,9 @@ describe('CreateUserHandler', () => {
       existsByUsername: jest.fn(),
       bulkDelete: jest.fn(),
       bulkRestore: jest.fn(),
-      findAccessByUserId: jest.fn().mockResolvedValue({ roles: [], permissions: [] }),
+      findAccessByUserId: jest
+        .fn()
+        .mockResolvedValue({ roles: [], permissions: [] }),
       findAccessByUserIds: jest.fn().mockResolvedValue(new Map()),
       replaceRoles: jest.fn().mockResolvedValue(undefined),
       replacePermissions: jest.fn().mockResolvedValue(undefined),
@@ -76,11 +77,27 @@ describe('CreateUserHandler', () => {
     };
     mockEmailPort = { sendPasswordSetupLink: jest.fn() };
     mockAudit = { log: jest.fn() };
-    mockLogger = { info: jest.fn(), warn: jest.fn(), error: jest.fn(), setContext: jest.fn() } as unknown as jest.Mocked<LoggerService>;
-    mockCache = { del: jest.fn(), delByPattern: jest.fn(), get: jest.fn(), set: jest.fn() } as unknown as jest.Mocked<CacheService>;
-    mockEventEmitter = { emit: jest.fn() } as unknown as jest.Mocked<EventEmitter2>;
-    mockConfig = { get: jest.fn().mockReturnValue('http://localhost:3000') } as unknown as jest.Mocked<ConfigService>;
-    mockCls = { get: jest.fn().mockReturnValue('trace-123') } as unknown as jest.Mocked<ClsService>;
+    mockLogger = {
+      info: jest.fn(),
+      warn: jest.fn(),
+      error: jest.fn(),
+      setContext: jest.fn(),
+    } as unknown as jest.Mocked<LoggerService>;
+    mockCache = {
+      del: jest.fn(),
+      delByPattern: jest.fn(),
+      get: jest.fn(),
+      set: jest.fn(),
+    } as unknown as jest.Mocked<CacheService>;
+    mockEventEmitter = {
+      emit: jest.fn(),
+    } as unknown as jest.Mocked<EventEmitter2>;
+    mockConfig = {
+      get: jest.fn().mockReturnValue('http://localhost:3000'),
+    } as unknown as jest.Mocked<ConfigService>;
+    mockCls = {
+      get: jest.fn().mockReturnValue('trace-123'),
+    } as unknown as jest.Mocked<ClsService>;
 
     const module: TestingModule = await Test.createTestingModule({
       providers: [
@@ -175,10 +192,7 @@ describe('CreateUserHandler', () => {
 
   it('skips CASL invalidation when neither roleIds nor permissionIds is sent', async () => {
     await handler.execute(
-      new CreateUserCommand(
-        { name: 'A', email: 'a@example.com' },
-        'actor-1',
-      ),
+      new CreateUserCommand({ name: 'A', email: 'a@example.com' }, 'actor-1'),
     );
     expect(mockUserRepo.replaceRoles).not.toHaveBeenCalled();
     expect(mockUserRepo.replacePermissions).not.toHaveBeenCalled();

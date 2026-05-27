@@ -17,7 +17,10 @@ describe('Post Aggregate', () => {
     });
 
     it('generates a slug from the title when not provided', () => {
-      const post = Post.create({ postTitle: '  Hello WORLD!  ', postContent: 'content' });
+      const post = Post.create({
+        postTitle: '  Hello WORLD!  ',
+        postContent: 'content',
+      });
       expect(post.postTitleSlug).toBe('hello-world');
     });
 
@@ -40,7 +43,11 @@ describe('Post Aggregate', () => {
     it('throws when scheduled date is less than 24 hours in the future', () => {
       const tooSoon = new Date(Date.now() + 12 * 60 * 60 * 1000);
       expect(() =>
-        Post.create({ ...baseProps, postStatus: 'scheduled', scheduledAt: tooSoon }),
+        Post.create({
+          ...baseProps,
+          postStatus: 'scheduled',
+          scheduledAt: tooSoon,
+        }),
       ).toThrow(PostDomainException);
     });
 
@@ -53,7 +60,11 @@ describe('Post Aggregate', () => {
     it('throws when scheduled date is in the past', () => {
       const past = new Date(Date.now() - 86400000);
       expect(() =>
-        Post.create({ ...baseProps, postStatus: 'scheduled', scheduledAt: past }),
+        Post.create({
+          ...baseProps,
+          postStatus: 'scheduled',
+          scheduledAt: past,
+        }),
       ).toThrow(PostDomainException);
     });
   });
@@ -68,7 +79,11 @@ describe('Post Aggregate', () => {
 
     it('transitions from scheduled to published', () => {
       const future = new Date(Date.now() + 86400000);
-      const post = Post.create({ ...baseProps, postStatus: 'scheduled', scheduledAt: future });
+      const post = Post.create({
+        ...baseProps,
+        postStatus: 'scheduled',
+        scheduledAt: future,
+      });
       post.publish();
       expect(post.postStatus).toBe('published');
       expect(post.scheduledAt).toBeNull();
@@ -111,14 +126,20 @@ describe('Post Aggregate', () => {
 
     it('updates title and keeps explicit slug', () => {
       const post = Post.create(baseProps);
-      post.updateDetails({ postTitle: 'New Title', postTitleSlug: 'keep-this' });
+      post.updateDetails({
+        postTitle: 'New Title',
+        postTitleSlug: 'keep-this',
+      });
       expect(post.postTitle).toBe('New Title');
       expect(post.postTitleSlug).toBe('keep-this');
     });
 
     it('updates content and excerpt', () => {
       const post = Post.create(baseProps);
-      post.updateDetails({ postContent: 'new content', postExcerpt: 'excerpt' });
+      post.updateDetails({
+        postContent: 'new content',
+        postExcerpt: 'excerpt',
+      });
       expect(post.postContent).toBe('new content');
       expect(post.postExcerpt).toBe('excerpt');
     });
@@ -141,9 +162,9 @@ describe('Post Aggregate', () => {
 
     it('throws when transitioning to scheduled without date', () => {
       const post = Post.create(baseProps);
-      expect(() =>
-        post.updateDetails({ postStatus: 'scheduled' }),
-      ).toThrow(PostDomainException);
+      expect(() => post.updateDetails({ postStatus: 'scheduled' })).toThrow(
+        PostDomainException,
+      );
     });
   });
 
@@ -157,7 +178,9 @@ describe('Post Aggregate', () => {
     });
 
     it('collapses multiple spaces and dashes', () => {
-      expect(Post.generateSlug('hello   world---test')).toBe('hello-world-test');
+      expect(Post.generateSlug('hello   world---test')).toBe(
+        'hello-world-test',
+      );
     });
 
     it('trims leading and trailing dashes', () => {

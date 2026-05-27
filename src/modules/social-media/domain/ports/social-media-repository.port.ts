@@ -24,12 +24,16 @@ export interface ISocialMediaRepository {
    * Saves a rich Aggregate (write path).
    * The implementation extracts the snapshot and persists it.
    */
-  save(aggregate: SocialMediaGenerationAggregate): Promise<SocialMediaGeneration>;
+  save(
+    aggregate: SocialMediaGenerationAggregate,
+  ): Promise<SocialMediaGeneration>;
 
   /**
    * Updates an existing aggregate (write path for partial updates).
    */
-  update(aggregate: SocialMediaGenerationAggregate): Promise<SocialMediaGeneration>;
+  update(
+    aggregate: SocialMediaGenerationAggregate,
+  ): Promise<SocialMediaGeneration>;
 
   /**
    * Reads return the plain data shape (sufficient for read models / presenters).

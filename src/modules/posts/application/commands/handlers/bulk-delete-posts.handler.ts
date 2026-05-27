@@ -56,7 +56,9 @@ export class BulkDeletePostsHandler implements ICommandHandler<BulkDeletePostsCo
     return result;
   }
 
-  private async persist(command: BulkDeletePostsCommand): Promise<{ count: number }> {
+  private async persist(
+    command: BulkDeletePostsCommand,
+  ): Promise<{ count: number }> {
     const { ids, actorId } = command;
 
     const result = await this.repo.bulkDelete(ids);

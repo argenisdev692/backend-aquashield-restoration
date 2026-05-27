@@ -27,6 +27,8 @@ export class BackupNotFoundException extends BackupDomainException {
 
 export class BackupNotDownloadableException extends BackupDomainException {
   constructor(id: string, status: string) {
-    super(`Backup ${id} is in status ${status} and has no downloadable artifact`);
+    super(
+      `Backup ${id} is in status ${status} and has no downloadable artifact`,
+    );
   }
 }

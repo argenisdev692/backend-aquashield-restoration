@@ -68,8 +68,12 @@ describe('CreatePostHandler', () => {
       debug: jest.fn(),
       setContext: jest.fn(),
     } as unknown as jest.Mocked<LoggerService>;
-    mockCls = { get: jest.fn().mockReturnValue('trace-123') } as unknown as jest.Mocked<ClsService>;
-    mockEventEmitter = { emit: jest.fn() } as unknown as jest.Mocked<EventEmitter2>;
+    mockCls = {
+      get: jest.fn().mockReturnValue('trace-123'),
+    } as unknown as jest.Mocked<ClsService>;
+    mockEventEmitter = {
+      emit: jest.fn(),
+    } as unknown as jest.Mocked<EventEmitter2>;
 
     const mockAiGeneration: jest.Mocked<AiPostGenerationPort> = {
       generatePreview: jest.fn().mockResolvedValue({
@@ -124,7 +128,10 @@ describe('CreatePostHandler', () => {
 
   it('creates a post with published status', async () => {
     const id = await handler.execute(
-      new CreatePostCommand({ ...baseDto, postStatus: 'published' }, 'user-123'),
+      new CreatePostCommand(
+        { ...baseDto, postStatus: 'published' },
+        'user-123',
+      ),
     );
 
     expect(id).toEqual(expect.any(String));

@@ -18,7 +18,10 @@ export interface ICampaignGenerationRepository {
   /**
    * Find by primary key. Returns null if not found or soft-deleted.
    */
-  findById(id: string, withTrashed?: boolean): Promise<CampaignGeneration | null>;
+  findById(
+    id: string,
+    withTrashed?: boolean,
+  ): Promise<CampaignGeneration | null>;
 
   /**
    * List generations for a user (most recent first), supports pagination.
@@ -61,4 +64,6 @@ export interface ICampaignGenerationRepository {
   >;
 }
 
-export const CAMPAIGN_GENERATION_REPOSITORY = Symbol('ICampaignGenerationRepository');
+export const CAMPAIGN_GENERATION_REPOSITORY = Symbol(
+  'ICampaignGenerationRepository',
+);

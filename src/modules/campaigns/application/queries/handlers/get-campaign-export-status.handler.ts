@@ -11,9 +11,7 @@ import { ClsService } from 'nestjs-cls';
 
 @QueryHandler(GetCampaignExportStatusQuery)
 @Injectable()
-export class GetCampaignExportStatusHandler
-  implements IQueryHandler<GetCampaignExportStatusQuery>
-{
+export class GetCampaignExportStatusHandler implements IQueryHandler<GetCampaignExportStatusQuery> {
   constructor(
     @Inject(CAMPAIGN_GENERATION_REPOSITORY)
     private readonly campaignRepo: ICampaignGenerationRepository,

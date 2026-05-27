@@ -29,11 +29,16 @@ export class BulkDeleteSocialMediaHandler implements ICommandHandler<BulkDeleteS
     this.logger.setContext(BulkDeleteSocialMediaHandler.name);
   }
 
-  async execute(command: BulkDeleteSocialMediaCommand): Promise<{ count: number }> {
+  async execute(
+    command: BulkDeleteSocialMediaCommand,
+  ): Promise<{ count: number }> {
     const { ids, actorId } = command;
     const traceId = this.cls.get<string>('traceId');
 
-    this.logger.info('BulkDeleteSocialMediaHandler start', { traceId, count: ids.length });
+    this.logger.info('BulkDeleteSocialMediaHandler start', {
+      traceId,
+      count: ids.length,
+    });
 
     const result = await this.repo.bulkDelete(ids);
 
@@ -51,7 +56,10 @@ export class BulkDeleteSocialMediaHandler implements ICommandHandler<BulkDeleteS
 
     await this.cache.delByPattern(SOCIAL_MEDIA_CACHE_PATTERN);
 
-    this.logger.info('BulkDeleteSocialMediaHandler end', { traceId, deleted: result.count });
+    this.logger.info('BulkDeleteSocialMediaHandler end', {
+      traceId,
+      deleted: result.count,
+    });
 
     return result;
   }

@@ -123,6 +123,9 @@ export class Backup {
   }
 
   isDownloadable(): boolean {
-    return this.props.status === BackupStatus.Completed && this.props.objectKey !== null;
+    return (
+      this.props.status === BackupStatus.Completed &&
+      this.props.objectKey !== null
+    );
   }
 }

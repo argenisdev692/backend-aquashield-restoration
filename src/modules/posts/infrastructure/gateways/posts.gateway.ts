@@ -38,9 +38,7 @@ function wsCorsOrigin(): boolean | string[] {
   },
   namespace: '/posts',
 })
-export class PostsGateway
-  implements OnGatewayConnection, OnGatewayDisconnect
-{
+export class PostsGateway implements OnGatewayConnection, OnGatewayDisconnect {
   @WebSocketServer()
   server!: Server;
 
@@ -89,16 +87,11 @@ export class PostsGateway
 
   // ─── Broadcast helpers (called by event listeners / processor) ──────────────
 
-  broadcastPostCreated(data: {
-    userId: string;
-    postId: string;
-  }) {
-    this.server
-      .to(`user:${data.userId}`)
-      .emit('post:created', {
-        ...data,
-        timestamp: new Date().toISOString(),
-      });
+  broadcastPostCreated(data: { userId: string; postId: string }) {
+    this.server.to(`user:${data.userId}`).emit('post:created', {
+      ...data,
+      timestamp: new Date().toISOString(),
+    });
   }
 
   broadcastGenerationCompleted(data: {
@@ -110,12 +103,10 @@ export class PostsGateway
     hasImage: boolean;
     sourcesCount: number;
   }) {
-    this.server
-      .to(`user:${data.userId}`)
-      .emit('post:generation:completed', {
-        ...data,
-        timestamp: new Date().toISOString(),
-      });
+    this.server.to(`user:${data.userId}`).emit('post:generation:completed', {
+      ...data,
+      timestamp: new Date().toISOString(),
+    });
   }
 
   broadcastGenerationFailed(data: {
@@ -126,12 +117,10 @@ export class PostsGateway
     wordCount: number;
     error: string;
   }) {
-    this.server
-      .to(`user:${data.userId}`)
-      .emit('post:generation:failed', {
-        ...data,
-        timestamp: new Date().toISOString(),
-      });
+    this.server.to(`user:${data.userId}`).emit('post:generation:failed', {
+      ...data,
+      timestamp: new Date().toISOString(),
+    });
   }
 
   broadcastToUser(userId: string, event: string, data: unknown) {

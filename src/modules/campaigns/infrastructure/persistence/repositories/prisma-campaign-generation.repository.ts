@@ -1,6 +1,9 @@
 import { Injectable } from '@nestjs/common';
 import { PrismaService } from '../../../../../shared/database/prisma.service';
-import { Prisma, CampaignGenerationStatus } from '../../../../../generated/prisma/client';
+import {
+  Prisma,
+  CampaignGenerationStatus,
+} from '../../../../../generated/prisma/client';
 import type { ICampaignGenerationRepository } from '../../../domain/ports/campaign-generation.repository.port';
 import { CampaignGeneration } from '../../../domain/entities/campaign-generation.aggregate';
 import { CampaignGenerationMapper } from '../mappers/campaign-generation.mapper';
@@ -67,7 +70,10 @@ export class PrismaCampaignGenerationRepository implements ICampaignGenerationRe
     }
   }
 
-  async findById(id: string, withTrashed = false): Promise<CampaignGeneration | null> {
+  async findById(
+    id: string,
+    withTrashed = false,
+  ): Promise<CampaignGeneration | null> {
     const where: Prisma.CampaignGenerationWhereInput = { id };
     if (!withTrashed) {
       where.deletedAt = null;
@@ -106,8 +112,9 @@ export class PrismaCampaignGenerationRepository implements ICampaignGenerationRe
       skip: offset,
     });
 
-    return rows.map((r: Parameters<typeof CampaignGenerationMapper.toDomain>[0]) =>
-      CampaignGenerationMapper.toDomain(r),
+    return rows.map(
+      (r: Parameters<typeof CampaignGenerationMapper.toDomain>[0]) =>
+        CampaignGenerationMapper.toDomain(r),
     );
   }
 
@@ -140,7 +147,10 @@ export class PrismaCampaignGenerationRepository implements ICampaignGenerationRe
       errorMessage: string | null;
     }>
   > {
-    const where: Prisma.CampaignGenerationWhereInput = { userId, deletedAt: null };
+    const where: Prisma.CampaignGenerationWhereInput = {
+      userId,
+      deletedAt: null,
+    };
 
     if (filters.status) {
       where.status = filters.status as CampaignGenerationStatus;

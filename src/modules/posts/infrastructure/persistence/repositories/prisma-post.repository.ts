@@ -15,10 +15,7 @@ import { buildTrashedWhere } from '../../../../../shared/crud/trashed.util';
 export class PrismaPostRepository implements IPostRepository {
   constructor(private readonly prisma: PrismaService) {}
 
-  async findById(
-    id: string,
-    trashed: boolean = false,
-  ): Promise<Post | null> {
+  async findById(id: string, trashed: boolean = false): Promise<Post | null> {
     const where: Prisma.PostWhereInput = trashed
       ? { id }
       : { id, deletedAt: null };
@@ -53,9 +50,7 @@ export class PrismaPostRepository implements IPostRepository {
     return row?.id ?? null;
   }
 
-  async findAll(
-    filters: PostFilters,
-  ): Promise<PaginatedResult<PostReadModel>> {
+  async findAll(filters: PostFilters): Promise<PaginatedResult<PostReadModel>> {
     const {
       categoryId,
       userId,
@@ -77,7 +72,8 @@ export class PrismaPostRepository implements IPostRepository {
       where.userId = userId;
     }
     if (postStatus) {
-      const parsed = $Enums.PostStatus[postStatus as keyof typeof $Enums.PostStatus];
+      const parsed =
+        $Enums.PostStatus[postStatus as keyof typeof $Enums.PostStatus];
       if (parsed) where.postStatus = parsed;
     }
     if (search) {

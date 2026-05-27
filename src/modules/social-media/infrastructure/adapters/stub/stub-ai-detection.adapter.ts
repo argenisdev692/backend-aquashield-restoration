@@ -14,10 +14,10 @@ export class StubAiDetectionAdapter implements IAiDetectionPort {
   async analyze(input: AiDetectionInput): Promise<AiDetectionScore> {
     // Placeholder: In real implementation, this would call an AI detection API
     // For now, return a realistic score based on text characteristics
-    
+
     const textLength = input.text.length;
-    const baseHumanScore = Math.min(70 + (textLength / 100), 95);
-    
+    const baseHumanScore = Math.min(70 + textLength / 100, 95);
+
     return {
       aiGenerated: Math.max(0, 100 - baseHumanScore - 5),
       aiParaphrased: Math.max(0, 100 - baseHumanScore - 10),

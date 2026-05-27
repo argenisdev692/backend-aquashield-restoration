@@ -24,7 +24,9 @@ export class GetPostsListHandler implements IQueryHandler<GetPostsListQuery> {
     this.logger.setContext(GetPostsListHandler.name);
   }
 
-  async execute(query: GetPostsListQuery): Promise<PaginatedResult<PostReadModel>> {
+  async execute(
+    query: GetPostsListQuery,
+  ): Promise<PaginatedResult<PostReadModel>> {
     const traceId = this.cls.get<string>('traceId');
     this.logger.info('GetPostsListHandler', { traceId });
 

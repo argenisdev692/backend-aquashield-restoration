@@ -56,9 +56,7 @@ describe('GetPostsListHandler', () => {
   });
 
   it('returns paginated results', async () => {
-    const result = await handler.execute(
-      new GetPostsListQuery(baseFilters),
-    );
+    const result = await handler.execute(new GetPostsListQuery(baseFilters));
     expect(result).toEqual({ data: [], total: 0, page: 1, limit: 20 });
   });
 

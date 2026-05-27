@@ -11,10 +11,12 @@ import {
  */
 @Injectable()
 export class TavilyViralityResearchAdapter implements IViralityResearchPort {
-  async research(input: ViralityResearchInput): Promise<ViralityResearchResult> {
+  async research(
+    input: ViralityResearchInput,
+  ): Promise<ViralityResearchResult> {
     // TODO: Integrate with actual Tavily API
     // For now, return a realistic stub result based on the input
-    
+
     return {
       score: this.calculateViralityScore(input),
       trendingTopics: this.generateTrendingTopics(input),

@@ -121,7 +121,8 @@ export class SocialMediaController {
   @CheckAbilities({ action: Action.Read, subject: 'SOCIAL_MEDIA' })
   @ApiOkResponse({ type: PaginatedSocialMediaResponse })
   async list(
-    @Query(new ZodValidationPipe(ListSocialMediaSchema)) query: ListSocialMediaDto,
+    @Query(new ZodValidationPipe(ListSocialMediaSchema))
+    query: ListSocialMediaDto,
     @CurrentUser() user: AuthenticatedUser,
   ): Promise<PaginatedSocialMediaResponse> {
     const result = await this.queryBus.execute(
@@ -180,10 +181,15 @@ export class SocialMediaController {
   @Post('export')
   @SkipCache()
   @CheckAbilities({ action: Action.Export, subject: 'SOCIAL_MEDIA' })
-  @ApiProduces('text/csv', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet', 'application/pdf')
+  @ApiProduces(
+    'text/csv',
+    'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+    'application/pdf',
+  )
   @ApiOkResponse({ description: 'File download' })
   async export(
-    @Body(new ZodValidationPipe(ExportSocialMediaSchema)) dto: ExportSocialMediaDto,
+    @Body(new ZodValidationPipe(ExportSocialMediaSchema))
+    dto: ExportSocialMediaDto,
     @CurrentUser() user: AuthenticatedUser,
     @Res({ passthrough: true }) res: Response,
   ): Promise<StreamableFile> {

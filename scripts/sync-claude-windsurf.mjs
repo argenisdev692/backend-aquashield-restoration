@@ -11,7 +11,8 @@
  *   .claude/rules/backend-nest.md   → .windsurf/rules/backend-nest.md
  *   .claude/skills/<X>/SKILL.md     → .windsurf/skills/<X>/SKILL.md
  *   .claude/commands/<X>.md         → .windsurf/workflows/<X>.md
- *
+ *npm run sync:ai
+npm run check:ai-sync
  * Content transform applied to every mirrored file:
  *   ".claude/commands/" → ".windsurf/workflows/"
  *   ".claude/"          → ".windsurf/"

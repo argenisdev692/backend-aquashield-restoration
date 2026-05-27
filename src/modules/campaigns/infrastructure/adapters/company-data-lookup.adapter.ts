@@ -10,11 +10,12 @@ import type { ICompanyDataLookupPort } from '../../domain/ports/outbound/company
  */
 @Injectable()
 export class PrismaCompanyDataLookupAdapter implements ICompanyDataLookupPort {
-  constructor(
-    private readonly companyDataRepo: CompanyDataRepository,
-  ) {}
+  constructor(private readonly companyDataRepo: CompanyDataRepository) {}
 
-  async getCompanyNameByIdForUser(companyDataId: string, userId: string): Promise<string | null> {
+  async getCompanyNameByIdForUser(
+    companyDataId: string,
+    userId: string,
+  ): Promise<string | null> {
     const record = await this.companyDataRepo.findById(companyDataId);
 
     if (!record) return null;

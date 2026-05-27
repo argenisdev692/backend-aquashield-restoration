@@ -24,7 +24,9 @@ interface TavilySearchResponse {
 }
 
 @Injectable()
-export class TavilyTopicFinderAdapter implements ITopicFinderPort, OnModuleInit {
+export class TavilyTopicFinderAdapter
+  implements ITopicFinderPort, OnModuleInit
+{
   private readonly apiKey: string;
   private readonly searchUrl: string;
   private resilience!: IPolicy;
@@ -46,7 +48,9 @@ export class TavilyTopicFinderAdapter implements ITopicFinderPort, OnModuleInit 
     this.resilience = createExternalServicePolicy('tavily', 'research');
   }
 
-  async findTrendingTopics(filters: TopicFinderFilters): Promise<SocialMediaTopic[]> {
+  async findTrendingTopics(
+    filters: TopicFinderFilters,
+  ): Promise<SocialMediaTopic[]> {
     const traceId = this.cls.get<string>('traceId');
     const { niche, language = 'es', maxTopics = 8 } = filters;
 
@@ -57,7 +61,9 @@ export class TavilyTopicFinderAdapter implements ITopicFinderPort, OnModuleInit 
     });
 
     if (!this.apiKey) {
-      this.logger.warn('TavilyTopicFinderAdapter: no API key configured', { traceId });
+      this.logger.warn('TavilyTopicFinderAdapter: no API key configured', {
+        traceId,
+      });
       return [];
     }
 

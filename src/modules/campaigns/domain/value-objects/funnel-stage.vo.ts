@@ -6,13 +6,20 @@ import { z } from 'zod';
  */
 export type FunnelStage = 'TOFU' | 'MOFU' | 'BOFU' | 'LOYALTY';
 
-export const FUNNEL_STAGES: readonly FunnelStage[] = ['TOFU', 'MOFU', 'BOFU', 'LOYALTY'] as const;
+export const FUNNEL_STAGES: readonly FunnelStage[] = [
+  'TOFU',
+  'MOFU',
+  'BOFU',
+  'LOYALTY',
+] as const;
 
 export const FunnelStageSchema = z.enum(FUNNEL_STAGES);
 
 export class InvalidFunnelStageException extends Error {
   constructor(value: unknown) {
-    super(`Invalid funnel stage: ${String(value)}. Allowed: ${FUNNEL_STAGES.join(', ')}`);
+    super(
+      `Invalid funnel stage: ${String(value)}. Allowed: ${FUNNEL_STAGES.join(', ')}`,
+    );
     this.name = 'InvalidFunnelStageException';
   }
 }

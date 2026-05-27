@@ -1,6 +1,9 @@
 import { FunnelStage } from '../value-objects/funnel-stage.vo';
 import { VideoFormat } from '../value-objects/video-format.vo';
-import { CampaignStatus, CampaignStatusVO } from '../value-objects/campaign-status.vo';
+import {
+  CampaignStatus,
+  CampaignStatusVO,
+} from '../value-objects/campaign-status.vo';
 import { StageExportResult } from '../value-objects/stage-export-result.vo';
 import {
   CampaignGenerationNotFoundException,
@@ -88,7 +91,9 @@ export class CampaignGeneration {
       throw new Error('companyDataId is required');
     }
     if (!props.companyNameSnapshot) {
-      throw new Error('companyNameSnapshot is required (must be resolved from CompanyData)');
+      throw new Error(
+        'companyNameSnapshot is required (must be resolved from CompanyData)',
+      );
     }
 
     const now = new Date();
@@ -113,7 +118,9 @@ export class CampaignGeneration {
       props.aiDetectionScore ?? null,
       null,
       null,
-      props.status ? CampaignStatusVO.create(props.status) : CampaignStatusVO.pending(),
+      props.status
+        ? CampaignStatusVO.create(props.status)
+        : CampaignStatusVO.pending(),
       props.errorMessage ?? null,
       props.stageResults ?? [],
       props.createdAt ?? now,
@@ -123,24 +130,20 @@ export class CampaignGeneration {
 
     if (!props.id) {
       aggregate.addDomainEvent(
-        new CampaignExportRequestedEvent(
-          'pending',
-          props.userId,
-          {
-            companyDataId: props.companyDataId,
-            companyNameSnapshot: props.companyNameSnapshot,
-            niche: props.niche,
-            location: props.location,
-            phone: props.phone,
-            website: props.website,
-            stages: props.stages,
-            format: props.format,
-            durationSeconds: props.durationSeconds,
-            language: props.language ?? 'es',
-            generateImages: props.generateImages ?? false,
-            aiObservations: props.aiObservations ?? undefined,
-          },
-        ),
+        new CampaignExportRequestedEvent('pending', props.userId, {
+          companyDataId: props.companyDataId,
+          companyNameSnapshot: props.companyNameSnapshot,
+          niche: props.niche,
+          location: props.location,
+          phone: props.phone,
+          website: props.website,
+          stages: props.stages,
+          format: props.format,
+          durationSeconds: props.durationSeconds,
+          language: props.language ?? 'es',
+          generateImages: props.generateImages ?? false,
+          aiObservations: props.aiObservations ?? undefined,
+        }),
       );
     }
 
@@ -194,7 +197,10 @@ export class CampaignGeneration {
   markProcessing(): void {
     const next = CampaignStatusVO.processing();
     if (!this._status.canTransitionTo(next)) {
-      throw new InvalidCampaignStatusTransitionException(this.status, next.value);
+      throw new InvalidCampaignStatusTransitionException(
+        this.status,
+        next.value,
+      );
     }
     this._status = next;
     this.touch();
@@ -213,7 +219,10 @@ export class CampaignGeneration {
   complete(): void {
     const next = CampaignStatusVO.completed();
     if (!this._status.canTransitionTo(next)) {
-      throw new InvalidCampaignStatusTransitionException(this.status, next.value);
+      throw new InvalidCampaignStatusTransitionException(
+        this.status,
+        next.value,
+      );
     }
 
     const hasFailures = this._stageResults.some((r) => r.isFailure());
@@ -272,7 +281,9 @@ export class CampaignGeneration {
 
   // ─── Reconstruction ─────────────────────────────────────────────────────────
 
-  static reconstitute(props: CampaignGenerationProps & { id: string }): CampaignGeneration {
+  static reconstitute(
+    props: CampaignGenerationProps & { id: string },
+  ): CampaignGeneration {
     return new CampaignGeneration(
       props.id,
       props.userId,

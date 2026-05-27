@@ -51,9 +51,7 @@ function mockConfig(overrides: Record<string, unknown> = {}): ConfigService {
     ...overrides,
   };
   return {
-    get: jest.fn(
-      (k: string, dflt?: unknown) => (k in env ? env[k] : dflt),
-    ),
+    get: jest.fn((k: string, dflt?: unknown) => (k in env ? env[k] : dflt)),
     getOrThrow: jest.fn((k: string) => {
       if (!(k in env)) throw new Error(`missing ${k}`);
       return env[k];
@@ -97,11 +95,14 @@ describe('R2BackupStorageAdapter', () => {
       sizeBytes: 100,
     });
 
-    expect(objectKey).toMatch(
-      /^backups\/\d{4}\/\d{2}\/\d{2}\/backup-1\.dump$/,
-    );
+    expect(objectKey).toMatch(/^backups\/\d{4}\/\d{2}\/\d{2}\/backup-1\.dump$/);
     const putCall = sendMock.mock.calls[0]![0] as {
-      input: { Bucket: string; Key: string; ContentLength: number; CacheControl: string };
+      input: {
+        Bucket: string;
+        Key: string;
+        ContentLength: number;
+        CacheControl: string;
+      };
     };
     expect(putCall.input.Bucket).toBe('shared-bucket');
     expect(putCall.input.Key).toBe(objectKey);

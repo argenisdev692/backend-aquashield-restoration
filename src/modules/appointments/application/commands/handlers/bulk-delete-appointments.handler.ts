@@ -15,9 +15,7 @@ import { ClsService } from 'nestjs-cls';
 
 @Injectable()
 @CommandHandler(BulkDeleteAppointmentsCommand)
-export class BulkDeleteAppointmentsHandler
-  implements ICommandHandler<BulkDeleteAppointmentsCommand>
-{
+export class BulkDeleteAppointmentsHandler implements ICommandHandler<BulkDeleteAppointmentsCommand> {
   private static readonly CACHE_PATTERN = 'http:*:/appointments*';
 
   constructor(

@@ -30,9 +30,7 @@ const CSV_HEADERS = [
 ] as const;
 
 @QueryHandler(ExportContactSupportQuery)
-export class ExportContactSupportHandler
-  implements IQueryHandler<ExportContactSupportQuery>
-{
+export class ExportContactSupportHandler implements IQueryHandler<ExportContactSupportQuery> {
   constructor(
     @Inject(CONTACT_SUPPORT_REPOSITORY)
     private readonly repo: IContactSupportRepository,
@@ -59,9 +57,7 @@ export class ExportContactSupportHandler
     });
 
     const { buffer, filename, contentType } =
-      query.format === 'pdf'
-        ? await this.buildPdf(rows)
-        : this.buildCsv(rows);
+      query.format === 'pdf' ? await this.buildPdf(rows) : this.buildCsv(rows);
 
     await this.audit.log({
       action: 'contact_support.export',
@@ -83,7 +79,9 @@ export class ExportContactSupportHandler
     return { buffer, filename, contentType };
   }
 
-  private buildCsv(rows: ContactSupportReadModel[]): ExportContactSupportResult {
+  private buildCsv(
+    rows: ContactSupportReadModel[],
+  ): ExportContactSupportResult {
     const header = CSV_HEADERS.join(',');
     const body = rows
       .map((r) =>
@@ -105,9 +103,13 @@ export class ExportContactSupportHandler
           .join(','),
       )
       .join('\r\n');
-    const csv = body.length === 0 ? `${header}\r\n` : `${header}\r\n${body}\r\n`;
+    const csv =
+      body.length === 0 ? `${header}\r\n` : `${header}\r\n${body}\r\n`;
     // UTF-8 BOM so Excel auto-detects the encoding.
-    const buffer = Buffer.concat([Buffer.from([0xef, 0xbb, 0xbf]), Buffer.from(csv, 'utf8')]);
+    const buffer = Buffer.concat([
+      Buffer.from([0xef, 0xbb, 0xbf]),
+      Buffer.from(csv, 'utf8'),
+    ]);
     return {
       buffer,
       filename: `contact-support-${this.timestamp()}.csv`,
@@ -144,11 +146,9 @@ export class ExportContactSupportHandler
         doc.fontSize(11).text('No rows to export.');
       } else {
         for (const r of rows) {
-          doc
-            .fontSize(11)
-            .text(`${r.firstName} ${r.lastName}  <${r.email}>`, {
-              continued: false,
-            });
+          doc.fontSize(11).text(`${r.firstName} ${r.lastName}  <${r.email}>`, {
+            continued: false,
+          });
           doc
             .fontSize(9)
             .fillColor('#475569')

@@ -2,7 +2,10 @@ import { Test, TestingModule } from '@nestjs/testing';
 import { getQueueToken } from '@nestjs/bullmq';
 import { GeneratePostPreviewHandler } from '../../../application/commands/handlers/generate-post-preview.handler';
 import { GeneratePostPreviewCommand } from '../../../application/commands/generate-post-preview.command';
-import { CACHE_PORT, type ICachePort } from '../../../../../shared/cache/cache.port';
+import {
+  CACHE_PORT,
+  type ICachePort,
+} from '../../../../../shared/cache/cache.port';
 import { MESSAGING_REDIS_CONNECTION } from '../../../../../shared/messaging/messaging.constants';
 import { QUEUE_NAMES } from '../../../../../shared/messaging/queues.constants';
 import { LoggerService } from '../../../../../logger/logger.service';
@@ -67,7 +70,10 @@ describe('GeneratePostPreviewHandler', () => {
       providers: [
         GeneratePostPreviewHandler,
         { provide: CACHE_PORT, useValue: mockCache },
-        { provide: getQueueToken(QUEUE_NAMES.AI_GENERATION), useValue: mockQueue },
+        {
+          provide: getQueueToken(QUEUE_NAMES.AI_GENERATION),
+          useValue: mockQueue,
+        },
         {
           provide: MESSAGING_REDIS_CONNECTION,
           useValue: { on: jest.fn(), off: jest.fn() }, // minimal ioredis mock for QueueEvents

@@ -1,10 +1,12 @@
 # BACKEND-NEST.md — NestJS 11 · TypeScript 5.x · Enterprise Backend (2026)
 
 > **Authority**: SINGLE SOURCE OF TRUTH for all NestJS/TypeScript rules, patterns, naming, testing, logging, cache, and exports.
-> **Pattern**: Hexagonal Architecture + DDD + CQRS — CommandBus/QueryBus dispatch (`@nestjs/cqrs`), Port/Adapter, Domain Events via EventEmitter2.
-> **For directory trees and bounded context structure → see `.windsurf/skills/ARCHITECTURE-NEST/SKILL.md`.**
+> **Pattern (default)**: Service/Repository for flat CRUD (SIMPLE / DEFAULT tiers). Hexagonal + DDD + UseCase pattern for ENTERPRISE tier, with Domain Events via `EventEmitter2`.
+> **CQRS (`@nestjs/cqrs`)**: installed but **OPT-IN per bounded context**. `CommandBus` / `QueryBus` / `EventBus` are NOT the default — they require an explicit, documented decision. The Command/Query handler examples below are reference material for the opt-in case; the default Hex/DDD shape is one `@Injectable()` UseCase per operation with a single `execute()` method (see `.windsurf/skills/ARCHITECTURE-ENTERPRISE/SKILL.md`).
+> **For directory trees and bounded context structure → see `.windsurf/skills/ARCHITECTURE-DECISION-GUIDE.md`.**
+> **For Service/Repository DRY patterns (findOrFail, singleton, repo return rules) → see `.windsurf/skills/BACKEND-NEST-PATTERNS/SKILL.md`.**
 > **Security baseline → see `.windsurf/skills/OWASP/SKILL.md` and apply it to every endpoint, use case, adapter, and external integration.**
-> **Stack**: NestJS 11.1.x · Prisma 7.x (`prisma-client` generator + `@prisma/adapter-pg`) · Zod 4.x · nestjs-cls 6.x · cockatiel 3.x · BullMQ 5.x · @nestjs/event-emitter 3.x · @nestjs/cqrs 11.x
+> **Stack**: NestJS 11.1.x · Prisma 7.x (`prisma-client` generator + `@prisma/adapter-pg`) · Zod 4.x · nestjs-cls 6.x · cockatiel 3.x · BullMQ 5.x · @nestjs/event-emitter 3.x · @nestjs/cqrs 11.x (opt-in)
 
 ---
 
@@ -20,7 +22,7 @@
 - `@nestjs/config 4.0` — minor breaking changes.
 - `@nestjs/bullmq` — native BullMQ v5 support (Redis Streams, job priorities, rate limits).
 - Socket.io v4 + `@socket.io/redis-adapter` v8 for multi-instance pub/sub.
-- `@nestjs/cqrs` v11 — **adopted for ALL Hex/DDD modules**. Controllers dispatch via `CommandBus`/`QueryBus`. Command/Query Handlers replace the old Use Case `@Injectable()` pattern. Domain Events still use `EventEmitter2` (not CQRS `EventBus`). CRUD modules do NOT use CQRS.
+- `@nestjs/cqrs` v11 — **available but OPT-IN per bounded context**. Default Hex/DDD shape is one `@Injectable()` UseCase per operation (`application/use-cases/{verb}-{module}.use-case.ts`) with a single `execute()` method, called directly by the controller. Modules MAY adopt `CommandBus`/`QueryBus` when there is a documented reason (e.g. saga orchestration, multiple handlers per command). Domain Events always use `EventEmitter2` (never CQRS `EventBus`). CRUD modules (SIMPLE / DEFAULT) do NOT use CQRS.
 
 ---
 
@@ -37,9 +39,68 @@
 
 ## §1 — TypeScript Patterns (Required)
 
-### CQRS — Command & Query Handlers (Hex/DDD modules)
+### UseCase pattern (default for Hex/DDD — ENTERPRISE tier)
 
-Every write operation is a **Command** dispatched via `CommandBus`. Every read operation is a **Query** dispatched via `QueryBus`. Handlers implement `ICommandHandler<T>` or `IQueryHandler<T>` from `@nestjs/cqrs`.
+Every Hex/DDD module's `application/` layer exposes one `@Injectable()` UseCase per operation, each with a single `execute()` method. Controllers inject the UseCases directly. This is the default — `CommandBus`/`QueryBus` are NOT used unless the bounded context has a documented reason (see "CQRS (opt-in)" below).
+
+```typescript
+// application/use-cases/create-project.use-case.ts
+@Injectable()
+export class CreateProjectUseCase {
+  constructor(
+    @Inject(PROJECT_REPOSITORY) private readonly repo: IProjectRepository,
+    @Inject(AUDIT_PORT) private readonly audit: IAuditPort,
+    private readonly logger: LoggerService,
+    private readonly cls: ClsService,
+    private readonly eventEmitter: EventEmitter2,
+  ) {}
+
+  @Transactional()
+  async execute(dto: CreateProjectDto): Promise<string> {
+    const traceId = this.cls.get<string>('traceId');
+    this.logger.info('CreateProjectUseCase.execute start', { traceId });
+
+    const project = Project.create(dto);
+    await this.repo.save(project);
+
+    await this.audit.log(
+      { action: 'projects.created', actorId: dto.actorId, resourceId: project.id.value },
+      { strict: true },
+    );
+
+    this.eventEmitter.emit('project.created', new ProjectCreatedEvent(project.id.value));
+
+    this.logger.info('CreateProjectUseCase.execute end', { traceId, projectId: project.id.value });
+    return project.id.value;
+  }
+}
+
+// infrastructure/api/controllers/projects.controller.ts
+@Controller('projects')
+@UseGuards(JwtAuthGuard, CaslGuard)
+export class ProjectsController {
+  constructor(
+    private readonly createUseCase: CreateProjectUseCase,
+    private readonly getUseCase: GetProjectByIdUseCase,
+  ) {}
+
+  @Post()
+  @CheckAbilities({ action: Action.Create, subject: 'PROJECT' })
+  async create(
+    @Body(new ZodValidationPipe(CreateProjectSchema)) dto: CreateProjectDto,
+    @CurrentUser() user: UserJwtPayload,
+  ): Promise<{ id: string }> {
+    const id = await this.createUseCase.execute({ ...dto, actorId: user.id });
+    return { id };
+  }
+}
+```
+
+### CQRS (opt-in) — Command & Query Handlers
+
+> **OPT-IN PATTERN.** Only adopt this when the bounded context has a documented justification (saga orchestration, multiple handlers per command, decoupled write/read models). For all other Hex/DDD modules use the UseCase pattern above. CRUD modules (SIMPLE / DEFAULT) NEVER use CQRS.
+
+When CQRS is justified, write operations become **Commands** dispatched via `CommandBus` and reads become **Queries** dispatched via `QueryBus`. Handlers implement `ICommandHandler<T>` or `IQueryHandler<T>` from `@nestjs/cqrs`.
 
 #### Command (payload class — plain TS, no NestJS deps)
 
@@ -420,7 +481,9 @@ async execute(dto: CreateProjectDto, traceId: string): Promise<string>
 
 ---
 
-## §2 — CQRS Handler Rules (Hex/DDD modules)
+## §2 — UseCase & (opt-in) CQRS Handler Rules (Hex/DDD modules)
+
+> The rules below apply to BOTH the default UseCase pattern AND the opt-in CQRS Command/Query handlers — replace "Handler" with "UseCase" when reading them in a non-CQRS module. CRUD modules (SIMPLE / DEFAULT) are out of scope; their mutation contract lives in `.windsurf/skills/ARCHITECTURE-DEFAULT/SKILL.md` (Canonical Mutation Pattern).
 
 ### Command Handlers (write logic)
 
@@ -480,7 +543,7 @@ export class ApproveProjectHandler implements ICommandHandler<ApproveProjectComm
 }
 ```
 
-> This is the **canonical CommandHandler example for the whole repo**. The 6-step Canonical Mutation Pattern (load → mutate → save → audit → cache → emit) is detailed in `.windsurf/skills/ARCHITECTURE-NEST/SKILL.md § Canonical Mutation Pattern`. Bulk variant: see § "Bulk Delete / Bulk Restore (Hex/DDD)" in the same file.
+> This is the **canonical CommandHandler example for the whole repo**. The 6-step Canonical Mutation Pattern (load → mutate → save → audit → cache → emit) is detailed in `.windsurf/skills/ARCHITECTURE-ENTERPRISE/SKILL.md`. Bulk variant: see § "Bulk Delete / Bulk Restore (Hex/DDD)" in the same file.
 
 ### Query Handlers (read logic)
 
@@ -675,7 +738,7 @@ await Promise.all(ids.map((id) => this.prisma.widget.update({ where: { id }, dat
 await this.prisma.widget.updateMany({ where: { id: { in: ids } }, data });
 ```
 
-> Bulk delete / bulk restore endpoints (`POST /{module}/bulk-delete` and `bulk-restore`) are the canonical application of this rule — see `.windsurf/skills/ARCHITECTURE-NEST-CRUD/SKILL.md` § "Bulk Delete / Bulk Restore" and the matching Hex/DDD section. **One** `updateMany` / `deleteMany` per call — never a loop.
+> Bulk delete / bulk restore endpoints (`POST /{module}/bulk-delete` and `bulk-restore`) are the canonical application of this rule — see `.windsurf/skills/ARCHITECTURE-SIMPLE/SKILL.md` § "Bulk Delete / Bulk Restore (flat CRUD)" and `.windsurf/skills/ARCHITECTURE-ENTERPRISE/SKILL.md` for the Hex/DDD variant. **One** `updateMany` / `deleteMany` per call — never a loop.
 
 ### Rule 2 — Eager-load relations with `include` / `select` (no implicit lazy loading)
 
@@ -1196,7 +1259,7 @@ GET /projects/export?format=xlsx
 | Security        | `helmet`, `csrf-csrf`, `sanitize-html`, `hpp`                                | latest        |
 | Throttling      | `@nestjs/throttler`                                                          | ^6.5.x        |
 
-> ✅ `@nestjs/cqrs` v11 — **adopted for ALL Hex/DDD modules**. `CommandBus`/`QueryBus` dispatch in controllers. `EventEmitter2` remains for domain events. CRUD modules do NOT use CQRS — they keep the Service/Repository pattern.
+> ✅ `@nestjs/cqrs` v11 — **available but OPT-IN per bounded context**. Default Hex/DDD shape: one `@Injectable()` UseCase per operation, controllers inject UseCases directly. Adopt `CommandBus`/`QueryBus` only with a documented justification per bounded context. `EventEmitter2` remains the channel for domain events. CRUD modules (SIMPLE / DEFAULT) do NOT use CQRS — they keep the Service/Repository pattern.
 
 ---
 

@@ -10,6 +10,8 @@ export const ExportSocialMediaSchema = z.object({
   to: z.string().datetime().optional(),
 });
 
-export class ExportSocialMediaDto extends createZodDto(ExportSocialMediaSchema) {}
+export class ExportSocialMediaDto extends createZodDto(
+  ExportSocialMediaSchema,
+) {}
 
 export type ExportSocialMediaInput = z.infer<typeof ExportSocialMediaSchema>;

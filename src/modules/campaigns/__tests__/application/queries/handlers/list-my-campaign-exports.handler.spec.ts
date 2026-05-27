@@ -23,7 +23,9 @@ describe('ListMyCampaignExportsHandler', () => {
   });
 
   it('should NOT call audit.log (read path)', async () => {
-    await handler.execute(new ListMyCampaignExportsQuery('user-1', { limit: 10, offset: 0 }));
+    await handler.execute(
+      new ListMyCampaignExportsQuery('user-1', { limit: 10, offset: 0 }),
+    );
 
     expect(campaignRepo.findByUserId).toHaveBeenCalledWith('user-1', {
       limit: 10,
@@ -37,7 +39,9 @@ describe('ListMyCampaignExportsHandler', () => {
   });
 
   it('should return empty array when no exports exist', async () => {
-    const result = await handler.execute(new ListMyCampaignExportsQuery('user-1'));
+    const result = await handler.execute(
+      new ListMyCampaignExportsQuery('user-1'),
+    );
 
     expect(result).toEqual([]);
   });
@@ -57,7 +61,9 @@ describe('ListMyCampaignExportsHandler', () => {
     };
     campaignRepo.findByUserId.mockResolvedValue([mockAggregate]);
 
-    const result = await handler.execute(new ListMyCampaignExportsQuery('user-1'));
+    const result = await handler.execute(
+      new ListMyCampaignExportsQuery('user-1'),
+    );
 
     expect(result).toHaveLength(1);
     expect(result[0]).toEqual({

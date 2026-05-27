@@ -31,9 +31,9 @@ export function resolveTrashedMode(params: {
  *
  *   const where = { ...buildTrashedWhere(mode), email: 'a@b.c' };
  */
-export function buildTrashedWhere(
-  mode: TrashedMode,
-): { deletedAt?: null | { not: null } } {
+export function buildTrashedWhere(mode: TrashedMode): {
+  deletedAt?: null | { not: null };
+} {
   switch (mode) {
     case 'include':
       return {};
@@ -89,7 +89,10 @@ export function rejectBothTrashedFlags(data: {
   return !(data.withTrashed && data.onlyTrashed);
 }
 
-export const BOTH_TRASHED_FLAGS_ERROR: { message: string; path: PropertyKey[] } = {
+export const BOTH_TRASHED_FLAGS_ERROR: {
+  message: string;
+  path: PropertyKey[];
+} = {
   message: 'Use either withTrashed or onlyTrashed, not both',
   path: ['onlyTrashed'],
 };

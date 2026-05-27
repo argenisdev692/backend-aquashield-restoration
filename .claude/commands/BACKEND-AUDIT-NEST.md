@@ -6,12 +6,15 @@ description: Audits a NestJS 11 / TypeScript module against architecture, securi
 
 ## PHASE 0 — DETECT ARCHITECTURE (decide which checklist applies)
 
-Before auditing, classify the module into exactly ONE layout and audit it ONLY against that layout's rules:
+Before auditing, classify the module into exactly ONE of THREE layouts and audit it ONLY against that layout's rules. Use `.claude/skills/ARCHITECTURE-DECISION-GUIDE.md` for the canonical decision matrix.
 
-- **Flat CRUD (simple)** — files are `{module}.module/controller/service/repository/entity.ts` + `dto/`, NO `domain/ application/ infrastructure/` folders, NO `CommandBus`/`QueryBus`. → Audit against `.claude/skills/ARCHITECTURE-NEST-CRUD/SKILL.md` + `.claude/skills/BACKEND-NEST-PATTERNS/SKILL.md`. Skip every section tagged **[FULL Hex/DDD ONLY]**.
-- **Hex/DDD (full)** — module has `domain/ application/ infrastructure/` and dispatches via `CommandBus`/`QueryBus`. → Audit against `.claude/skills/ARCHITECTURE-NEST/SKILL.md`. Apply the **[FULL Hex/DDD ONLY]** sections; skip **[FLAT CRUD ONLY]**.
+- **SIMPLE — flat lookup/config** — files are `{module}.module/controller/service/repository/entity.ts` + `dto/`, NO `domain/ application/ infrastructure/` folders, NO `CommandBus`/`QueryBus`, NO cache/audit/exports/bulk operations, ≤5 fields. → Audit against `.claude/skills/ARCHITECTURE-SIMPLE/SKILL.md` + `.claude/skills/BACKEND-NEST-PATTERNS/SKILL.md`. Apply **[FLAT CRUD ONLY]** + **[SIMPLE ONLY]**; skip **[DEFAULT ONLY]** and **[FULL Hex/DDD ONLY]**.
+- **DEFAULT — flat CRUD with business logic** — same flat folder shape as SIMPLE PLUS the Canonical Mutation Pattern (tx + audit + cache), bulk delete/restore, soft-delete visibility, exports, optional users/auth response shape. 10–12 files. → Audit against `.claude/skills/ARCHITECTURE-DEFAULT/SKILL.md` + `.claude/skills/BACKEND-NEST-PATTERNS/SKILL.md`. Apply **[FLAT CRUD ONLY]** + **[DEFAULT ONLY]**; skip **[SIMPLE ONLY]** and **[FULL Hex/DDD ONLY]**.
+- **ENTERPRISE — Hex/DDD (full)** — module has `domain/ application/ infrastructure/` with UseCases (or opt-in `CommandBus`/`QueryBus`). → Audit against `.claude/skills/ARCHITECTURE-ENTERPRISE/SKILL.md`. Apply **[FULL Hex/DDD ONLY]**; skip every **[FLAT CRUD …]** tag.
 
-State the detected layout at the top of the report. A module that mixes both layouts is an automatic ❌ FAIL (`backend-nest.md` forbids mixing styles in one module). Sections tagged **[ALL]** apply to every module regardless of layout.
+State the detected layout (SIMPLE / DEFAULT / ENTERPRISE) at the top of the report. A module that mixes layouts is an automatic ❌ FAIL (`backend-nest.md` forbids mixing styles in one module). Sections tagged **[ALL]** apply to every module regardless of layout.
+
+> **Note on `[FULL Hex/DDD ONLY]` CQRS items.** Hex/DDD modules default to the UseCase pattern (one `@Injectable()` per operation, controller injects UseCase directly). `CommandBus`/`QueryBus` are OPT-IN per bounded context. CQRS-specific checklist lines (`@CommandHandler`, `@QueryHandler`, `CommandBus` dispatch) are ✅ N/A for a UseCase-pattern module — replace "Handler" with "UseCase" and verify the equivalent rule.
 
 ---
 
@@ -37,17 +40,17 @@ For each item mark ✅ PASS, ❌ FAIL (with `file:line` and brief description), 
 - [ ] Every public method has an explicit return type annotation
 - [ ] No `as any` or `as unknown as X` casts without justification comment
 
-**Use Case / CQRS Handler Structure — [FULL Hex/DDD ONLY] (BACKEND-NEST.md §2)**
+**Use Case (or opt-in CQRS Handler) Structure — [FULL Hex/DDD ONLY] (BACKEND-NEST.md §2)**
 
-- [ ] Every write operation lives in a dedicated UseCase class in `application/use-cases/`
-- [ ] Every read operation lives in a dedicated UseCase class in `application/use-cases/`
+- [ ] Every write operation lives in a dedicated UseCase class in `application/use-cases/` (or, if CQRS is opted into, a `@CommandHandler` in `application/commands/handlers/`)
+- [ ] Every read operation lives in a dedicated UseCase class in `application/use-cases/` (or `@QueryHandler` if CQRS is opted into)
 - [ ] Every UseCase is `@Injectable()` with a single `execute()` method
 - [ ] Write UseCases return `void` or scalar ID — never full entities or read models
 - [ ] Read UseCases NEVER call `IAuditPort.log()`
-- [ ] All UseCases registered in `providers[]` of their module
-- [ ] `@nestjs/cqrs` is installed but NOT imported in any module by default — if a Use Case imports `CommandBus`/`QueryBus`/`EventBus`, the PR must include an explicit justification per bounded context
+- [ ] All UseCases (or Handlers) registered in `providers[]` of their module
+- [ ] `@nestjs/cqrs` is installed but OPT-IN per bounded context — if a UseCase imports `CommandBus`/`QueryBus`/`EventBus`, the module README/comment must include an explicit justification (saga, multiple handlers, etc.). Otherwise controllers inject UseCases directly
 
-**Architecture — Hexagonal layering — [FULL Hex/DDD ONLY] (`.claude/skills/ARCHITECTURE-NEST/SKILL.md`)**
+**Architecture — Hexagonal layering — [FULL Hex/DDD ONLY] (`.claude/skills/ARCHITECTURE-ENTERPRISE/SKILL.md`)**
 
 - [ ] Module lives in `src/modules/{name}/` with `domain/`, `application/`, `infrastructure/`
 - [ ] `domain/` has ZERO imports from NestJS, Prisma (`@prisma/client` or generated client), or any `infrastructure/` file
@@ -60,7 +63,7 @@ For each item mark ✅ PASS, ❌ FAIL (with `file:line` and brief description), 
 - [ ] Domain events are plain TS classes in `domain/events/` — no framework dependency
 - [ ] Event listeners live in `infrastructure/event-listeners/` with `@OnEvent()`
 
-**Flat CRUD Architecture — [FLAT CRUD ONLY] (`.claude/skills/ARCHITECTURE-NEST-CRUD/SKILL.md` + `BACKEND-NEST-PATTERNS`)**
+**Flat CRUD Architecture — [FLAT CRUD ONLY] (`.claude/skills/ARCHITECTURE-SIMPLE/SKILL.md` + `BACKEND-NEST-PATTERNS`)**
 
 - [ ] Files limited to `{module}.module/controller/service/repository/entity.ts` + `dto/` (optional `{module}.gateway.ts`)
 - [ ] NO `domain/ application/ infrastructure/` folders, NO `*.command.ts` / `*.handler.ts`
@@ -75,15 +78,34 @@ For each item mark ✅ PASS, ❌ FAIL (with `file:line` and brief description), 
 - [ ] Storage/file deletion wrapped in try-catch that logs but never rethrows (PATTERNS #4)
 - [ ] No Service method exceeds ~20 lines of business logic (else flag as upgrade trigger to Hex/DDD)
 - [ ] Service does NOT catch `P2025` to fake `NotFoundException` — uses `findOrFail` pre-check (PATTERNS)
+- [ ] **[SIMPLE ONLY]** No `@CacheTTL`, no `IAuditPort`, no bulk endpoints, no soft-delete visibility, no exports (any of those is an upgrade trigger to DEFAULT)
+- [ ] **[SIMPLE ONLY]** Module has ≤5 fields and no business logic beyond "validate + save" (else upgrade to DEFAULT)
 
-**DDD / Hexagonal / CQRS conventions — [FULL Hex/DDD ONLY] (`ARCHITECTURE-NEST` + BACKEND-NEST.md §1–§3)**
+**DEFAULT Canonical Mutation Pattern & extras — [DEFAULT ONLY] (`.claude/skills/ARCHITECTURE-DEFAULT/SKILL.md`)**
+
+- [ ] Canonical Mutation Pattern applied all-or-nothing: every state-mutating method runs `findOrFail` → `runInTx { repo.write + audit.log({..}, { strict: true }) }` → `cache.delByPattern(...)` → logger.info end
+- [ ] `audit.log` calls use `, { strict: true }` so audit failures abort the tx (read paths and login audit keep `strict: false`)
+- [ ] Cache key pattern mirrors the `CacheTtlInterceptor` scheme: `http:*:/{controller-route}*`
+- [ ] Side-effects (R2 cleanup, email, websocket emit, `eventEmitter.emit`) live OUTSIDE the `runInTx` block
+- [ ] R2 + DB compound writes: upload first → tx → on tx failure best-effort delete the new blob → delete the OLD blob only after tx commits
+- [ ] Bulk endpoints: `POST /{module}/bulk-delete` and `bulk-restore` use ONE `updateMany`/`deleteMany`, ONE audit row (`{module}.bulk_deleted`), ONE `cache.delByPattern`, return `200 { count }`, `ids[]` capped at `max(100)` (OWASP API #4)
+- [ ] Bulk-restore route gated by `Action.Restore` (distinct from `Action.Delete`)
+- [ ] Soft-delete visibility: list / single-get / export routes accept `withTrashed` + `onlyTrashed` via `trashedFlagsShape` + `rejectBothTrashedFlags` from `shared/crud/trashed.util.ts`; both true → 400
+- [ ] `?onlyTrashed=true` (or `/trash` route) gated by `Action.Restore`, not `Action.Read`
+- [ ] Response DTO exposes `deletedAt: string | null` whenever the entity is soft-delete-aware
+- [ ] Identity routes (`/auth/me`, `GET /users`, `GET /users/:id`, `POST /users`, `PATCH /users/:id`) emit `roles[]` + flattened deduped `permissions[]` (empty arrays, never `null`); token endpoints (`/auth/login`, `/auth/refresh`) do NOT
+- [ ] `passwordHash`, `totpSecret`, `backupCodes`, `mfaSecret`, refresh/session tokens NEVER appear in user projections
+- [ ] `/auth/me` uses `@SkipCache()` or per-user TTL ≤ 60s; every ACL mutation `cache.delByPattern`s both `http:*:/users*` AND `http:*:/auth/me*`
+- [ ] Export route: registered BEFORE `GET /:id`, `@SkipCache()`, audited with `{module}.export`, reuses the list FilterDTO
+
+**DDD / Hexagonal / UseCase (or opt-in CQRS) conventions — [FULL Hex/DDD ONLY] (`ARCHITECTURE-ENTERPRISE` + BACKEND-NEST.md §1–§3)**
 
 - [ ] `domain/entities/{module}.aggregate.ts` is a rich aggregate (private state, static `create()`, behavior, invariants) — NOT an anemic data interface
 - [ ] Invariants live in the Aggregate / Value Objects — VOs use private constructor + static `create()` with validation
 - [ ] No business logic leaked into Controller, Handler, or Repository — it belongs in the Aggregate/VO
 - [ ] Hexagonal dependency rule holds: `domain/` → nothing; `application/` → only `domain/` + ports; `infrastructure/` → implements ports
 - [ ] Ports are `I`-prefixed interfaces in `domain/ports/`, bound via Symbol tokens in the module
-- [ ] CQRS: writes are `@CommandHandler`, reads are `@QueryHandler`; Controller dispatches via `CommandBus`/`QueryBus` and never injects handlers
+- [ ] Default UseCase shape: every operation is an `@Injectable()` UseCase with a single `execute()` method; Controller injects UseCases directly (no `CommandBus`/`QueryBus`). If the module opted into CQRS, the equivalent rule is: writes are `@CommandHandler`, reads are `@QueryHandler`, Controller dispatches via `CommandBus`/`QueryBus` and the opt-in justification is documented in the module
 - [ ] Command/Query payload classes are plain TS (no NestJS/infra imports)
 - [ ] Domain events are plain TS classes, emitted via `EventEmitter2` AFTER `repo.save()` — never `@nestjs/cqrs` `EventBus`, never before save
 - [ ] Mapper is the ONLY Aggregate ↔ Prisma-row ↔ ReadModel contact point

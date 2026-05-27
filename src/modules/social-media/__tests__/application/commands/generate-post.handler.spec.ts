@@ -41,7 +41,10 @@ describe('GeneratePostHandler', () => {
 
   it('enqueues the generation job via the port and returns job descriptor', async () => {
     const dto = {
-      topic: { title: 'Test Topic', description: 'Test description for the topic' },
+      topic: {
+        title: 'Test Topic',
+        description: 'Test description for the topic',
+      },
       networks: { linkedin: true },
       language: 'es',
     };

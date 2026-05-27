@@ -29,9 +29,7 @@ import { ChangePasswordCommand } from '../change-password.command';
 const INVALID_MSG = 'Invalid or expired change password token';
 
 @CommandHandler(ChangePasswordCommand)
-export class ChangePasswordHandler
-  implements ICommandHandler<ChangePasswordCommand>
-{
+export class ChangePasswordHandler implements ICommandHandler<ChangePasswordCommand> {
   constructor(
     @Inject(USER_REPOSITORY)
     private readonly userRepo: IUserRepository,

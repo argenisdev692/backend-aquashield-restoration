@@ -56,7 +56,9 @@ export class BulkRestorePostsHandler implements ICommandHandler<BulkRestorePosts
     return result;
   }
 
-  private async persist(command: BulkRestorePostsCommand): Promise<{ count: number }> {
+  private async persist(
+    command: BulkRestorePostsCommand,
+  ): Promise<{ count: number }> {
     const { ids, actorId } = command;
 
     const result = await this.repo.bulkRestore(ids);

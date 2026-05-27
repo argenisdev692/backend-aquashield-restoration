@@ -49,7 +49,8 @@ export class GeminiAiClient implements IAiClient, OnModuleInit {
       text: response.text ?? '',
       usage: {
         promptTokens: response.usageMetadata?.promptTokenCount ?? undefined,
-        completionTokens: response.usageMetadata?.candidatesTokenCount ?? undefined,
+        completionTokens:
+          response.usageMetadata?.candidatesTokenCount ?? undefined,
         totalTokens: response.usageMetadata?.totalTokenCount ?? undefined,
       },
     };

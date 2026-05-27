@@ -58,7 +58,10 @@ describe('BackupScheduler', () => {
     await scheduler.runDailyBackup();
 
     expect(cls.run).toHaveBeenCalledTimes(1);
-    expect(cls.set).toHaveBeenCalledWith('traceId', expect.stringMatching(/^cron-/));
+    expect(cls.set).toHaveBeenCalledWith(
+      'traceId',
+      expect.stringMatching(/^cron-/),
+    );
   });
 
   it('catches and logs handler errors so the scheduler process survives', async () => {

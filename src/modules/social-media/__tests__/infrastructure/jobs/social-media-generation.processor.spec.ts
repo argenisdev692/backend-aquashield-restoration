@@ -20,7 +20,11 @@ describe('SocialMediaGenerationProcessor', () => {
 
   beforeEach(async () => {
     mockGenerator = { generatePosts: jest.fn().mockResolvedValue({}) };
-    mockRepo = { save: jest.fn().mockResolvedValue({ id: 'gen-123', createdAt: new Date() }) };
+    mockRepo = {
+      save: jest
+        .fn()
+        .mockResolvedValue({ id: 'gen-123', createdAt: new Date() }),
+    };
     mockAudit = { log: jest.fn() };
     mockCache = { delByPattern: jest.fn() };
     mockStorage = { upload: jest.fn() };
@@ -28,7 +32,10 @@ describe('SocialMediaGenerationProcessor', () => {
     const module: TestingModule = await Test.createTestingModule({
       providers: [
         SocialMediaGenerationProcessor,
-        { provide: TOPIC_FINDER_PORT, useValue: { findTrendingTopics: jest.fn() } },
+        {
+          provide: TOPIC_FINDER_PORT,
+          useValue: { findTrendingTopics: jest.fn() },
+        },
         { provide: POST_GENERATOR_PORT, useValue: mockGenerator },
         { provide: SOCIAL_MEDIA_REPOSITORY, useValue: mockRepo },
         { provide: AUDIT_PORT, useValue: mockAudit },

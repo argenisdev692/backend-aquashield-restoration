@@ -17,14 +17,18 @@ import { SocialMediaMapper } from '../mappers/social-media.mapper';
 export class PrismaSocialMediaRepository implements ISocialMediaRepository {
   constructor(private readonly prisma: PrismaService) {}
 
-  async save(aggregate: SocialMediaGenerationAggregate): Promise<SocialMediaGeneration> {
+  async save(
+    aggregate: SocialMediaGenerationAggregate,
+  ): Promise<SocialMediaGeneration> {
     const snapshot = aggregate.toSnapshot();
     const data = SocialMediaMapper.toPersistence(snapshot);
     const created = await this.prisma.socialMediaGeneration.create({ data });
     return SocialMediaMapper.toDomain(created);
   }
 
-  async update(aggregate: SocialMediaGenerationAggregate): Promise<SocialMediaGeneration> {
+  async update(
+    aggregate: SocialMediaGenerationAggregate,
+  ): Promise<SocialMediaGeneration> {
     const snapshot = aggregate.toSnapshot();
     const data = SocialMediaMapper.toUpdate(snapshot);
     const updated = await this.prisma.socialMediaGeneration.update({

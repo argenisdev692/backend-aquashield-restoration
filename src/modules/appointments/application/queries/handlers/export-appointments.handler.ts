@@ -78,9 +78,7 @@ function toRow(r: AppointmentReadModel): Row {
 
 @Injectable()
 @QueryHandler(ExportAppointmentsQuery)
-export class ExportAppointmentsHandler
-  implements IQueryHandler<ExportAppointmentsQuery>
-{
+export class ExportAppointmentsHandler implements IQueryHandler<ExportAppointmentsQuery> {
   constructor(
     @Inject(APPOINTMENT_REPOSITORY)
     private readonly repo: IAppointmentRepository,
@@ -150,7 +148,8 @@ export class ExportAppointmentsHandler
         return COLUMNS.map((c) => csvEscape(row[c.key])).join(',');
       })
       .join('\r\n');
-    const csv = body.length === 0 ? `${header}\r\n` : `${header}\r\n${body}\r\n`;
+    const csv =
+      body.length === 0 ? `${header}\r\n` : `${header}\r\n${body}\r\n`;
     // UTF-8 BOM so Excel auto-detects the encoding.
     const buffer = Buffer.concat([
       Buffer.from([0xef, 0xbb, 0xbf]),

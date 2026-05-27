@@ -1,4 +1,8 @@
-import { SocialNetwork, GeneratedPost, GeneratedPostImage } from './social-media-generation.entity';
+import {
+  SocialNetwork,
+  GeneratedPost,
+  GeneratedPostImage,
+} from './social-media-generation.entity';
 import { SocialNetworkVO } from '../value-objects/social-network.vo';
 
 /**
@@ -77,13 +81,19 @@ export class SocialMediaGenerationAggregate {
       throw new SocialMediaGenerationDomainException('niche is required');
     }
     if (!params.topicTitle || params.topicTitle.trim().length < 3) {
-      throw new SocialMediaGenerationDomainException('topicTitle must be at least 3 characters');
+      throw new SocialMediaGenerationDomainException(
+        'topicTitle must be at least 3 characters',
+      );
     }
 
     // Invariant: at least one network must be selected
-    const activeNetworks = Object.entries(params.networks).filter(([, v]) => v === true);
+    const activeNetworks = Object.entries(params.networks).filter(
+      ([, v]) => v === true,
+    );
     if (activeNetworks.length === 0) {
-      throw new SocialMediaGenerationDomainException('At least one social network must be selected');
+      throw new SocialMediaGenerationDomainException(
+        'At least one social network must be selected',
+      );
     }
 
     const networksMap = new Map<SocialNetwork, boolean>();
@@ -206,7 +216,9 @@ export class SocialMediaGenerationAggregate {
    * Returns the list of active networks as value objects (for type-safe iteration).
    */
   getActiveNetworks(): SocialNetworkVO[] {
-    return Array.from(this._networks.keys()).map((n) => SocialNetworkVO.create(n));
+    return Array.from(this._networks.keys()).map((n) =>
+      SocialNetworkVO.create(n),
+    );
   }
 
   /**

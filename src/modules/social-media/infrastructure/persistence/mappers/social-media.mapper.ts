@@ -30,7 +30,8 @@ export class SocialMediaMapper {
       r2Key: row.r2Key,
       viralityScore: (row as any).viralityScore as number | null,
       roiScore: (row as any).roiScore as number | null,
-      aiDetectionScore: (row as any).aiDetectionScore as AiDetectionScore | null,
+      aiDetectionScore: (row as any)
+        .aiDetectionScore as AiDetectionScore | null,
       analysisReportKey: (row as any).analysisReportKey as string | null,
       analysisReportUrl: (row as any).analysisReportUrl as string | null,
       createdAt: row.createdAt,
@@ -52,8 +53,10 @@ export class SocialMediaMapper {
       r2Key: snapshot.r2Key ?? null,
       viralityScore: snapshot.viralityScore ?? null,
       roiScore: snapshot.roiScore ?? null,
-      aiDetectionScore: snapshot.aiDetectionScore 
-        ? (JSON.parse(JSON.stringify(snapshot.aiDetectionScore)) as Prisma.InputJsonValue)
+      aiDetectionScore: snapshot.aiDetectionScore
+        ? (JSON.parse(
+            JSON.stringify(snapshot.aiDetectionScore),
+          ) as Prisma.InputJsonValue)
         : null,
       analysisReportKey: snapshot.analysisReportKey ?? null,
       analysisReportUrl: snapshot.analysisReportUrl ?? null,
@@ -67,8 +70,10 @@ export class SocialMediaMapper {
     return {
       viralityScore: snapshot.viralityScore ?? null,
       roiScore: snapshot.roiScore ?? null,
-      aiDetectionScore: snapshot.aiDetectionScore 
-        ? (JSON.parse(JSON.stringify(snapshot.aiDetectionScore)) as Prisma.InputJsonValue)
+      aiDetectionScore: snapshot.aiDetectionScore
+        ? (JSON.parse(
+            JSON.stringify(snapshot.aiDetectionScore),
+          ) as Prisma.InputJsonValue)
         : null,
       analysisReportKey: snapshot.analysisReportKey ?? null,
       analysisReportUrl: snapshot.analysisReportUrl ?? null,

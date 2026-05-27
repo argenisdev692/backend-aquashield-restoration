@@ -64,9 +64,9 @@ describe('Backup aggregate', () => {
       sizeBytes: 1,
       checksum: 'c',
     });
-    expect(() =>
-      backup.markFailed({ error: 'too late' }),
-    ).toThrow(BackupAlreadyTerminalException);
+    expect(() => backup.markFailed({ error: 'too late' })).toThrow(
+      BackupAlreadyTerminalException,
+    );
   });
 
   it('isDownloadable requires both COMPLETED status and non-null objectKey', () => {

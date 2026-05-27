@@ -1,6 +1,9 @@
 import { Injectable } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
-import { IImageGeneratorPort, GenerateSceneImageInput } from '../../../domain/ports/image-generator.port';
+import {
+  IImageGeneratorPort,
+  GenerateSceneImageInput,
+} from '../../../domain/ports/image-generator.port';
 import { LoggerService } from '../../../../../logger/logger.service';
 
 /**

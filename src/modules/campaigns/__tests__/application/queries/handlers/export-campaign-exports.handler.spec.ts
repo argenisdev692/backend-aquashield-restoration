@@ -38,7 +38,9 @@ describe('ExportCampaignExportsHandler', () => {
 
   it('should produce CSV with BOM header', async () => {
     const dto = { format: 'csv' as const };
-    const result = await handler.execute(new ExportCampaignExportsQuery(dto, 'user-1'));
+    const result = await handler.execute(
+      new ExportCampaignExportsQuery(dto, 'user-1'),
+    );
 
     expect(result.contentType).toBe('text/csv; charset=utf-8');
     expect(result.buffer[0]).toBe(0xef);
@@ -49,7 +51,9 @@ describe('ExportCampaignExportsHandler', () => {
 
   it('should produce XLSX when format is xlsx', async () => {
     const dto = { format: 'xlsx' as const };
-    const result = await handler.execute(new ExportCampaignExportsQuery(dto, 'user-1'));
+    const result = await handler.execute(
+      new ExportCampaignExportsQuery(dto, 'user-1'),
+    );
 
     expect(result.contentType).toBe(
       'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
@@ -59,14 +63,21 @@ describe('ExportCampaignExportsHandler', () => {
 
   it('should produce PDF when format is pdf', async () => {
     const dto = { format: 'pdf' as const };
-    const result = await handler.execute(new ExportCampaignExportsQuery(dto, 'user-1'));
+    const result = await handler.execute(
+      new ExportCampaignExportsQuery(dto, 'user-1'),
+    );
 
     expect(result.contentType).toBe('application/pdf');
     expect(result.filename).toMatch(/^campaign-exports-.*\.pdf$/);
   });
 
   it('should pass filters to repository', async () => {
-    const dto = { format: 'csv' as const, status: 'completed' as const, from: '2025-01-01T00:00:00Z', to: '2025-06-01T00:00:00Z' };
+    const dto = {
+      format: 'csv' as const,
+      status: 'completed' as const,
+      from: '2025-01-01T00:00:00Z',
+      to: '2025-06-01T00:00:00Z',
+    };
     await handler.execute(new ExportCampaignExportsQuery(dto, 'user-1'));
 
     expect(campaignRepo.findForExport).toHaveBeenCalledWith('user-1', {

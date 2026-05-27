@@ -7,7 +7,9 @@ export interface SocialMediaTopic {
   trendScore: number; // 0-100
 }
 
-export function createSocialMediaTopic(input: Omit<SocialMediaTopic, 'id'>): SocialMediaTopic {
+export function createSocialMediaTopic(
+  input: Omit<SocialMediaTopic, 'id'>,
+): SocialMediaTopic {
   return {
     id: crypto.randomUUID(),
     title: input.title,

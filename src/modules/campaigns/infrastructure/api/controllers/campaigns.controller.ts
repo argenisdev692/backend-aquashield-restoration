@@ -93,7 +93,10 @@ export class CampaignsController {
   @ApiResponse({ status: 202, description: 'Export request accepted' })
   @ApiBadRequestResponse({ description: 'Validation failed' })
   @ApiResponse({ status: 401, description: 'Unauthorized' })
-  @ApiResponse({ status: 403, description: 'Forbidden — requires CAMPAIGN:export (super-admin only)' })
+  @ApiResponse({
+    status: 403,
+    description: 'Forbidden — requires CAMPAIGN:export (super-admin only)',
+  })
   @ApiResponse({ status: 429, description: 'Rate limit exceeded' })
   async requestExport(
     @Body(new ZodValidationPipe(RequestCampaignExportSchema))
@@ -113,18 +116,21 @@ export class CampaignsController {
   @Get('export/:id')
   @CacheTTL(TTL_SECONDS.SHORT)
   @CheckAbilities({ action: Action.Read, subject: 'CAMPAIGN' })
-  @ApiOperation({ summary: 'Get status and download links for a campaign export' })
+  @ApiOperation({
+    summary: 'Get status and download links for a campaign export',
+  })
   @ApiParam({ name: 'id', type: String, format: 'uuid' })
   @ApiOkResponse({ type: CampaignExportStatusPresenter })
   @ApiNotFoundResponse()
-  @ApiResponse({ status: 403, description: 'Forbidden — requires CAMPAIGN:read (super-admin only)' })
+  @ApiResponse({
+    status: 403,
+    description: 'Forbidden — requires CAMPAIGN:read (super-admin only)',
+  })
   async getExportStatus(
     @Param('id', ParseUUIDPipe) id: string,
     @CurrentUser('sub') actorId: string,
   ): Promise<CampaignExportStatusResponse> {
-    return this.queryBus.execute(
-      new GetCampaignExportStatusQuery(id, actorId),
-    );
+    return this.queryBus.execute(new GetCampaignExportStatusQuery(id, actorId));
   }
 
   /**
@@ -138,7 +144,10 @@ export class CampaignsController {
   @ApiQuery({ name: 'limit', required: false, type: Number })
   @ApiQuery({ name: 'offset', required: false, type: Number })
   @ApiOkResponse({ type: [CampaignExportListItemResponse] })
-  @ApiResponse({ status: 403, description: 'Forbidden — requires CAMPAIGN:read (super-admin only)' })
+  @ApiResponse({
+    status: 403,
+    description: 'Forbidden — requires CAMPAIGN:read (super-admin only)',
+  })
   async listExports(
     @CurrentUser('sub') actorId: string,
     @Query('limit') limit = 20,
@@ -164,10 +173,20 @@ export class CampaignsController {
   @Throttle({ campaignExport: { limit: 5, ttl: 60_000 } })
   @CheckAbilities({ action: Action.Export, subject: 'CAMPAIGN' })
   @ApiOperation({ summary: 'Export campaign generation history as file' })
-  @ApiProduces('text/csv', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet', 'application/pdf')
-  @ApiOkResponse({ description: 'Binary file', content: { 'application/octet-stream': {} } })
+  @ApiProduces(
+    'text/csv',
+    'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+    'application/pdf',
+  )
+  @ApiOkResponse({
+    description: 'Binary file',
+    content: { 'application/octet-stream': {} },
+  })
   @ApiBadRequestResponse({ description: 'Validation failed' })
-  @ApiResponse({ status: 403, description: 'Forbidden — requires CAMPAIGN:export (super-admin only)' })
+  @ApiResponse({
+    status: 403,
+    description: 'Forbidden — requires CAMPAIGN:export (super-admin only)',
+  })
   async exportList(
     @Body(new ZodValidationPipe(ExportCampaignExportsSchema))
     dto: ExportCampaignExportsInput,

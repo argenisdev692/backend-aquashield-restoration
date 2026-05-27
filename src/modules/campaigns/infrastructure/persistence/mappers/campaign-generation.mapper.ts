@@ -1,6 +1,9 @@
 import { CampaignGenerationStatus } from '../../../../../generated/prisma/client';
 import { Prisma } from '../../../../../generated/prisma/client';
-import { CampaignGeneration, AiDetectionScore } from '../../../domain/entities/campaign-generation.aggregate';
+import {
+  CampaignGeneration,
+  AiDetectionScore,
+} from '../../../domain/entities/campaign-generation.aggregate';
 import { FunnelStage } from '../../../domain/value-objects/funnel-stage.vo';
 import { VideoFormat } from '../../../domain/value-objects/video-format.vo';
 import { VideoFormatVO } from '../../../domain/value-objects/video-format.vo';
@@ -77,7 +80,10 @@ export class CampaignGenerationMapper {
       aiObservations: row.aiObservations,
       viralityScore: row.viralityScore,
       roiScore: row.roiScore,
-      aiDetectionScore: row.aiDetectionScore as AiDetectionScore | null | undefined,
+      aiDetectionScore: row.aiDetectionScore as
+        | AiDetectionScore
+        | null
+        | undefined,
       analysisReportKey: row.analysisReportKey,
       analysisReportUrl: row.analysisReportUrl,
       status: CampaignStatusVO.create(row.status).value,
@@ -132,7 +138,9 @@ export class CampaignGenerationMapper {
       aiObservations: aggregate.aiObservations,
       viralityScore: aggregate.viralityScore,
       roiScore: aggregate.roiScore,
-      aiDetectionScore: (aggregate.aiDetectionScore as unknown as Prisma.InputJsonValue) ?? Prisma.JsonNull,
+      aiDetectionScore:
+        (aggregate.aiDetectionScore as unknown as Prisma.InputJsonValue) ??
+        Prisma.JsonNull,
       analysisReportKey: aggregate.analysisReportKey,
       analysisReportUrl: aggregate.analysisReportUrl,
       status: aggregate.status as CampaignGenerationStatus,

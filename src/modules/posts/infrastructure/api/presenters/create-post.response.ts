@@ -5,4 +5,6 @@ export const CreatePostResponseSchema = z.object({
   id: z.string().uuid(),
 });
 
-export class CreatePostResponse extends createZodDto(CreatePostResponseSchema) {}
+export class CreatePostResponse extends createZodDto(
+  CreatePostResponseSchema,
+) {}

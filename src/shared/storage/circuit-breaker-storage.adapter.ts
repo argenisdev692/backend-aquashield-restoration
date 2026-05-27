@@ -13,7 +13,7 @@ import { IStoragePort } from './storage.port';
  */
 enum CircuitState {
   CLOSED = 'CLOSED', // Normal operation
-  OPEN = 'OPEN',     // Failing, reject calls immediately
+  OPEN = 'OPEN', // Failing, reject calls immediately
   HALF_OPEN = 'HALF_OPEN', // Testing if service recovered
 }
 
@@ -22,10 +22,10 @@ enum CircuitState {
  */
 interface CircuitBreakerConfig {
   failureThreshold: number; // Failures before opening
-  resetTimeout: number;     // ms to wait before trying again
-  requestTimeout: number;   // ms to abort individual requests
-  maxRetries: number;       // Retry attempts before giving up
-  retryDelay: number;       // ms between retries
+  resetTimeout: number; // ms to wait before trying again
+  requestTimeout: number; // ms to abort individual requests
+  maxRetries: number; // Retry attempts before giving up
+  retryDelay: number; // ms between retries
 }
 
 /**
@@ -50,7 +50,7 @@ export class CircuitBreakerStorageAdapter implements IStoragePort {
     private readonly logger: LoggerService,
   ) {
     this.logger.setContext(CircuitBreakerStorageAdapter.name);
-    
+
     this.client = new S3Client({
       region: this.cfg.get<string>('R2_DEFAULT_REGION', 'auto'),
       endpoint: this.cfg.get<string | undefined>('R2_ENDPOINT'),
@@ -58,14 +58,17 @@ export class CircuitBreakerStorageAdapter implements IStoragePort {
         accessKeyId: this.cfg.getOrThrow<string>('R2_ACCESS_KEY_ID'),
         secretAccessKey: this.cfg.getOrThrow<string>('R2_SECRET_ACCESS_KEY'),
       },
-      forcePathStyle: this.cfg.get<boolean>('R2_USE_PATH_STYLE_ENDPOINT', false),
+      forcePathStyle: this.cfg.get<boolean>(
+        'R2_USE_PATH_STYLE_ENDPOINT',
+        false,
+      ),
     });
-    
+
     this.bucket = this.cfg.getOrThrow<string>('R2_BUCKET_NAME');
     this.baseUrl = this.cfg
       .getOrThrow<string>('R2_PUBLIC_BASE_URL')
       .replace(/\/$/, '');
-    
+
     this.config = {
       failureThreshold: this.cfg.get<number>('STORAGE_CB_FAILURE_THRESHOLD', 5),
       resetTimeout: this.cfg.get<number>('STORAGE_CB_RESET_TIMEOUT', 60000), // 1 minute
@@ -78,7 +81,9 @@ export class CircuitBreakerStorageAdapter implements IStoragePort {
   async upload(key: string, body: Buffer, contentType: string): Promise<void> {
     if (this.state === CircuitState.OPEN) {
       if (Date.now() < this.nextAttemptTime) {
-        throw new Error('Circuit breaker is OPEN - R2 storage is temporarily unavailable');
+        throw new Error(
+          'Circuit breaker is OPEN - R2 storage is temporarily unavailable',
+        );
       }
       // Try to transition to half-open
       this.state = CircuitState.HALF_OPEN;
@@ -86,19 +91,20 @@ export class CircuitBreakerStorageAdapter implements IStoragePort {
     }
 
     try {
-      await this.withRetry(() => 
-        this.withTimeout(
-          this.client.send(
-            new PutObjectCommand({
-              Bucket: this.bucket,
-              Key: key,
-              Body: body,
-              ContentType: contentType,
-              CacheControl: 'public, max-age=31536000, immutable',
-            }),
+      await this.withRetry(
+        () =>
+          this.withTimeout(
+            this.client.send(
+              new PutObjectCommand({
+                Bucket: this.bucket,
+                Key: key,
+                Body: body,
+                ContentType: contentType,
+                CacheControl: 'public, max-age=31536000, immutable',
+              }),
+            ),
+            this.config.requestTimeout,
           ),
-          this.config.requestTimeout,
-        ),
         this.config.maxRetries,
         this.config.retryDelay,
       );
@@ -118,23 +124,26 @@ export class CircuitBreakerStorageAdapter implements IStoragePort {
   async delete(key: string): Promise<void> {
     if (this.state === CircuitState.OPEN) {
       if (Date.now() < this.nextAttemptTime) {
-        throw new Error('Circuit breaker is OPEN - R2 storage is temporarily unavailable');
+        throw new Error(
+          'Circuit breaker is OPEN - R2 storage is temporarily unavailable',
+        );
       }
       this.state = CircuitState.HALF_OPEN;
       this.logger.warn('Circuit breaker transitioning to HALF_OPEN', { key });
     }
 
     try {
-      await this.withRetry(() =>
-        this.withTimeout(
-          this.client.send(
-            new DeleteObjectCommand({
-              Bucket: this.bucket,
-              Key: key,
-            }),
+      await this.withRetry(
+        () =>
+          this.withTimeout(
+            this.client.send(
+              new DeleteObjectCommand({
+                Bucket: this.bucket,
+                Key: key,
+              }),
+            ),
+            this.config.requestTimeout,
           ),
-          this.config.requestTimeout,
-        ),
         this.config.maxRetries,
         this.config.retryDelay,
       );
@@ -199,12 +208,15 @@ export class CircuitBreakerStorageAdapter implements IStoragePort {
         lastError = error;
         if (attempt < maxRetries) {
           const backoff = delay * Math.pow(2, attempt); // Exponential backoff
-          this.logger.warn(`Storage operation failed, retrying in ${backoff}ms`, {
-            attempt: attempt + 1,
-            maxRetries,
-            error: error instanceof Error ? error.message : String(error),
-          });
-          await new Promise(resolve => setTimeout(resolve, backoff));
+          this.logger.warn(
+            `Storage operation failed, retrying in ${backoff}ms`,
+            {
+              attempt: attempt + 1,
+              maxRetries,
+              error: error instanceof Error ? error.message : String(error),
+            },
+          );
+          await new Promise((resolve) => setTimeout(resolve, backoff));
         }
       }
     }
@@ -216,7 +228,11 @@ export class CircuitBreakerStorageAdapter implements IStoragePort {
     timeoutMs: number,
   ): Promise<T> {
     const timeout = new Promise<never>((_, reject) =>
-      setTimeout(() => reject(new Error(`Storage operation timed out after ${timeoutMs}ms`)), timeoutMs),
+      setTimeout(
+        () =>
+          reject(new Error(`Storage operation timed out after ${timeoutMs}ms`)),
+        timeoutMs,
+      ),
     );
     return Promise.race([promise, timeout]);
   }
@@ -224,7 +240,11 @@ export class CircuitBreakerStorageAdapter implements IStoragePort {
   /**
    * Get current circuit breaker state (for monitoring/health checks)
    */
-  getCircuitState(): { state: CircuitState; failureCount: number; nextAttemptTime: number } {
+  getCircuitState(): {
+    state: CircuitState;
+    failureCount: number;
+    nextAttemptTime: number;
+  } {
     return {
       state: this.state,
       failureCount: this.failureCount,

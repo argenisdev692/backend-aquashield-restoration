@@ -40,10 +40,7 @@ export class RestorePostHandler implements ICommandHandler<RestorePostCommand> {
     await this.persist(command);
 
     await this.cache.delByPattern(POSTS_CACHE_PATTERN);
-    this.eventEmitter.emit(
-      'post.restored',
-      new PostRestoredEvent(id),
-    );
+    this.eventEmitter.emit('post.restored', new PostRestoredEvent(id));
 
     this.logger.info('RestorePostHandler end', {
       traceId,

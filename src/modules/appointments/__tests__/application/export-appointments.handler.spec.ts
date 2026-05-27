@@ -195,7 +195,7 @@ describe('ExportAppointmentsHandler — trashed semantics', () => {
         new ExportAppointmentsQuery({ format: 'csv' }, 'csv', actor),
       );
       const csv = res.buffer.slice(3).toString('utf8');
-      expect(csv).toContain("\"'=cmd|\"\"/c calc\"\"!A1\"");
+      expect(csv).toContain('"\'=cmd|""/c calc""!A1"');
     });
   });
 });

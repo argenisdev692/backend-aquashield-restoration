@@ -8,9 +8,13 @@ import { z } from 'zod';
  */
 export const ExportCampaignExportsSchema = z.object({
   format: z.enum(['csv', 'xlsx', 'pdf']).default('csv'),
-  status: z.enum(['pending', 'processing', 'completed', 'failed', 'partial']).optional(),
+  status: z
+    .enum(['pending', 'processing', 'completed', 'failed', 'partial'])
+    .optional(),
   from: z.string().datetime().optional(),
   to: z.string().datetime().optional(),
 });
 
-export type ExportCampaignExportsInput = z.infer<typeof ExportCampaignExportsSchema>;
+export type ExportCampaignExportsInput = z.infer<
+  typeof ExportCampaignExportsSchema
+>;

@@ -11,9 +11,7 @@ import { AUDIT_PORT } from '../../../../../shared/activity-log/audit.port';
 import { BulkDeleteUsersCommand } from '../bulk-delete-users.command';
 
 @CommandHandler(BulkDeleteUsersCommand)
-export class BulkDeleteUsersHandler
-  implements ICommandHandler<BulkDeleteUsersCommand>
-{
+export class BulkDeleteUsersHandler implements ICommandHandler<BulkDeleteUsersCommand> {
   constructor(
     @Inject(USER_REPOSITORY)
     private readonly userRepo: IUserRepository,
@@ -24,9 +22,7 @@ export class BulkDeleteUsersHandler
     private readonly cache: CacheService,
   ) {}
 
-  async execute(
-    command: BulkDeleteUsersCommand,
-  ): Promise<{ count: number }> {
+  async execute(command: BulkDeleteUsersCommand): Promise<{ count: number }> {
     const { ids } = command;
     const traceId = this.cls.get<string>('traceId');
     this.logger.info('BulkDeleteUsersHandler start', {

@@ -35,7 +35,9 @@ export class PostScheduler {
     const duePosts = await this.repo.findScheduledDue();
 
     if (duePosts.length === 0) {
-      this.logger.info('PostScheduler.publishScheduledPosts — no due posts', { traceId });
+      this.logger.info('PostScheduler.publishScheduledPosts — no due posts', {
+        traceId,
+      });
       return;
     }
 
@@ -45,11 +47,14 @@ export class PostScheduler {
         await this.publishOne(post);
         published += 1;
       } catch (err) {
-        this.logger.error('PostScheduler failed to auto-publish scheduled post', {
-          traceId,
-          postId: post.id.value,
-          error: err instanceof Error ? err.message : String(err),
-        });
+        this.logger.error(
+          'PostScheduler failed to auto-publish scheduled post',
+          {
+            traceId,
+            postId: post.id.value,
+            error: err instanceof Error ? err.message : String(err),
+          },
+        );
         // continue with remaining posts — one failure must not block the batch
       }
     }

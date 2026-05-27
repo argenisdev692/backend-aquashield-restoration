@@ -9,7 +9,10 @@ import { Injectable } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { ClsService } from 'nestjs-cls';
 import { LoggerService } from '../../../../logger/logger.service';
-import type { DbDumpResult, IDbDumper } from '../../domain/ports/db-dumper.port';
+import type {
+  DbDumpResult,
+  IDbDumper,
+} from '../../domain/ports/db-dumper.port';
 
 const PG_DUMP_TIMEOUT_MS = 30 * 60 * 1_000;
 const STDERR_TAIL_CHARS = 4_000;
@@ -48,7 +51,9 @@ export class PgDumpAdapter implements IDbDumper {
   async dump(backupId: string): Promise<DbDumpResult> {
     await fs.mkdir(this.tmpDir, { recursive: true });
     const filePath = join(this.tmpDir, `backup-${backupId}.dump`);
-    const traceId = this.cls.isActive() ? this.cls.get<string>('traceId') : undefined;
+    const traceId = this.cls.isActive()
+      ? this.cls.get<string>('traceId')
+      : undefined;
 
     this.logger.info('PgDumpAdapter.dump start', {
       layer: 'adapter',
@@ -75,20 +80,19 @@ export class PgDumpAdapter implements IDbDumper {
     return { filePath, sizeBytes, checksum };
   }
 
-  private runPgDump(filePath: string, traceId: string | undefined): Promise<void> {
+  private runPgDump(
+    filePath: string,
+    traceId: string | undefined,
+  ): Promise<void> {
     return new Promise((resolve, reject) => {
       const out = createWriteStream(filePath);
-      const child = spawn(
-        this.pgDumpBin,
-        ['-Fc', '-Z', COMPRESSION_LEVEL],
-        {
-          stdio: ['ignore', 'pipe', 'pipe'],
-          // Credentials live in env, not argv — keeps the password out of
-          // `ps` / `/proc/<pid>/cmdline`. We inherit nothing else so a
-          // host-level PG* leak cannot redirect the dump elsewhere.
-          env: this.pgEnv,
-        },
-      );
+      const child = spawn(this.pgDumpBin, ['-Fc', '-Z', COMPRESSION_LEVEL], {
+        stdio: ['ignore', 'pipe', 'pipe'],
+        // Credentials live in env, not argv — keeps the password out of
+        // `ps` / `/proc/<pid>/cmdline`. We inherit nothing else so a
+        // host-level PG* leak cannot redirect the dump elsewhere.
+        env: this.pgEnv,
+      });
 
       const stderrChunks: Buffer[] = [];
       child.stderr.on('data', (chunk: Buffer) => {

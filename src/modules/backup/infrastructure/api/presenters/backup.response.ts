@@ -28,7 +28,9 @@ export const BackupListResponseSchema = z.object({
   limit: z.number().int().positive(),
 });
 
-export class BackupListResponse extends createZodDto(BackupListResponseSchema) {}
+export class BackupListResponse extends createZodDto(
+  BackupListResponseSchema,
+) {}
 
 export const BackupTriggeredResponseSchema = z.object({
   id: z.string().uuid(),

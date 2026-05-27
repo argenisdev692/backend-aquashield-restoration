@@ -25,9 +25,7 @@ interface RequestChangeTxResult {
 }
 
 @CommandHandler(RequestPasswordChangeCommand)
-export class RequestPasswordChangeHandler
-  implements ICommandHandler<RequestPasswordChangeCommand>
-{
+export class RequestPasswordChangeHandler implements ICommandHandler<RequestPasswordChangeCommand> {
   constructor(
     @Inject(USER_REPOSITORY)
     private readonly userRepo: IUserRepository,

@@ -101,7 +101,9 @@ export const EnvSchema = z.object({
 
   GEMINI_API_KEY: z.string().min(1),
   GEMINI_TEXT_MODEL: z.string().default('gemini-2.5-flash'),
-  GEMINI_IMAGE_MODEL: z.string().default('gemini-2.0-flash-exp-image-generation'),
+  GEMINI_IMAGE_MODEL: z
+    .string()
+    .default('gemini-2.0-flash-exp-image-generation'),
 
   TAVILY_API_KEY: z.string().min(1),
   TAVILY_SEARCH_URL: z.string().url().default('https://api.tavily.com/search'),

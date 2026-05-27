@@ -119,7 +119,8 @@ export class PostsController {
       'Requires valid GEMINI_API_KEY and TAVILY_API_KEY when generateWithAi is true.',
   })
   @ApiBody({
-    description: 'Post payload. Use generateWithAi for fully automated creation.',
+    description:
+      'Post payload. Use generateWithAi for fully automated creation.',
     examples: {
       'Manual creation': {
         value: {
@@ -175,7 +176,8 @@ export class PostsController {
     examples: {
       'React performance (Spanish tech niche)': {
         value: {
-          topic: 'Cómo optimizar el rendimiento de React en aplicaciones grandes',
+          topic:
+            'Cómo optimizar el rendimiento de React en aplicaciones grandes',
           niche: 'Desarrollo Web',
           wordCount: 1400,
         },
@@ -184,7 +186,8 @@ export class PostsController {
   })
   @ApiOkResponse({
     type: GeneratePostPreviewResponse,
-    description: 'AI-generated post preview ready for review. Includes Markdown content, SEO fields, optional hero image URL, and research sources.',
+    description:
+      'AI-generated post preview ready for review. Includes Markdown content, SEO fields, optional hero image URL, and research sources.',
   })
   @ApiBadRequestResponse({ description: 'Validation failed' })
   @ApiUnauthorizedResponse()
@@ -214,8 +217,17 @@ export class PostsController {
   @ApiForbiddenResponse({
     description: '`onlyTrashed=true` requires `Action.Restore`',
   })
-  @ApiQuery({ name: 'postStatus', required: false, enum: ['draft', 'published', 'scheduled'] })
-  @ApiQuery({ name: 'categoryId', required: false, type: String, format: 'uuid' })
+  @ApiQuery({
+    name: 'postStatus',
+    required: false,
+    enum: ['draft', 'published', 'scheduled'],
+  })
+  @ApiQuery({
+    name: 'categoryId',
+    required: false,
+    type: String,
+    format: 'uuid',
+  })
   @ApiQuery({ name: 'userId', required: false, type: String, format: 'uuid' })
   @ApiQuery({ name: 'search', required: false, type: String })
   @ApiQuery({ name: 'page', required: false, type: Number })
@@ -230,7 +242,8 @@ export class PostsController {
     name: 'onlyTrashed',
     required: false,
     type: Boolean,
-    description: 'Return ONLY soft-deleted posts. Cannot be combined with `withTrashed`. Requires `Action.Restore`.',
+    description:
+      'Return ONLY soft-deleted posts. Cannot be combined with `withTrashed`. Requires `Action.Restore`.',
   })
   @CacheTTL(TTL_SECONDS.SHORT)
   async findAll(
@@ -256,8 +269,17 @@ export class PostsController {
     enum: ['csv', 'xlsx', 'pdf'],
     description: 'Export format. Defaults to `xlsx`.',
   })
-  @ApiQuery({ name: 'postStatus', required: false, enum: ['draft', 'published', 'scheduled'] })
-  @ApiQuery({ name: 'categoryId', required: false, type: String, format: 'uuid' })
+  @ApiQuery({
+    name: 'postStatus',
+    required: false,
+    enum: ['draft', 'published', 'scheduled'],
+  })
+  @ApiQuery({
+    name: 'categoryId',
+    required: false,
+    type: String,
+    format: 'uuid',
+  })
   @ApiQuery({ name: 'userId', required: false, type: String, format: 'uuid' })
   @ApiQuery({ name: 'search', required: false, type: String })
   @ApiQuery({
@@ -270,7 +292,8 @@ export class PostsController {
     name: 'onlyTrashed',
     required: false,
     type: Boolean,
-    description: 'Export ONLY soft-deleted posts. Cannot be combined with `withTrashed`. Requires `Action.Restore`.',
+    description:
+      'Export ONLY soft-deleted posts. Cannot be combined with `withTrashed`. Requires `Action.Restore`.',
   })
   @SkipCache()
   async export(
@@ -302,7 +325,8 @@ export class PostsController {
     name: 'withTrashed',
     required: false,
     type: Boolean,
-    description: 'When `true`, return the post even if it has been soft-deleted.',
+    description:
+      'When `true`, return the post even if it has been soft-deleted.',
   })
   @CacheTTL(TTL_SECONDS.SHORT)
   async findOne(
@@ -310,9 +334,7 @@ export class PostsController {
     @Query('withTrashed') withTrashedRaw?: string,
   ): Promise<PostReadModel> {
     const withTrashed = withTrashedRaw === 'true';
-    return this.queryBus.execute(
-      new GetPostByIdQuery(id, withTrashed),
-    );
+    return this.queryBus.execute(new GetPostByIdQuery(id, withTrashed));
   }
 
   @Patch(':id')
@@ -327,9 +349,7 @@ export class PostsController {
     dto: UpdatePostDto,
     @CurrentUser() user: AuthenticatedUser,
   ): Promise<PostReadModel> {
-    await this.commandBus.execute(
-      new UpdatePostCommand(id, dto, user.id),
-    );
+    await this.commandBus.execute(new UpdatePostCommand(id, dto, user.id));
     return this.queryBus.execute(new GetPostByIdQuery(id));
   }
 

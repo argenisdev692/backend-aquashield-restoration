@@ -9,9 +9,7 @@ import { ClsService } from 'nestjs-cls';
 
 @QueryHandler(ListMyCampaignExportsQuery)
 @Injectable()
-export class ListMyCampaignExportsHandler
-  implements IQueryHandler<ListMyCampaignExportsQuery>
-{
+export class ListMyCampaignExportsHandler implements IQueryHandler<ListMyCampaignExportsQuery> {
   constructor(
     @Inject(CAMPAIGN_GENERATION_REPOSITORY)
     private readonly campaignRepo: ICampaignGenerationRepository,
@@ -43,7 +41,9 @@ export class ListMyCampaignExportsHandler
 
     const items: CampaignExportListItem[] = aggregates.map((agg) => {
       const stagesRequested = agg.stages.length;
-      const stagesCompleted = agg.stageResults.filter((r) => r.isSuccess()).length;
+      const stagesCompleted = agg.stageResults.filter((r) =>
+        r.isSuccess(),
+      ).length;
       const hasErrors = agg.stageResults.some((r) => r.isFailure());
 
       return {

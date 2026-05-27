@@ -89,9 +89,7 @@ describe('GetAppointmentByIdHandler — withTrashed', () => {
 
   it('forwards withTrashed=true so suspended rows are visible', async () => {
     mockRepo.findReadModelById.mockResolvedValueOnce(suspendedReadModel);
-    const result = await handler.execute(
-      new GetAppointmentByIdQuery(ID, true),
-    );
+    const result = await handler.execute(new GetAppointmentByIdQuery(ID, true));
     expect(mockRepo.findReadModelById).toHaveBeenCalledWith(ID, true);
     expect(result?.deletedAt).toBe('2026-05-01T10:00:00.000Z');
   });

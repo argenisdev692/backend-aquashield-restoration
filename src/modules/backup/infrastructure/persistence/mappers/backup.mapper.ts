@@ -78,24 +78,36 @@ export class BackupMapper {
     };
   }
 
-  private static readonly STATUS_TO_DOMAIN: Record<PrismaBackupStatus, BackupStatus> = {
+  private static readonly STATUS_TO_DOMAIN: Record<
+    PrismaBackupStatus,
+    BackupStatus
+  > = {
     [PrismaBackupStatus.PENDING]: BackupStatus.Pending,
     [PrismaBackupStatus.COMPLETED]: BackupStatus.Completed,
     [PrismaBackupStatus.FAILED]: BackupStatus.Failed,
   };
 
-  private static readonly STATUS_TO_PRISMA: Record<BackupStatus, PrismaBackupStatus> = {
+  private static readonly STATUS_TO_PRISMA: Record<
+    BackupStatus,
+    PrismaBackupStatus
+  > = {
     [BackupStatus.Pending]: PrismaBackupStatus.PENDING,
     [BackupStatus.Completed]: PrismaBackupStatus.COMPLETED,
     [BackupStatus.Failed]: PrismaBackupStatus.FAILED,
   };
 
-  private static readonly TRIGGER_TO_DOMAIN: Record<PrismaBackupTrigger, BackupTrigger> = {
+  private static readonly TRIGGER_TO_DOMAIN: Record<
+    PrismaBackupTrigger,
+    BackupTrigger
+  > = {
     [PrismaBackupTrigger.SCHEDULER]: BackupTrigger.Scheduler,
     [PrismaBackupTrigger.MANUAL]: BackupTrigger.Manual,
   };
 
-  private static readonly TRIGGER_TO_PRISMA: Record<BackupTrigger, PrismaBackupTrigger> = {
+  private static readonly TRIGGER_TO_PRISMA: Record<
+    BackupTrigger,
+    PrismaBackupTrigger
+  > = {
     [BackupTrigger.Scheduler]: PrismaBackupTrigger.SCHEDULER,
     [BackupTrigger.Manual]: PrismaBackupTrigger.MANUAL,
   };

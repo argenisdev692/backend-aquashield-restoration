@@ -13,10 +13,12 @@ export interface GeneratedPostForNetwork {
   body: string;
   hashtags: string[];
   emojis?: string; // instagram
-  hook?: string;   // tiktok
+  hook?: string; // tiktok
 }
 
-export type GeneratedPostsMap = Partial<Record<SocialNetwork, GeneratedPostForNetwork>>;
+export type GeneratedPostsMap = Partial<
+  Record<SocialNetwork, GeneratedPostForNetwork>
+>;
 
 export interface IPostGeneratorPort {
   generatePosts(input: GeneratePostsInput): Promise<GeneratedPostsMap>;

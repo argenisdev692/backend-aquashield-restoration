@@ -18,9 +18,7 @@ type StatusChange = { oldStatus: string | null; newStatus: string };
 
 @Injectable()
 @CommandHandler(UpdateAppointmentCommand)
-export class UpdateAppointmentHandler
-  implements ICommandHandler<UpdateAppointmentCommand>
-{
+export class UpdateAppointmentHandler implements ICommandHandler<UpdateAppointmentCommand> {
   private static readonly CACHE_PATTERN = 'http:*:/appointments*';
 
   constructor(

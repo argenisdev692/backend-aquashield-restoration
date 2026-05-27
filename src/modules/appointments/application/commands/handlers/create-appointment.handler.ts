@@ -18,9 +18,7 @@ import { ClsService } from 'nestjs-cls';
 
 @Injectable()
 @CommandHandler(CreateAppointmentCommand)
-export class CreateAppointmentHandler
-  implements ICommandHandler<CreateAppointmentCommand>
-{
+export class CreateAppointmentHandler implements ICommandHandler<CreateAppointmentCommand> {
   /** Mirrors the CacheTtlInterceptor key scheme `http:{userId}:{originalUrl}`. */
   private static readonly CACHE_PATTERN = 'http:*:/appointments*';
 
@@ -47,7 +45,13 @@ export class CreateAppointmentHandler
     if (dto.email) {
       const existingId = await this.repo.findIdByEmail(dto.email);
       if (existingId) {
-        await this.handleDuplicate(existingId, dto.email, dto.firstName, actorId, traceId);
+        await this.handleDuplicate(
+          existingId,
+          dto.email,
+          dto.firstName,
+          actorId,
+          traceId,
+        );
         return existingId;
       }
     }
@@ -87,7 +91,9 @@ export class CreateAppointmentHandler
       country: dto.country,
       message: dto.message ?? null,
       smsConsent: dto.smsConsent,
-      registrationDate: dto.registrationDate ? new Date(dto.registrationDate) : null,
+      registrationDate: dto.registrationDate
+        ? new Date(dto.registrationDate)
+        : null,
       statusLead: dto.statusLead ?? null,
       followUpCalls: dto.followUpCalls ?? null,
       notes: dto.notes ?? null,
@@ -137,7 +143,7 @@ export class CreateAppointmentHandler
         `<p>Hi ${escapeHtml(firstName)},</p>` +
         '<p>We have already received your appointment request. ' +
         'Our team will contact you shortly to discuss your needs.</p>' +
-        '<p>No need to submit again — we\'ve got you covered.</p>',
+        "<p>No need to submit again — we've got you covered.</p>",
     });
 
     await this.audit.log(

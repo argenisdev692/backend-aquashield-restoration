@@ -92,8 +92,12 @@ describe('CreateAppointmentHandler', () => {
       debug: jest.fn(),
       setContext: jest.fn(),
     } as unknown as jest.Mocked<LoggerService>;
-    mockCls = { get: jest.fn().mockReturnValue('trace-123') } as unknown as jest.Mocked<ClsService>;
-    mockEventEmitter = { emit: jest.fn() } as unknown as jest.Mocked<EventEmitter2>;
+    mockCls = {
+      get: jest.fn().mockReturnValue('trace-123'),
+    } as unknown as jest.Mocked<ClsService>;
+    mockEventEmitter = {
+      emit: jest.fn(),
+    } as unknown as jest.Mocked<EventEmitter2>;
 
     const module: TestingModule = await Test.createTestingModule({
       providers: [
@@ -128,7 +132,9 @@ describe('CreateAppointmentHandler', () => {
       },
       { strict: true },
     );
-    expect(mockCache.delByPattern).toHaveBeenCalledWith('http:*:/appointments*');
+    expect(mockCache.delByPattern).toHaveBeenCalledWith(
+      'http:*:/appointments*',
+    );
     expect(mockEventEmitter.emit).toHaveBeenCalledWith(
       'appointment.created',
       expect.any(AppointmentCreatedEvent),

@@ -6,7 +6,10 @@ import { ClsService } from 'nestjs-cls';
 import { LoggerService } from '../../../../../logger/logger.service';
 import type { IAuditPort } from '../../../../../shared/activity-log/audit.port';
 import { AUDIT_PORT } from '../../../../../shared/activity-log/audit.port';
-import { csvEscape, sheetEscape } from '../../../../../shared/export/export.util';
+import {
+  csvEscape,
+  sheetEscape,
+} from '../../../../../shared/export/export.util';
 import type { IBackupRepository } from '../../../domain/ports/backup.repository.interface';
 import { BACKUP_REPOSITORY } from '../../../domain/ports/backup.repository.interface';
 import type { BackupReadModel } from '../../../domain/read-models/backup.read-model';
@@ -51,9 +54,7 @@ function toRow(r: BackupReadModel): Row {
 
 @Injectable()
 @QueryHandler(ExportBackupsQuery)
-export class ExportBackupsHandler
-  implements IQueryHandler<ExportBackupsQuery>
-{
+export class ExportBackupsHandler implements IQueryHandler<ExportBackupsQuery> {
   constructor(
     @Inject(BACKUP_REPOSITORY) private readonly repo: IBackupRepository,
     @Inject(AUDIT_PORT) private readonly audit: IAuditPort,
@@ -107,7 +108,8 @@ export class ExportBackupsHandler
         return COLUMNS.map((c) => csvEscape(row[c.key])).join(',');
       })
       .join('\r\n');
-    const csv = body.length === 0 ? `${header}\r\n` : `${header}\r\n${body}\r\n`;
+    const csv =
+      body.length === 0 ? `${header}\r\n` : `${header}\r\n${body}\r\n`;
     const buffer = Buffer.concat([
       Buffer.from([0xef, 0xbb, 0xbf]),
       Buffer.from(csv, 'utf8'),
@@ -182,7 +184,9 @@ export class ExportBackupsHandler
         for (const r of rows) {
           doc
             .fontSize(11)
-            .text(`${r.status} · ${r.triggeredBy} · ${r.createdAt.toISOString()}`);
+            .text(
+              `${r.status} · ${r.triggeredBy} · ${r.createdAt.toISOString()}`,
+            );
           doc
             .fontSize(9)
             .fillColor('#475569')
@@ -195,7 +199,11 @@ export class ExportBackupsHandler
             doc.fontSize(9).text(`object: ${r.objectKey}`);
           }
           if (r.error) {
-            doc.fontSize(9).fillColor('#b91c1c').text(`error: ${r.error}`).fillColor('#000');
+            doc
+              .fontSize(9)
+              .fillColor('#b91c1c')
+              .text(`error: ${r.error}`)
+              .fillColor('#000');
           }
           doc.moveDown(0.6);
         }

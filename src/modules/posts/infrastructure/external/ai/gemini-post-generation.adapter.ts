@@ -3,9 +3,7 @@ import { ConfigService } from '@nestjs/config';
 import { StorageService } from '../../../../../shared/storage/storage.service';
 import { LoggerService } from '../../../../../logger/logger.service';
 import { ClsService } from 'nestjs-cls';
-import type {
-  AiPostGenerationPort,
-} from '../../../domain/ports/ai-post-generation.port';
+import type { AiPostGenerationPort } from '../../../domain/ports/ai-post-generation.port';
 import { RESEARCH_PORT } from '../../../domain/ports/research.port';
 import type { ResearchPort } from '../../../domain/ports/research.port';
 import {
@@ -13,7 +11,10 @@ import {
   type Source,
 } from '../../../domain/value-objects/generated-post-preview.vo';
 import { ResearchResult } from '../../../domain/value-objects/research-result.vo';
-import { AI_CLIENT, type IAiClient } from '../../../../../shared/external/ai/ai-client.port';
+import {
+  AI_CLIENT,
+  type IAiClient,
+} from '../../../../../shared/external/ai/ai-client.port';
 
 @Injectable()
 export class GeminiPostGenerationAdapter implements AiPostGenerationPort {
@@ -32,8 +33,14 @@ export class GeminiPostGenerationAdapter implements AiPostGenerationPort {
     private readonly aiClient: IAiClient,
   ) {
     this.logger.setContext(GeminiPostGenerationAdapter.name);
-    this.textModel = this.config.get<string>('GEMINI_TEXT_MODEL', 'gemini-2.5-flash');
-    this.imageModel = this.config.get<string>('GEMINI_IMAGE_MODEL', 'gemini-2.0-flash-exp-image-generation');
+    this.textModel = this.config.get<string>(
+      'GEMINI_TEXT_MODEL',
+      'gemini-2.5-flash',
+    );
+    this.imageModel = this.config.get<string>(
+      'GEMINI_IMAGE_MODEL',
+      'gemini-2.0-flash-exp-image-generation',
+    );
   }
 
   async generatePreview(
@@ -42,7 +49,12 @@ export class GeminiPostGenerationAdapter implements AiPostGenerationPort {
     wordCount: number,
   ): Promise<GeneratedPostPreview> {
     const traceId = this.cls.get<string>('traceId');
-    this.logger.info('GeminiPostGenerationAdapter.generatePreview start', { traceId, topic, niche, wordCount });
+    this.logger.info('GeminiPostGenerationAdapter.generatePreview start', {
+      traceId,
+      topic,
+      niche,
+      wordCount,
+    });
 
     const research = await this.research.research(`${topic} ${niche}`);
     this.logger.info('GeminiPostGenerationAdapter research done', {
@@ -50,16 +62,28 @@ export class GeminiPostGenerationAdapter implements AiPostGenerationPort {
       sources: research.sources.length,
     });
 
-    const rawContent = await this.generateArticleWithGemini(topic, niche, wordCount, research);
+    const rawContent = await this.generateArticleWithGemini(
+      topic,
+      niche,
+      wordCount,
+      research,
+    );
     const content = this.humanize(rawContent);
-    this.logger.info('GeminiPostGenerationAdapter article generated', { traceId });
+    this.logger.info('GeminiPostGenerationAdapter article generated', {
+      traceId,
+    });
 
     const seo = await this.generateSeoFields(topic, niche, content);
-    this.logger.info('GeminiPostGenerationAdapter seo fields generated', { traceId });
+    this.logger.info('GeminiPostGenerationAdapter seo fields generated', {
+      traceId,
+    });
 
     const imageUrl = await this.generateAndUploadHeroImage(topic, niche);
     if (!imageUrl) {
-      this.logger.warn('GeminiPostGenerationAdapter hero image generation failed or skipped', { traceId });
+      this.logger.warn(
+        'GeminiPostGenerationAdapter hero image generation failed or skipped',
+        { traceId },
+      );
     }
 
     return new GeneratedPostPreview(
@@ -82,7 +106,9 @@ export class GeminiPostGenerationAdapter implements AiPostGenerationPort {
   ): Promise<string> {
     const sourcesContext = research.sources
       .slice(0, 5)
-      .map((s, i) => `[Source ${i + 1}] ${s.title}\nURL: ${s.url}\n${s.snippet}`)
+      .map(
+        (s, i) => `[Source ${i + 1}] ${s.title}\nURL: ${s.url}\n${s.snippet}`,
+      )
       .join('\n\n---\n\n');
 
     const system = `You are an expert content writer for the ${niche} industry. Your goal is to create articles that pass Google's E-E-A-T standards.
@@ -148,7 +174,8 @@ Use these real data points to give depth to the article. Cite sources organicall
   }> {
     const excerpt = content.replace(/<[^>]*>/g, '').substring(0, 300);
 
-    const system = 'You are an SEO expert. You respond ONLY with a valid JSON object, no markdown fences, no commentary.';
+    const system =
+      'You are an SEO expert. You respond ONLY with a valid JSON object, no markdown fences, no commentary.';
 
     const user = `Based on this article about "${topic}" in the "${niche}" niche, generate the following SEO fields.
 
@@ -221,7 +248,10 @@ Return ONLY a JSON object with exactly these keys:
       const prompt = `Create a professional, high-quality hero image for a blog article about "${topic}" in the ${niche} industry. Photorealistic style, clean composition, suitable for a modern blog header. No text, no logos.`;
 
       if (!this.aiClient.generateImage) {
-        this.logger.warn('Current AI client does not support image generation', { traceId });
+        this.logger.warn(
+          'Current AI client does not support image generation',
+          { traceId },
+        );
         return null;
       }
 
@@ -238,13 +268,19 @@ Return ONLY a JSON object with exactly these keys:
       await this.storage.upload(key, buffer, imageResult.mimeType);
       const url = this.storage.publicUrl(key);
 
-      this.logger.info('GeminiPostGenerationAdapter hero image uploaded', { traceId, key });
+      this.logger.info('GeminiPostGenerationAdapter hero image uploaded', {
+        traceId,
+        key,
+      });
       return url;
     } catch (error) {
-      this.logger.error('GeminiPostGenerationAdapter hero image generation/upload failed', {
-        traceId,
-        error: error instanceof Error ? error.message : String(error),
-      });
+      this.logger.error(
+        'GeminiPostGenerationAdapter hero image generation/upload failed',
+        {
+          traceId,
+          error: error instanceof Error ? error.message : String(error),
+        },
+      );
       return null;
     }
   }
@@ -252,21 +288,21 @@ Return ONLY a JSON object with exactly these keys:
   private humanize(content: string): string {
     const replacements: Record<string, string> = {
       "\\bit's worth noting that\\b": 'importantly,',
-      "\\bin conclusion\\b": 'to close,',
-      "\\bin summary\\b": 'to sum up,',
-      "\\bundoubtedly\\b": 'clearly,',
-      "\\bfundamentally\\b": 'essentially,',
-      "\\bin this sense\\b": '',
-      "\\bin the realm of\\b": 'in',
-      "\\brobustness\\b": 'reliability',
-      "\\brobust\\b": 'solid',
-      "\\bcomprehensive\\b": 'complete',
-      "\\bparadigm\\b": 'approach',
-      "\\boptimize\\b": 'improve',
-      "\\bleverage\\b": 'use',
-      "\\bempower\\b": 'enable',
-      "\\bseamless(ly)?\\b": 'smooth',
-      "\\bdelve\\b": 'explore',
+      '\\bin conclusion\\b': 'to close,',
+      '\\bin summary\\b': 'to sum up,',
+      '\\bundoubtedly\\b': 'clearly,',
+      '\\bfundamentally\\b': 'essentially,',
+      '\\bin this sense\\b': '',
+      '\\bin the realm of\\b': 'in',
+      '\\brobustness\\b': 'reliability',
+      '\\brobust\\b': 'solid',
+      '\\bcomprehensive\\b': 'complete',
+      '\\bparadigm\\b': 'approach',
+      '\\boptimize\\b': 'improve',
+      '\\bleverage\\b': 'use',
+      '\\bempower\\b': 'enable',
+      '\\bseamless(ly)?\\b': 'smooth',
+      '\\bdelve\\b': 'explore',
     };
 
     let result = content;
@@ -292,7 +328,15 @@ Return ONLY a JSON object with exactly these keys:
     return 'png';
   }
 
-  private logUsage(step: string, model: string, usage?: { promptTokens?: number; completionTokens?: number; totalTokens?: number }): void {
+  private logUsage(
+    step: string,
+    model: string,
+    usage?: {
+      promptTokens?: number;
+      completionTokens?: number;
+      totalTokens?: number;
+    },
+  ): void {
     const traceId = this.cls.get<string>('traceId');
     const prompt = usage?.promptTokens ?? 0;
     const candidates = usage?.completionTokens ?? 0;

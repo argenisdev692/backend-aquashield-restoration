@@ -30,9 +30,9 @@ export interface IBackupRepository {
    * Returns the ids + objectKeys of COMPLETED backups beyond the `keep`
    * newest, ordered oldest first. Used by the retention listener to prune.
    */
-  findCompletedBeyond(keep: number): Promise<
-    Array<{ id: string; objectKey: string }>
-  >;
+  findCompletedBeyond(
+    keep: number,
+  ): Promise<Array<{ id: string; objectKey: string }>>;
   /** Hard delete — row is unrecoverable. */
   delete(id: string): Promise<void>;
 }

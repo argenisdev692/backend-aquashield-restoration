@@ -1,7 +1,6 @@
 jest.mock('@nestjs-cls/transactional', () => ({
   Transactional:
-    () =>
-    (_target: unknown, _key: string, descriptor: PropertyDescriptor) =>
+    () => (_target: unknown, _key: string, descriptor: PropertyDescriptor) =>
       descriptor,
 }));
 
@@ -102,7 +101,9 @@ describe('RunBackupHandler', () => {
       download: jest.fn(),
     };
 
-    audit = { log: jest.fn().mockResolvedValue(undefined) } as jest.Mocked<IAuditPort>;
+    audit = {
+      log: jest.fn().mockResolvedValue(undefined),
+    } as jest.Mocked<IAuditPort>;
 
     cache = {
       get: jest.fn(),

@@ -61,11 +61,21 @@ export class CampaignStatusVO {
   }
 
   isTerminal(): boolean {
-    return this.value === 'completed' || this.value === 'failed' || this.value === 'partial';
+    return (
+      this.value === 'completed' ||
+      this.value === 'failed' ||
+      this.value === 'partial'
+    );
   }
 
   canTransitionTo(next: CampaignStatusVO): boolean {
-    const order: CampaignStatus[] = ['pending', 'processing', 'completed', 'failed', 'partial'];
+    const order: CampaignStatus[] = [
+      'pending',
+      'processing',
+      'completed',
+      'failed',
+      'partial',
+    ];
     const currentIdx = order.indexOf(this.value);
     const nextIdx = order.indexOf(next.value);
     // Only allow forward or terminal transitions (simplified state machine)

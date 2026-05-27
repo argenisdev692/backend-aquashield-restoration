@@ -19,9 +19,14 @@ export class GetSocialMediaByIdHandler implements IQueryHandler<GetSocialMediaBy
     this.logger.setContext(GetSocialMediaByIdHandler.name);
   }
 
-  async execute(query: GetSocialMediaByIdQuery): Promise<SocialMediaGeneration> {
+  async execute(
+    query: GetSocialMediaByIdQuery,
+  ): Promise<SocialMediaGeneration> {
     const traceId = this.cls.get<string>('traceId');
-    this.logger.info('GetSocialMediaByIdHandler start', { traceId, id: query.id });
+    this.logger.info('GetSocialMediaByIdHandler start', {
+      traceId,
+      id: query.id,
+    });
 
     const record = await this.repo.findById(query.id);
     if (!record) {

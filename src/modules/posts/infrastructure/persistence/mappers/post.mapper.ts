@@ -23,9 +23,7 @@ export class PostMapper {
     );
   }
 
-  static toPersistence(
-    entity: Post,
-  ): Prisma.PostUncheckedCreateInput {
+  static toPersistence(entity: Post): Prisma.PostUncheckedCreateInput {
     const plain = entity.toPlain();
     return {
       id: plain.id,
@@ -39,9 +37,9 @@ export class PostMapper {
       metaKeywords: plain.metaKeywords,
       categoryId: plain.categoryId,
       userId: plain.userId,
-      postStatus: $Enums.PostStatus[
-        plain.postStatus as keyof typeof $Enums.PostStatus
-      ] ?? $Enums.PostStatus.draft,
+      postStatus:
+        $Enums.PostStatus[plain.postStatus as keyof typeof $Enums.PostStatus] ??
+        $Enums.PostStatus.draft,
       scheduledAt: plain.scheduledAt,
     };
   }

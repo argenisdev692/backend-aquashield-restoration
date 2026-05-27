@@ -15,7 +15,10 @@ import { SOCIAL_MEDIA_REPOSITORY } from '../../domain/ports/social-media-reposit
 import type { ISocialMediaRepository } from '../../domain/ports/social-media-repository.port';
 import { AUDIT_PORT } from '../../../../shared/activity-log/audit.port';
 import type { IAuditPort } from '../../../../shared/activity-log/audit.port';
-import { STORAGE_PORT, type IStoragePort } from '../../../../shared/storage/storage.port';
+import {
+  STORAGE_PORT,
+  type IStoragePort,
+} from '../../../../shared/storage/storage.port';
 import { QUEUE_NAMES } from '../../../../shared/messaging/queues.constants';
 import type {
   SocialNetwork,
@@ -25,7 +28,10 @@ import type {
 import { SocialMediaGenerationAggregate } from '../../domain/entities/social-media-generation.aggregate';
 import type { AiDetectionScore } from '../../domain/entities/social-media-generation.aggregate';
 import { SocialMediaGenerationCreatedEvent } from '../../domain/events/social-media-generation-created.event';
-import { CACHE_PORT, type ICachePort } from '../../../../shared/cache/cache.port';
+import {
+  CACHE_PORT,
+  type ICachePort,
+} from '../../../../shared/cache/cache.port';
 import { SOCIAL_MEDIA_CACHE_PATTERN } from '../../application/social-media-cache.constants';
 import { SocialMediaGateway } from '../gateways/social-media.gateway';
 import { VIRALITY_RESEARCH_PORT } from '../../domain/ports/virality-research.port';
@@ -100,9 +106,15 @@ export class SocialMediaGenerationProcessor extends WorkerHost {
       doc.on('error', reject);
 
       // ─── Header ──────────────────────────────────────────────
-      doc.fontSize(22).font('Helvetica-Bold').text('Social Media Analysis Report', { align: 'center' });
+      doc
+        .fontSize(22)
+        .font('Helvetica-Bold')
+        .text('Social Media Analysis Report', { align: 'center' });
       doc.moveDown(0.3);
-      doc.fontSize(10).font('Helvetica').fillColor('#64748b')
+      doc
+        .fontSize(10)
+        .font('Helvetica')
+        .fillColor('#64748b')
         .text(`Generated: ${new Date().toISOString()}`, { align: 'center' })
         .fillColor('#000');
       doc.moveDown(0.5);
@@ -128,21 +140,33 @@ export class SocialMediaGenerationProcessor extends WorkerHost {
       doc.moveDown(0.4);
 
       const vScore = input.viralityScore ?? 0;
-      const vColor = vScore >= 70 ? '#16a34a' : vScore >= 40 ? '#ca8a04' : '#dc2626';
+      const vColor =
+        vScore >= 70 ? '#16a34a' : vScore >= 40 ? '#ca8a04' : '#dc2626';
       doc.fontSize(10).font('Helvetica-Bold').text('Virality Score');
-      doc.font('Helvetica').fillColor(vColor).text(`${vScore}/100`, { indent: 20 }).fillColor('#000');
+      doc
+        .font('Helvetica')
+        .fillColor(vColor)
+        .text(`${vScore}/100`, { indent: 20 })
+        .fillColor('#000');
       doc.moveDown(0.2);
 
       const rScore = input.roiScore ?? 0;
-      const rColor = rScore >= 70 ? '#16a34a' : rScore >= 40 ? '#ca8a04' : '#dc2626';
+      const rColor =
+        rScore >= 70 ? '#16a34a' : rScore >= 40 ? '#ca8a04' : '#dc2626';
       doc.font('Helvetica-Bold').text('ROI Score');
-      doc.font('Helvetica').fillColor(rColor).text(`${rScore}/100`, { indent: 20 }).fillColor('#000');
+      doc
+        .font('Helvetica')
+        .fillColor(rColor)
+        .text(`${rScore}/100`, { indent: 20 })
+        .fillColor('#000');
       doc.moveDown(0.2);
 
       if (input.aiDetectionScore) {
         const ai = input.aiDetectionScore;
         doc.font('Helvetica-Bold').text('AI Detection Breakdown');
-        doc.font('Helvetica').text(`  Human Written: ${ai.humanWritten}%`, { indent: 20 });
+        doc
+          .font('Helvetica')
+          .text(`  Human Written: ${ai.humanWritten}%`, { indent: 20 });
         doc.text(`  Shows AI Signs: ${ai.showsAiSigns}%`, { indent: 20 });
         doc.text(`  AI Generated: ${ai.aiGenerated}%`, { indent: 20 });
         doc.text(`  AI Paraphrased: ${ai.aiParaphrased}%`, { indent: 20 });
@@ -180,7 +204,10 @@ export class SocialMediaGenerationProcessor extends WorkerHost {
         doc.moveDown(0.3);
         for (const p of input.viralityResult.similarPosts) {
           doc.fontSize(10).font('Helvetica-Bold').text(p.title);
-          doc.font('Helvetica').fontSize(9).fillColor('#64748b')
+          doc
+            .font('Helvetica')
+            .fontSize(9)
+            .fillColor('#64748b')
             .text(`Engagement: ${p.engagementEstimate}  ·  ${p.url}`)
             .fillColor('#000');
           doc.fontSize(9).text(p.snippet, { indent: 10 });
@@ -205,8 +232,17 @@ export class SocialMediaGenerationProcessor extends WorkerHost {
       doc.moveDown(0.3);
       for (const [network, post] of Object.entries(input.generatedPosts)) {
         if (post) {
-          doc.fontSize(10).font('Helvetica-Bold').text(`${network.toUpperCase()}`);
-          doc.font('Helvetica').fontSize(9).text(`  Body: ${post.body.substring(0, 200)}${post.body.length > 200 ? '...' : ''}`, { indent: 10 });
+          doc
+            .fontSize(10)
+            .font('Helvetica-Bold')
+            .text(`${network.toUpperCase()}`);
+          doc
+            .font('Helvetica')
+            .fontSize(9)
+            .text(
+              `  Body: ${post.body.substring(0, 200)}${post.body.length > 200 ? '...' : ''}`,
+              { indent: 10 },
+            );
           if (post.hashtags?.length) {
             doc.text(`  Hashtags: ${post.hashtags.join(', ')}`, { indent: 10 });
           }
@@ -224,8 +260,14 @@ export class SocialMediaGenerationProcessor extends WorkerHost {
       doc.moveDown(1);
       doc.moveTo(48, doc.y).lineTo(547, doc.y).strokeColor('#e2e8f0').stroke();
       doc.moveDown(0.5);
-      doc.fontSize(8).font('Helvetica').fillColor('#94a3b8')
-        .text(`Generation ID: ${input.generationId}  ·  Aquashield Restoration LLC Social Media Engine`, { align: 'center' })
+      doc
+        .fontSize(8)
+        .font('Helvetica')
+        .fillColor('#94a3b8')
+        .text(
+          `Generation ID: ${input.generationId}  ·  Aquashield Restoration LLC Social Media Engine`,
+          { align: 'center' },
+        )
         .fillColor('#000');
 
       doc.end();
@@ -235,7 +277,13 @@ export class SocialMediaGenerationProcessor extends WorkerHost {
   async process(
     job: Job<SocialMediaGenerationJobData>,
   ): Promise<SocialMediaGenerationJobResult> {
-    const { actorId, topicTitle, topicDescription, activeNetworks, language = 'es' } = job.data;
+    const {
+      actorId,
+      topicTitle,
+      topicDescription,
+      activeNetworks,
+      language = 'es',
+    } = job.data;
     const traceId = this.cls.get<string>('traceId') ?? job.id;
 
     this.logger.info('SocialMediaGenerationProcessor start', {
@@ -270,7 +318,13 @@ export class SocialMediaGenerationProcessor extends WorkerHost {
   private async doProcess(
     job: Job<SocialMediaGenerationJobData>,
   ): Promise<SocialMediaGenerationJobResult> {
-    const { actorId, topicTitle, topicDescription, activeNetworks, language = 'es' } = job.data;
+    const {
+      actorId,
+      topicTitle,
+      topicDescription,
+      activeNetworks,
+      language = 'es',
+    } = job.data;
     const traceId = this.cls.get<string>('traceId') ?? job.id;
 
     // 1. Virality Research (Tavily) — real-time trend analysis
@@ -292,7 +346,10 @@ export class SocialMediaGenerationProcessor extends WorkerHost {
     } catch (researchErr) {
       this.logger.warn('Virality research failed, continuing without it', {
         traceId,
-        error: researchErr instanceof Error ? researchErr.message : String(researchErr),
+        error:
+          researchErr instanceof Error
+            ? researchErr.message
+            : String(researchErr),
       });
       viralityResult = null;
     }
@@ -324,7 +381,7 @@ export class SocialMediaGenerationProcessor extends WorkerHost {
       const combinedText = Object.values(generatedPosts)
         .map((p) => p?.body || '')
         .join(' ');
-      
+
       if (combinedText.length > 0) {
         aiDetectionScore = await this.aiDetection.analyze({
           text: combinedText,
@@ -339,7 +396,10 @@ export class SocialMediaGenerationProcessor extends WorkerHost {
     } catch (detectionErr) {
       this.logger.warn('AI detection failed, continuing without it', {
         traceId,
-        error: detectionErr instanceof Error ? detectionErr.message : String(detectionErr),
+        error:
+          detectionErr instanceof Error
+            ? detectionErr.message
+            : String(detectionErr),
       });
       aiDetectionScore = null;
     }
@@ -356,7 +416,11 @@ export class SocialMediaGenerationProcessor extends WorkerHost {
       const imageKey = `social-media/images/${actorId}/${Date.now()}.png`;
       const imageBuffer = Buffer.from(imageResult.base64, 'base64');
 
-      await this.storage.upload(imageKey, imageBuffer, imageResult.mimeType || 'image/png');
+      await this.storage.upload(
+        imageKey,
+        imageBuffer,
+        imageResult.mimeType || 'image/png',
+      );
 
       // Build public URL using the existing publicUrl helper (R2_PUBLIC_BASE_URL + key)
       const publicUrl = this.storage.publicUrl(imageKey);
@@ -379,10 +443,13 @@ export class SocialMediaGenerationProcessor extends WorkerHost {
         imageKey,
       });
     } catch (imgErr) {
-      this.logger.warn('SocialMediaGenerationProcessor image generation failed (non-fatal)', {
-        traceId,
-        error: imgErr instanceof Error ? imgErr.message : String(imgErr),
-      });
+      this.logger.warn(
+        'SocialMediaGenerationProcessor image generation failed (non-fatal)',
+        {
+          traceId,
+          error: imgErr instanceof Error ? imgErr.message : String(imgErr),
+        },
+      );
     }
 
     // 4. Persist using rich Aggregate (Full Hex/DDD)
@@ -406,7 +473,10 @@ export class SocialMediaGenerationProcessor extends WorkerHost {
 
     // 5. Generate Analysis Report PDF
     try {
-      this.logger.info('Generating social media analysis report', { traceId, generationId: saved.id });
+      this.logger.info('Generating social media analysis report', {
+        traceId,
+        generationId: saved.id,
+      });
       const reportBuffer = await this.buildAnalysisReport({
         generationId: saved.id,
         niche: saved.niche,
@@ -424,16 +494,21 @@ export class SocialMediaGenerationProcessor extends WorkerHost {
       const reportKey = `social-media/analysis/${saved.id}/social_media_analysis_report.pdf`;
       await this.storage.upload(reportKey, reportBuffer, 'application/pdf');
       const reportUrl = this.storage.publicUrl(reportKey);
-      
+
       aggregate.setAnalysisReport(reportKey, reportUrl);
       await this.repo.update(aggregate);
 
-      this.logger.info('Analysis report generated', { traceId, generationId: saved.id, reportUrl });
+      this.logger.info('Analysis report generated', {
+        traceId,
+        generationId: saved.id,
+        reportUrl,
+      });
     } catch (reportErr) {
       this.logger.warn('Failed to generate analysis report, continuing', {
         traceId,
         generationId: saved.id,
-        error: reportErr instanceof Error ? reportErr.message : String(reportErr),
+        error:
+          reportErr instanceof Error ? reportErr.message : String(reportErr),
       });
     }
 
@@ -444,7 +519,10 @@ export class SocialMediaGenerationProcessor extends WorkerHost {
         id: saved.id,
         generatedAt: saved.createdAt.toISOString(),
         topic: { title: topicTitle, description: topicDescription },
-        networks: activeNetworks.reduce((acc, n) => ({ ...acc, [n]: true }), {} as Record<SocialNetwork, boolean>),
+        networks: activeNetworks.reduce(
+          (acc, n) => ({ ...acc, [n]: true }),
+          {} as Record<SocialNetwork, boolean>,
+        ),
         posts: generatedPosts,
         language,
         hasImage: !!sharedImage,
@@ -453,14 +531,20 @@ export class SocialMediaGenerationProcessor extends WorkerHost {
         aiDetectionScore: saved.aiDetectionScore,
         analysisReportUrl: saved.analysisReportUrl,
       };
-      const buffer = Buffer.from(JSON.stringify(historyPayload, null, 2), 'utf8');
+      const buffer = Buffer.from(
+        JSON.stringify(historyPayload, null, 2),
+        'utf8',
+      );
       r2Key = `social-media/posts/${actorId}/${saved.id}.json`;
       await this.storage.upload(r2Key, buffer, 'application/json');
     } catch (e) {
-      this.logger.warn('SocialMediaGenerationProcessor R2 upload failed (non-fatal)', {
-        traceId,
-        error: e instanceof Error ? e.message : String(e),
-      });
+      this.logger.warn(
+        'SocialMediaGenerationProcessor R2 upload failed (non-fatal)',
+        {
+          traceId,
+          error: e instanceof Error ? e.message : String(e),
+        },
+      );
     }
 
     // 7. Audit (strict) — must succeed or the mutation is considered failed
@@ -491,7 +575,9 @@ export class SocialMediaGenerationProcessor extends WorkerHost {
         saved.id,
         saved.userId,
         saved.topicTitle,
-        Object.keys(saved.networks).filter((k) => saved.networks[k as SocialNetwork]),
+        Object.keys(saved.networks).filter(
+          (k) => saved.networks[k as SocialNetwork],
+        ),
         !!sharedImage,
         language,
         saved.viralityScore ?? null,

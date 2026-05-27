@@ -232,9 +232,7 @@ export class AppointmentsController {
     @Query('withTrashed') withTrashedRaw?: string,
   ): Promise<AppointmentReadModel> {
     const withTrashed = withTrashedRaw === 'true';
-    return this.queryBus.execute(
-      new GetAppointmentByIdQuery(id, withTrashed),
-    );
+    return this.queryBus.execute(new GetAppointmentByIdQuery(id, withTrashed));
   }
 
   @Patch(':id')
@@ -267,9 +265,7 @@ export class AppointmentsController {
     @Param('id', ParseUUIDPipe) id: string,
     @CurrentUser() user: AuthenticatedUser,
   ): Promise<{ success: true }> {
-    await this.commandBus.execute(
-      new MarkAppointmentReadCommand(id, user.id),
-    );
+    await this.commandBus.execute(new MarkAppointmentReadCommand(id, user.id));
     return { success: true };
   }
 

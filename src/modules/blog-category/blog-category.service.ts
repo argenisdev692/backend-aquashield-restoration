@@ -91,9 +91,7 @@ export class BlogCategoryService {
     if (dto.name) {
       const existing = await this.repository.findByName(userId, dto.name);
       if (existing) {
-        throw new ConflictException(
-          'Category with this name already exists',
-        );
+        throw new ConflictException('Category with this name already exists');
       }
     }
 
@@ -297,10 +295,7 @@ export class BlogCategoryService {
     return result;
   }
 
-  async bulkDelete(
-    actorId: string,
-    ids: string[],
-  ): Promise<{ count: number }> {
+  async bulkDelete(actorId: string, ids: string[]): Promise<{ count: number }> {
     const traceId = this.cls.get<string>('traceId');
     this.logger.info('BlogCategoryService.bulkDelete start', {
       traceId,
@@ -567,10 +562,7 @@ export class BlogCategoryService {
     });
   }
 
-  private async findOrFail(
-    userId: string,
-    id: string,
-  ): Promise<BlogCategory> {
+  private async findOrFail(userId: string, id: string): Promise<BlogCategory> {
     const result = await this.repository.findById(userId, id);
     if (!result) throw new NotFoundException('Blog category not found');
     return result;

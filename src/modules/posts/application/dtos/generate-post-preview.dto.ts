@@ -16,8 +16,7 @@ export const GeneratePostPreviewSchema = z.object({
     .describe(
       'Industry or vertical the content belongs to. Used to tailor tone, examples, and E-E-A-T grounding. Example: "Desarrollo Web" or "Fintech"',
     ),
-  wordCount: z
-    .coerce
+  wordCount: z.coerce
     .number()
     .int()
     .min(300)
@@ -28,6 +27,10 @@ export const GeneratePostPreviewSchema = z.object({
     ),
 });
 
-export class GeneratePostPreviewDto extends createZodDto(GeneratePostPreviewSchema) {}
+export class GeneratePostPreviewDto extends createZodDto(
+  GeneratePostPreviewSchema,
+) {}
 
-export type GeneratePostPreviewInput = z.infer<typeof GeneratePostPreviewSchema>;
+export type GeneratePostPreviewInput = z.infer<
+  typeof GeneratePostPreviewSchema
+>;

@@ -83,7 +83,9 @@ export class PrismaBackupRepository implements IBackupRepository {
       select: { id: true, objectKey: true },
     });
     return rows
-      .filter((r): r is { id: string; objectKey: string } => r.objectKey !== null)
+      .filter(
+        (r): r is { id: string; objectKey: string } => r.objectKey !== null,
+      )
       .map((r) => ({ id: r.id, objectKey: r.objectKey }));
   }
 

@@ -24,9 +24,7 @@ import { DeleteBackupCommand } from '../delete-backup.command';
  *      cleaned up by the retention listener on the next backup.
  */
 @CommandHandler(DeleteBackupCommand)
-export class DeleteBackupHandler
-  implements ICommandHandler<DeleteBackupCommand>
-{
+export class DeleteBackupHandler implements ICommandHandler<DeleteBackupCommand> {
   private static readonly CACHE_PATTERN = 'http:*:/backups*';
 
   constructor(

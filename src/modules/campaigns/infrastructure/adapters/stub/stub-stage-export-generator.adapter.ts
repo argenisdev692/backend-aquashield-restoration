@@ -11,7 +11,9 @@ import {
  */
 @Injectable()
 export class StubStageExportGeneratorAdapter implements IStageExportGeneratorPort {
-  async generate(input: GenerateStageExportInput): Promise<GeneratedStageContent> {
+  async generate(
+    input: GenerateStageExportInput,
+  ): Promise<GeneratedStageContent> {
     const stage = input.stage;
 
     return {
@@ -29,10 +31,39 @@ export class StubStageExportGeneratorAdapter implements IStageExportGeneratorPor
         },
       },
       scenes: [
-        { id: 1, timecode: '0:00-0:04', title: 'Apertura', visualDescription: 'Professional setting for a business in niche ' + input.niche, imageKeywords: ['business', 'professional'], durationSeconds: 4 },
-        { id: 2, timecode: '0:04-0:08', title: 'Problema', visualDescription: 'Customer facing a common pain point', imageKeywords: ['problem', 'solution'], durationSeconds: 4 },
-        { id: 3, timecode: '0:08-0:12', title: 'Solución', visualDescription: 'Our service solving the issue', imageKeywords: ['solution', 'happy'], durationSeconds: 4 },
-        { id: 4, timecode: '0:12-0:15', title: 'CTA', visualDescription: 'Clear call to action with phone number', imageKeywords: ['call', 'contact'], durationSeconds: 3 },
+        {
+          id: 1,
+          timecode: '0:00-0:04',
+          title: 'Apertura',
+          visualDescription:
+            'Professional setting for a business in niche ' + input.niche,
+          imageKeywords: ['business', 'professional'],
+          durationSeconds: 4,
+        },
+        {
+          id: 2,
+          timecode: '0:04-0:08',
+          title: 'Problema',
+          visualDescription: 'Customer facing a common pain point',
+          imageKeywords: ['problem', 'solution'],
+          durationSeconds: 4,
+        },
+        {
+          id: 3,
+          timecode: '0:08-0:12',
+          title: 'Solución',
+          visualDescription: 'Our service solving the issue',
+          imageKeywords: ['solution', 'happy'],
+          durationSeconds: 4,
+        },
+        {
+          id: 4,
+          timecode: '0:12-0:15',
+          title: 'CTA',
+          visualDescription: 'Clear call to action with phone number',
+          imageKeywords: ['call', 'contact'],
+          durationSeconds: 3,
+        },
       ],
       productionNotes: {
         specs916: '1080x1920 · 60fps · subtítulos centrados',

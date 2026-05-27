@@ -29,9 +29,7 @@ import { SetupPasswordCommand } from '../setup-password.command';
 const INVALID_MSG = 'Invalid or expired setup token';
 
 @CommandHandler(SetupPasswordCommand)
-export class SetupPasswordHandler
-  implements ICommandHandler<SetupPasswordCommand>
-{
+export class SetupPasswordHandler implements ICommandHandler<SetupPasswordCommand> {
   constructor(
     @Inject(USER_REPOSITORY)
     private readonly userRepo: IUserRepository,

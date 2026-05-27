@@ -73,4 +73,6 @@ export const CampaignExportListItemSchema = z.object({
   createdAt: z.string().datetime(),
 });
 
-export type CampaignExportListItem = z.infer<typeof CampaignExportListItemSchema>;
+export type CampaignExportListItem = z.infer<
+  typeof CampaignExportListItemSchema
+>;

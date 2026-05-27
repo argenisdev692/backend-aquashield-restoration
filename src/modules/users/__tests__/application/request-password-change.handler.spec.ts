@@ -1,6 +1,5 @@
 jest.mock('@nestjs-cls/transactional', () => ({
-  Transactional:
-    () => (_t: unknown, _k: string, d: PropertyDescriptor) => d,
+  Transactional: () => (_t: unknown, _k: string, d: PropertyDescriptor) => d,
 }));
 
 import { Test, TestingModule } from '@nestjs/testing';
@@ -59,7 +58,9 @@ describe('RequestPasswordChangeHandler', () => {
       existsByUsername: jest.fn(),
       bulkDelete: jest.fn(),
       bulkRestore: jest.fn(),
-      findAccessByUserId: jest.fn().mockResolvedValue({ roles: [], permissions: [] }),
+      findAccessByUserId: jest
+        .fn()
+        .mockResolvedValue({ roles: [], permissions: [] }),
       findAccessByUserIds: jest.fn().mockResolvedValue(new Map()),
       replaceRoles: jest.fn().mockResolvedValue(undefined),
       replacePermissions: jest.fn().mockResolvedValue(undefined),
@@ -72,9 +73,18 @@ describe('RequestPasswordChangeHandler', () => {
     };
     mockEmail = { sendPasswordSetupLink: jest.fn() };
     mockAudit = { log: jest.fn() };
-    mockLogger = { info: jest.fn(), warn: jest.fn(), error: jest.fn(), setContext: jest.fn() } as unknown as jest.Mocked<LoggerService>;
-    mockCls = { get: jest.fn().mockReturnValue('trace-1') } as unknown as jest.Mocked<ClsService>;
-    mockConfig = { get: jest.fn().mockReturnValue('http://localhost:3000') } as unknown as jest.Mocked<ConfigService>;
+    mockLogger = {
+      info: jest.fn(),
+      warn: jest.fn(),
+      error: jest.fn(),
+      setContext: jest.fn(),
+    } as unknown as jest.Mocked<LoggerService>;
+    mockCls = {
+      get: jest.fn().mockReturnValue('trace-1'),
+    } as unknown as jest.Mocked<ClsService>;
+    mockConfig = {
+      get: jest.fn().mockReturnValue('http://localhost:3000'),
+    } as unknown as jest.Mocked<ConfigService>;
 
     const module: TestingModule = await Test.createTestingModule({
       providers: [

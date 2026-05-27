@@ -108,7 +108,11 @@ export class CampaignsGateway
 
   // ─── Broadcast helpers (called by event listeners / processor) ──────────────
 
-  broadcastStageReady(generationId: string, stage: string, zipUrl: string | null) {
+  broadcastStageReady(
+    generationId: string,
+    stage: string,
+    zipUrl: string | null,
+  ) {
     this.server.to(`campaign:${generationId}`).emit('campaign:stage:ready', {
       generationId,
       stage,
@@ -130,15 +134,17 @@ export class CampaignsGateway
     } | null = null,
     analysisReportUrl: string | null = null,
   ) {
-    this.server.to(`campaign:${generationId}`).emit('campaign:export:completed', {
-      generationId,
-      status,
-      viralityScore,
-      roiScore,
-      aiDetectionScore,
-      analysisReportUrl,
-      timestamp: new Date().toISOString(),
-    });
+    this.server
+      .to(`campaign:${generationId}`)
+      .emit('campaign:export:completed', {
+        generationId,
+        status,
+        viralityScore,
+        roiScore,
+        aiDetectionScore,
+        analysisReportUrl,
+        timestamp: new Date().toISOString(),
+      });
   }
 
   broadcastExportFailed(generationId: string, error: string) {

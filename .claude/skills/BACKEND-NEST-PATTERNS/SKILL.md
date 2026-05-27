@@ -7,7 +7,7 @@ globs: src/modules/**/*.service.ts, src/modules/**/*.repository.ts
 
 > **Authority**: Reusable coding patterns for NestJS CRUD services and repositories.
 > **Scope**: Any module using the Service/Repository (CRUD) layout.
-> **Complements**: `.claude/skills/ARCHITECTURE-NEST-CRUD/SKILL.md` (structure) and `.claude/skills/BACKEND-NEST/SKILL.md` (stack rules).
+> **Complements**: `.claude/skills/ARCHITECTURE-SIMPLE/SKILL.md` (structure) and `.claude/skills/BACKEND-NEST/SKILL.md` (stack rules).
 
 ---
 
@@ -156,7 +156,7 @@ async bulkDelete(ids: string[]): Promise<void> {
 }
 ```
 
-**When the service needs entities by id list:** if hydration is for *display only* (read), `findMany({ where: { id: { in: ids } } })` with `select` is enough. If hydration is to *enforce a per-aggregate invariant before a bulk mutation*, that is an upgrade trigger — the operation is no longer a bulk and belongs in a Saga (see `.claude/skills/ARCHITECTURE-NEST/SKILL.md` § Bulk Delete / Bulk Restore).
+**When the service needs entities by id list:** if hydration is for *display only* (read), `findMany({ where: { id: { in: ids } } })` with `select` is enough. If hydration is to *enforce a per-aggregate invariant before a bulk mutation*, that is an upgrade trigger — the operation is no longer a bulk and belongs in a Saga (see `.claude/skills/ARCHITECTURE-ENTERPRISE/SKILL.md` § Bulk Delete / Bulk Restore).
 
 ---
 

@@ -1,4 +1,7 @@
-import type { BackupStatus, BackupTrigger } from '../value-objects/backup-status.vo';
+import type {
+  BackupStatus,
+  BackupTrigger,
+} from '../value-objects/backup-status.vo';
 
 export interface BackupReadModel {
   id: string;

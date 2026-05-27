@@ -37,7 +37,9 @@ export class BackupRetentionListener {
 
   @OnEvent('backup.completed')
   async handle(event: BackupCompletedEvent): Promise<void> {
-    const traceId = this.cls.isActive() ? this.cls.get<string>('traceId') : undefined;
+    const traceId = this.cls.isActive()
+      ? this.cls.get<string>('traceId')
+      : undefined;
     const stale = await this.repo.findCompletedBeyond(this.keep);
     if (stale.length === 0) {
       this.logger.info('BackupRetentionListener nothing to prune', {

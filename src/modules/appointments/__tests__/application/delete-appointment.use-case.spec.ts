@@ -71,7 +71,9 @@ describe('DeleteAppointmentHandler', () => {
       del: jest.fn(),
       delByPattern: jest.fn(),
     };
-    mockEventEmitter = { emit: jest.fn() } as unknown as jest.Mocked<EventEmitter2>;
+    mockEventEmitter = {
+      emit: jest.fn(),
+    } as unknown as jest.Mocked<EventEmitter2>;
 
     const module: TestingModule = await Test.createTestingModule({
       providers: [
@@ -113,7 +115,9 @@ describe('DeleteAppointmentHandler', () => {
       },
       { strict: true },
     );
-    expect(mockCache.delByPattern).toHaveBeenCalledWith('http:*:/appointments*');
+    expect(mockCache.delByPattern).toHaveBeenCalledWith(
+      'http:*:/appointments*',
+    );
     expect(mockEventEmitter.emit).toHaveBeenCalledWith(
       'appointment.deleted',
       expect.any(Object),

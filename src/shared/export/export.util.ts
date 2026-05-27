@@ -35,9 +35,7 @@ export function csvEscape(value: unknown): string {
   return `"${safe.replace(/"/g, '""')}"`;
 }
 
-export function sheetEscape(
-  value: unknown,
-): string | number | boolean | null {
+export function sheetEscape(value: unknown): string | number | boolean | null {
   if (value === null || value === undefined) return null;
   if (typeof value === 'number' || typeof value === 'boolean') return value;
   const raw = stringifyValue(value);

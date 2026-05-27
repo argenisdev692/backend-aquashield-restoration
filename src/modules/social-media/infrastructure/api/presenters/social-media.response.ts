@@ -10,7 +10,9 @@ export const SocialMediaTopicResponseSchema = z.object({
   trendScore: z.number().int().min(0).max(100),
 });
 
-export class SocialMediaTopicResponse extends createZodDto(SocialMediaTopicResponseSchema) {}
+export class SocialMediaTopicResponse extends createZodDto(
+  SocialMediaTopicResponseSchema,
+) {}
 
 export const GeneratedPostImageSchema = z.object({
   url: z.string().url().optional(),

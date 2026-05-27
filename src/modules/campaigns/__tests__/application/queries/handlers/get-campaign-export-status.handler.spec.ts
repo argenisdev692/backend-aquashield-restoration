@@ -57,7 +57,7 @@ describe('GetCampaignExportStatusHandler', () => {
   });
 
   it('should throw domain not-found when ownership fails (returns same error to avoid enumeration)', async () => {
-    const agg = { id: 'g-1', userId: 'other-user', /* ... minimal */ };
+    const agg = { id: 'g-1', userId: 'other-user' /* ... minimal */ };
     campaignRepo.findById.mockResolvedValue(agg);
 
     await expect(

@@ -28,7 +28,10 @@ export class GetContactSupportByIdHandler implements IQueryHandler<GetContactSup
       withTrashed: query.withTrashed,
     });
 
-    const result = await this.repo.findReadModelById(query.id, query.withTrashed);
+    const result = await this.repo.findReadModelById(
+      query.id,
+      query.withTrashed,
+    );
     if (!result) throw new NotFoundException('Contact request not found');
     return result;
   }

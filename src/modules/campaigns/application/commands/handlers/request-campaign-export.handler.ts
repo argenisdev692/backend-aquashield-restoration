@@ -20,9 +20,7 @@ import { ClsService } from 'nestjs-cls';
 
 @CommandHandler(RequestCampaignExportCommand)
 @Injectable()
-export class RequestCampaignExportHandler
-  implements ICommandHandler<RequestCampaignExportCommand>
-{
+export class RequestCampaignExportHandler implements ICommandHandler<RequestCampaignExportCommand> {
   constructor(
     @Inject(CAMPAIGN_GENERATION_REPOSITORY)
     private readonly campaignRepo: ICampaignGenerationRepository,

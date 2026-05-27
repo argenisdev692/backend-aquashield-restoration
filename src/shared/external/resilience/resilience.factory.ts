@@ -7,10 +7,7 @@ import {
   wrap,
   type IPolicy,
 } from 'cockatiel';
-import {
-  RESILIENCE_PROFILES,
-  DEFAULT_PROFILE,
-} from './resilience.constants';
+import { RESILIENCE_PROFILES, DEFAULT_PROFILE } from './resilience.constants';
 import type { ExternalServiceProfile } from './resilience.types';
 
 /**

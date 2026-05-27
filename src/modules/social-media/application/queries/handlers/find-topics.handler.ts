@@ -21,7 +21,10 @@ export class FindTopicsHandler implements IQueryHandler<FindTopicsQuery> {
 
   async execute(query: FindTopicsQuery): Promise<SocialMediaTopic[]> {
     const traceId = this.cls.get<string>('traceId');
-    this.logger.info('FindTopicsHandler start', { traceId, niche: query.dto.niche });
+    this.logger.info('FindTopicsHandler start', {
+      traceId,
+      niche: query.dto.niche,
+    });
 
     const topics = await this.topicFinder.findTrendingTopics({
       niche: query.dto.niche,
@@ -29,7 +32,10 @@ export class FindTopicsHandler implements IQueryHandler<FindTopicsQuery> {
       maxTopics: query.dto.maxTopics,
     });
 
-    this.logger.info('FindTopicsHandler end', { traceId, count: topics.length });
+    this.logger.info('FindTopicsHandler end', {
+      traceId,
+      count: topics.length,
+    });
     return topics;
   }
 }

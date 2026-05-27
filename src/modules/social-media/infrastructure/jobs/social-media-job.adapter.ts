@@ -14,7 +14,9 @@ import { QUEUE_NAMES } from '../../../../shared/messaging/queues.constants';
 import { MESSAGING_REDIS_CONNECTION } from '../../../../shared/messaging/messaging.constants';
 
 @Injectable()
-export class SocialMediaJobAdapter implements ISocialMediaJobPort, OnModuleDestroy {
+export class SocialMediaJobAdapter
+  implements ISocialMediaJobPort, OnModuleDestroy
+{
   private readonly queueEvents: QueueEvents;
 
   constructor(
@@ -35,7 +37,8 @@ export class SocialMediaJobAdapter implements ISocialMediaJobPort, OnModuleDestr
   async enqueueGeneratePost(
     input: EnqueueGeneratePostInput,
   ): Promise<EnqueueGeneratePostResult> {
-    const { actorId, topicTitle, topicDescription, activeNetworks, language } = input;
+    const { actorId, topicTitle, topicDescription, activeNetworks, language } =
+      input;
     const traceId = this.cls.get<string>('traceId');
 
     const jobId = `smg:${actorId}:${Buffer.from(

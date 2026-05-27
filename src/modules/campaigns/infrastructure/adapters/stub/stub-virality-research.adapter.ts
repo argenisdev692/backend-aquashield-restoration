@@ -11,7 +11,9 @@ import {
  */
 @Injectable()
 export class StubViralityResearchAdapter implements IViralityResearchPort {
-  async research(input: ViralityResearchInput): Promise<ViralityResearchResult> {
+  async research(
+    input: ViralityResearchInput,
+  ): Promise<ViralityResearchResult> {
     return {
       score: 72,
       trendingTopics: [

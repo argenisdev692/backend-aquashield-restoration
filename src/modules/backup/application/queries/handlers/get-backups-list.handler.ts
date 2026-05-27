@@ -10,9 +10,7 @@ import { BACKUP_REPOSITORY } from '../../../domain/ports/backup.repository.inter
 import { GetBackupsListQuery } from '../get-backups-list.query';
 
 @QueryHandler(GetBackupsListQuery)
-export class GetBackupsListHandler
-  implements IQueryHandler<GetBackupsListQuery>
-{
+export class GetBackupsListHandler implements IQueryHandler<GetBackupsListQuery> {
   constructor(
     @Inject(BACKUP_REPOSITORY) private readonly repo: IBackupRepository,
     private readonly logger: LoggerService,

@@ -113,7 +113,10 @@ export class RunBackupHandler implements ICommandHandler<RunBackupCommand> {
       try {
         await this.markFailed({ backupId, error: message });
         await this.cache.delByPattern(RunBackupHandler.CACHE_PATTERN);
-        this.events.emit('backup.failed', new BackupFailedEvent(backupId, message));
+        this.events.emit(
+          'backup.failed',
+          new BackupFailedEvent(backupId, message),
+        );
       } catch (flipErr) {
         this.logger.error('RunBackupHandler markFailed also failed', {
           traceId,
@@ -132,7 +135,9 @@ export class RunBackupHandler implements ICommandHandler<RunBackupCommand> {
             backupId,
             path: dumpFilePath,
             error:
-              unlinkErr instanceof Error ? unlinkErr.message : String(unlinkErr),
+              unlinkErr instanceof Error
+                ? unlinkErr.message
+                : String(unlinkErr),
           });
         });
       }

@@ -109,7 +109,9 @@ describe('RestoreAppointmentHandler', () => {
       },
       { strict: true },
     );
-    expect(mockCache.delByPattern).toHaveBeenCalledWith('http:*:/appointments*');
+    expect(mockCache.delByPattern).toHaveBeenCalledWith(
+      'http:*:/appointments*',
+    );
   });
 
   it('throws and skips side effects when not found', async () => {

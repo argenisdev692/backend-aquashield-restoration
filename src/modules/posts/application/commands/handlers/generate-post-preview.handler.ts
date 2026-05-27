@@ -5,7 +5,10 @@ import { Queue, QueueEvents } from 'bullmq';
 import { ClsService } from 'nestjs-cls';
 import type Redis from 'ioredis';
 import { GeneratePostPreviewCommand } from '../generate-post-preview.command';
-import { CACHE_PORT, type ICachePort } from '../../../../../shared/cache/cache.port';
+import {
+  CACHE_PORT,
+  type ICachePort,
+} from '../../../../../shared/cache/cache.port';
 import { MESSAGING_REDIS_CONNECTION } from '../../../../../shared/messaging/messaging.constants';
 import { QUEUE_NAMES } from '../../../../../shared/messaging/queues.constants';
 import { LoggerService } from '../../../../../logger/logger.service';
@@ -42,7 +45,9 @@ export class GeneratePostPreviewHandler
     });
   }
 
-  async execute(command: GeneratePostPreviewCommand): Promise<GeneratedPostPreview> {
+  async execute(
+    command: GeneratePostPreviewCommand,
+  ): Promise<GeneratedPostPreview> {
     const traceId = this.cls.get<string>('traceId');
     const { topic, niche, wordCount } = command.dto;
 
@@ -59,7 +64,10 @@ export class GeneratePostPreviewHandler
     // 1. Fast path: Redis cache hit (biggest cost saver for repeated identical generations)
     const cached = await this.cache.get<GeneratedPostPreview>(cacheKey);
     if (cached) {
-      this.logger.info('GeneratePostPreviewHandler cache hit', { traceId, jobId });
+      this.logger.info('GeneratePostPreviewHandler cache hit', {
+        traceId,
+        jobId,
+      });
       return cached;
     }
 

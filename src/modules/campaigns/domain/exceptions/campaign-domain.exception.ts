@@ -52,6 +52,8 @@ export class ExternalAiServiceException extends CampaignDomainException {
   readonly code = 'EXTERNAL_AI_SERVICE_ERROR';
 
   constructor(service: string, details?: string) {
-    super(`External AI service error (${service})${details ? `: ${details}` : ''}`);
+    super(
+      `External AI service error (${service})${details ? `: ${details}` : ''}`,
+    );
   }
 }

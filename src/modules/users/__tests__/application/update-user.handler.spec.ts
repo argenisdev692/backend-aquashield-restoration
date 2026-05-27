@@ -1,6 +1,5 @@
 jest.mock('@nestjs-cls/transactional', () => ({
-  Transactional:
-    () => (_t: unknown, _k: string, d: PropertyDescriptor) => d,
+  Transactional: () => (_t: unknown, _k: string, d: PropertyDescriptor) => d,
 }));
 
 import { Test, TestingModule } from '@nestjs/testing';
@@ -57,15 +56,29 @@ describe('UpdateUserHandler', () => {
       existsByUsername: jest.fn(),
       bulkDelete: jest.fn(),
       bulkRestore: jest.fn(),
-      findAccessByUserId: jest.fn().mockResolvedValue({ roles: [], permissions: [] }),
+      findAccessByUserId: jest
+        .fn()
+        .mockResolvedValue({ roles: [], permissions: [] }),
       findAccessByUserIds: jest.fn().mockResolvedValue(new Map()),
       replaceRoles: jest.fn().mockResolvedValue(undefined),
       replacePermissions: jest.fn().mockResolvedValue(undefined),
     };
     mockAudit = { log: jest.fn() };
-    mockLogger = { info: jest.fn(), warn: jest.fn(), error: jest.fn(), setContext: jest.fn() } as unknown as jest.Mocked<LoggerService>;
-    mockCache = { del: jest.fn(), delByPattern: jest.fn(), get: jest.fn(), set: jest.fn() } as unknown as jest.Mocked<CacheService>;
-    mockCls = { get: jest.fn().mockReturnValue('trace-1') } as unknown as jest.Mocked<ClsService>;
+    mockLogger = {
+      info: jest.fn(),
+      warn: jest.fn(),
+      error: jest.fn(),
+      setContext: jest.fn(),
+    } as unknown as jest.Mocked<LoggerService>;
+    mockCache = {
+      del: jest.fn(),
+      delByPattern: jest.fn(),
+      get: jest.fn(),
+      set: jest.fn(),
+    } as unknown as jest.Mocked<CacheService>;
+    mockCls = {
+      get: jest.fn().mockReturnValue('trace-1'),
+    } as unknown as jest.Mocked<ClsService>;
 
     const module: TestingModule = await Test.createTestingModule({
       providers: [
@@ -126,7 +139,11 @@ describe('UpdateUserHandler', () => {
     await handler.execute(
       new UpdateUserCommand(userId, { roleIds: [] }, 'actor-1'),
     );
-    expect(mockUserRepo.replaceRoles).toHaveBeenCalledWith(userId, [], 'actor-1');
+    expect(mockUserRepo.replaceRoles).toHaveBeenCalledWith(
+      userId,
+      [],
+      'actor-1',
+    );
     // CASL ability snapshot must be invalidated so the next request reflects the change.
     expect(mockCache.del).toHaveBeenCalledWith(`casl:ability:${userId}`);
     // Audit metadata carries the touched arrays.

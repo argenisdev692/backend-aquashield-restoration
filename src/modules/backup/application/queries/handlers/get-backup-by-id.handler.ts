@@ -8,9 +8,7 @@ import type { BackupReadModel } from '../../../domain/read-models/backup.read-mo
 import { GetBackupByIdQuery } from '../get-backup-by-id.query';
 
 @QueryHandler(GetBackupByIdQuery)
-export class GetBackupByIdHandler
-  implements IQueryHandler<GetBackupByIdQuery>
-{
+export class GetBackupByIdHandler implements IQueryHandler<GetBackupByIdQuery> {
   constructor(
     @Inject(BACKUP_REPOSITORY) private readonly repo: IBackupRepository,
     private readonly logger: LoggerService,
@@ -19,9 +17,7 @@ export class GetBackupByIdHandler
     this.logger.setContext(GetBackupByIdHandler.name);
   }
 
-  async execute(
-    query: GetBackupByIdQuery,
-  ): Promise<BackupReadModel | null> {
+  async execute(query: GetBackupByIdQuery): Promise<BackupReadModel | null> {
     this.logger.info('GetBackupByIdHandler', {
       traceId: this.cls.get<string>('traceId'),
       backupId: query.backupId,

@@ -4,11 +4,7 @@ import { LoggerService } from '../../logger/logger.service';
 import { PrismaService } from '../database/prisma.service';
 import { CLS_KEYS } from '../cls/cls.constants';
 import type { Prisma } from '../../generated/prisma/client';
-import type {
-  IAuditEntry,
-  IAuditLogOptions,
-  IAuditPort,
-} from './audit.port';
+import type { IAuditEntry, IAuditLogOptions, IAuditPort } from './audit.port';
 
 const SENSITIVE_KEYS = new Set([
   'password',

@@ -100,10 +100,7 @@ export class BlogCategoryRepository {
     return row ? this.mapToEntity(row) : null;
   }
 
-  async findByName(
-    userId: string,
-    name: string,
-  ): Promise<BlogCategory | null> {
+  async findByName(userId: string, name: string): Promise<BlogCategory | null> {
     const row = await this.prisma.blogCategory.findFirst({
       where: { userId, name, deletedAt: null },
     });
@@ -161,10 +158,7 @@ export class BlogCategoryRepository {
     return this.mapToEntity(row);
   }
 
-  async bulkDelete(
-    userId: string,
-    ids: string[],
-  ): Promise<{ count: number }> {
+  async bulkDelete(userId: string, ids: string[]): Promise<{ count: number }> {
     const result = await this.prisma.blogCategory.updateMany({
       where: { id: { in: ids }, userId, deletedAt: null },
       data: { deletedAt: new Date() },
@@ -172,10 +166,7 @@ export class BlogCategoryRepository {
     return { count: result.count };
   }
 
-  async bulkRestore(
-    userId: string,
-    ids: string[],
-  ): Promise<{ count: number }> {
+  async bulkRestore(userId: string, ids: string[]): Promise<{ count: number }> {
     const result = await this.prisma.blogCategory.updateMany({
       where: { id: { in: ids }, userId, deletedAt: { not: null } },
       data: { deletedAt: null },

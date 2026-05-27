@@ -14,9 +14,7 @@ import { resolveTrashedMode } from '../../../../../shared/crud/trashed.util';
 
 @Injectable()
 @QueryHandler(GetAppointmentsListQuery)
-export class GetAppointmentsListHandler
-  implements IQueryHandler<GetAppointmentsListQuery>
-{
+export class GetAppointmentsListHandler implements IQueryHandler<GetAppointmentsListQuery> {
   constructor(
     @Inject(APPOINTMENT_REPOSITORY)
     private readonly repo: IAppointmentRepository,

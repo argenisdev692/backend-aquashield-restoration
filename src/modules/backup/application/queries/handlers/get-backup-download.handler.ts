@@ -20,9 +20,7 @@ export interface BackupDownload {
 }
 
 @QueryHandler(GetBackupDownloadQuery)
-export class GetBackupDownloadHandler
-  implements IQueryHandler<GetBackupDownloadQuery>
-{
+export class GetBackupDownloadHandler implements IQueryHandler<GetBackupDownloadQuery> {
   constructor(
     @Inject(BACKUP_REPOSITORY) private readonly repo: IBackupRepository,
     @Inject(BACKUP_STORAGE_PORT) private readonly storage: IBackupStoragePort,
@@ -42,7 +40,9 @@ export class GetBackupDownloadHandler
     if (!backup.isDownloadable() || backup.objectKey === null) {
       throw new BackupNotDownloadableException(query.backupId, backup.status);
     }
-    const { body, contentLength } = await this.storage.download(backup.objectKey);
+    const { body, contentLength } = await this.storage.download(
+      backup.objectKey,
+    );
     return {
       body,
       contentLength,

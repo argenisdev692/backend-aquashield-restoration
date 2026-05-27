@@ -7,9 +7,7 @@ import { USER_REPOSITORY } from '../../../domain/repositories/user.repository.in
 import { CheckUsernameExistsQuery } from '../check-username-exists.query';
 
 @QueryHandler(CheckUsernameExistsQuery)
-export class CheckUsernameExistsHandler
-  implements IQueryHandler<CheckUsernameExistsQuery>
-{
+export class CheckUsernameExistsHandler implements IQueryHandler<CheckUsernameExistsQuery> {
   constructor(
     @Inject(USER_REPOSITORY)
     private readonly userRepo: IUserRepository,

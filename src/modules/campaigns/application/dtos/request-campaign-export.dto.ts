@@ -33,17 +33,25 @@ export const RequestCampaignExportSchema = z.object({
     .optional(),
 });
 
-export type RequestCampaignExportDto = z.infer<typeof RequestCampaignExportSchema>;
+export type RequestCampaignExportDto = z.infer<
+  typeof RequestCampaignExportSchema
+>;
 
 /**
  * Swagger DTO for POST /campaigns/export request body.
  * Used for OpenAPI documentation generation.
  */
 export class RequestCampaignExportBody {
-  @ApiProperty({ description: 'Company data ID (UUID)', example: '123e4567-e89b-12d3-a456-426614174000' })
+  @ApiProperty({
+    description: 'Company data ID (UUID)',
+    example: '123e4567-e89b-12d3-a456-426614174000',
+  })
   companyDataId!: string;
 
-  @ApiProperty({ description: 'Business niche', example: 'Restoration Services' })
+  @ApiProperty({
+    description: 'Business niche',
+    example: 'Restoration Services',
+  })
   niche!: string;
 
   @ApiProperty({ description: 'Location', example: 'Miami, FL' })
@@ -61,7 +69,10 @@ export class RequestCampaignExportBody {
   @ApiProperty({ description: 'Phone number', example: '+1-305-555-0123' })
   phone!: string;
 
-  @ApiPropertyOptional({ description: 'Website URL', example: 'https://example.com' })
+  @ApiPropertyOptional({
+    description: 'Website URL',
+    example: 'https://example.com',
+  })
   website?: string;
 
   @ApiProperty({
@@ -89,7 +100,11 @@ export class RequestCampaignExportBody {
   @ApiProperty({ description: 'Language code', example: 'es', default: 'es' })
   language!: string;
 
-  @ApiProperty({ description: 'Generate images', example: false, default: false })
+  @ApiProperty({
+    description: 'Generate images',
+    example: false,
+    default: false,
+  })
   generateImages!: boolean;
 
   @ApiPropertyOptional({

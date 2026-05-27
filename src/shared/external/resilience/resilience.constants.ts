@@ -34,4 +34,5 @@ export const RESILIENCE_PROFILES: Record<string, ResiliencePolicyConfig> = {
 };
 
 /** Fallback when an unknown profile is requested. */
-export const DEFAULT_PROFILE: ResiliencePolicyConfig = RESILIENCE_PROFILES['http-default'];
+export const DEFAULT_PROFILE: ResiliencePolicyConfig =
+  RESILIENCE_PROFILES['http-default'];

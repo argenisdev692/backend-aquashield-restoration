@@ -2,7 +2,10 @@ import { Injectable, Inject } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { LoggerService } from '../../../../logger/logger.service';
 import { ClsService } from 'nestjs-cls';
-import { AI_CLIENT, type IAiClient } from '../../../../shared/external/ai/ai-client.port';
+import {
+  AI_CLIENT,
+  type IAiClient,
+} from '../../../../shared/external/ai/ai-client.port';
 import type {
   IPostGeneratorPort,
   GeneratePostsInput,
@@ -69,12 +72,20 @@ export class GeminiPostGeneratorAdapter implements IPostGeneratorPort {
     @Inject(AI_CLIENT) private readonly aiClient: IAiClient,
   ) {
     this.logger.setContext(GeminiPostGeneratorAdapter.name);
-    this.model = this.config.get<string>('GEMINI_TEXT_MODEL', 'gemini-2.5-flash');
+    this.model = this.config.get<string>(
+      'GEMINI_TEXT_MODEL',
+      'gemini-2.5-flash',
+    );
   }
 
   async generatePosts(input: GeneratePostsInput): Promise<GeneratedPostsMap> {
     const traceId = this.cls.get<string>('traceId');
-    const { topicTitle, topicDescription, activeNetworks, language = 'es' } = input;
+    const {
+      topicTitle,
+      topicDescription,
+      activeNetworks,
+      language = 'es',
+    } = input;
 
     this.logger.info('GeminiPostGeneratorAdapter.generatePosts start', {
       traceId,
@@ -117,10 +128,13 @@ Genera los posts ahora.`;
     try {
       parsed = JSON.parse(result.text) as GeminiSocialPostSchema;
     } catch (e) {
-      this.logger.error('GeminiPostGeneratorAdapter failed to parse JSON from Gemini', {
-        traceId,
-        raw: result.text.slice(0, 500),
-      });
+      this.logger.error(
+        'GeminiPostGeneratorAdapter failed to parse JSON from Gemini',
+        {
+          traceId,
+          raw: result.text.slice(0, 500),
+        },
+      );
       throw new Error('AI returned invalid JSON for social posts');
     }
 
@@ -153,7 +167,9 @@ Genera los posts ahora.`;
       };
     }
 
-    this.logger.info('GeminiPostGeneratorAdapter.generatePosts done', { traceId });
+    this.logger.info('GeminiPostGeneratorAdapter.generatePosts done', {
+      traceId,
+    });
 
     return output;
   }

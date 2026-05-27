@@ -12,7 +12,7 @@ export interface GeneratedPost {
   body: string;
   hashtags: string[];
   emojis?: string; // instagram only
-  hook?: string;   // tiktok only
+  hook?: string; // tiktok only
   /** Optional AI-generated image for this network post (Google Gen AI / Imagen) */
   image?: GeneratedPostImage;
 }

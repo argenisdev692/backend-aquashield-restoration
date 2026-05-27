@@ -56,10 +56,16 @@ export class Post {
     const scheduledAt = props.scheduledAt || null;
 
     if (status === 'scheduled' && !scheduledAt) {
-      throw new PostDomainException('Scheduled posts must have a scheduledAt date');
+      throw new PostDomainException(
+        'Scheduled posts must have a scheduledAt date',
+      );
     }
 
-    if (status === 'scheduled' && scheduledAt && scheduledAt.getTime() <= Date.now()) {
+    if (
+      status === 'scheduled' &&
+      scheduledAt &&
+      scheduledAt.getTime() <= Date.now()
+    ) {
       throw new PostDomainException('Scheduled date must be in the future');
     }
 
@@ -171,22 +177,29 @@ export class Post {
         this._postTitleSlug = Post.generateSlug(props.postTitle);
       }
     }
-    if (props.postTitleSlug !== undefined) this._postTitleSlug = props.postTitleSlug;
+    if (props.postTitleSlug !== undefined)
+      this._postTitleSlug = props.postTitleSlug;
     if (props.postContent !== undefined) this._postContent = props.postContent;
     if (props.postExcerpt !== undefined) this._postExcerpt = props.postExcerpt;
-    if (props.postCoverImage !== undefined) this._postCoverImage = props.postCoverImage;
+    if (props.postCoverImage !== undefined)
+      this._postCoverImage = props.postCoverImage;
     if (props.metaTitle !== undefined) this._metaTitle = props.metaTitle;
-    if (props.metaDescription !== undefined) this._metaDescription = props.metaDescription;
-    if (props.metaKeywords !== undefined) this._metaKeywords = props.metaKeywords;
+    if (props.metaDescription !== undefined)
+      this._metaDescription = props.metaDescription;
+    if (props.metaKeywords !== undefined)
+      this._metaKeywords = props.metaKeywords;
     if (props.categoryId !== undefined) this._categoryId = props.categoryId;
 
     if (props.postStatus !== undefined) {
       const status = props.postStatus;
-      const schedAt = props.scheduledAt !== undefined ? props.scheduledAt : this._scheduledAt;
+      const schedAt =
+        props.scheduledAt !== undefined ? props.scheduledAt : this._scheduledAt;
 
       if (status === 'scheduled') {
         if (!schedAt) {
-          throw new PostDomainException('Scheduled posts must have a scheduledAt date');
+          throw new PostDomainException(
+            'Scheduled posts must have a scheduledAt date',
+          );
         }
         if (schedAt.getTime() <= Date.now()) {
           throw new PostDomainException('Scheduled date must be in the future');
@@ -201,7 +214,9 @@ export class Post {
       if (this._postStatus === 'scheduled') {
         const schedAt = props.scheduledAt;
         if (!schedAt) {
-          throw new PostDomainException('Scheduled posts must have a scheduledAt date');
+          throw new PostDomainException(
+            'Scheduled posts must have a scheduledAt date',
+          );
         }
         if (schedAt.getTime() <= Date.now()) {
           throw new PostDomainException('Scheduled date must be in the future');
@@ -242,7 +257,9 @@ export class Post {
   }
 
   private static assertScheduleDateIsValid(date: Date): void {
-    const minDate = new Date(Date.now() + Post.MIN_SCHEDULE_HOURS * 60 * 60 * 1000);
+    const minDate = new Date(
+      Date.now() + Post.MIN_SCHEDULE_HOURS * 60 * 60 * 1000,
+    );
     if (date.getTime() < minDate.getTime()) {
       throw new PostDomainException(
         `Scheduled date must be at least ${Post.MIN_SCHEDULE_HOURS} hours in the future`,

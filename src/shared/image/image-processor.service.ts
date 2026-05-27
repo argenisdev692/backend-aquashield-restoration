@@ -14,7 +14,8 @@ export interface ProcessedImage {
 export class ImageProcessorService {
   private readonly loggerContext = 'ImageProcessorService';
 
-  private static readonly ALLOWED_MIME = /^(image\/jpeg|image\/png|image\/webp)$/;
+  private static readonly ALLOWED_MIME =
+    /^(image\/jpeg|image\/png|image\/webp)$/;
   private static readonly MAX_INPUT_BYTES = 5 * 1024 * 1024;
   private static readonly MAX_DIMENSION = 1024;
   private static readonly WEBP_QUALITY = 86;
@@ -26,7 +27,8 @@ export class ImageProcessorService {
   private hasSafeImageSignature(buffer: Buffer): boolean {
     if (!buffer || buffer.length < 12) return false;
 
-    if (buffer[0] === 0xff && buffer[1] === 0xd8 && buffer[2] === 0xff) return true;
+    if (buffer[0] === 0xff && buffer[1] === 0xd8 && buffer[2] === 0xff)
+      return true;
 
     if (
       buffer[0] === 0x89 &&
@@ -55,19 +57,26 @@ export class ImageProcessorService {
     return false;
   }
 
-  async processForProfilePhoto(
-    input: { buffer: Buffer; mimeType: string },
-  ): Promise<ProcessedImage> {
+  async processForProfilePhoto(input: {
+    buffer: Buffer;
+    mimeType: string;
+  }): Promise<ProcessedImage> {
     if (!ImageProcessorService.ALLOWED_MIME.test(input.mimeType)) {
-      throw new BadRequestException('Unsupported image type. Allowed: JPEG, PNG, WebP.');
+      throw new BadRequestException(
+        'Unsupported image type. Allowed: JPEG, PNG, WebP.',
+      );
     }
 
     if (input.buffer.length > ImageProcessorService.MAX_INPUT_BYTES) {
-      throw new BadRequestException('Image too large. Maximum 5MB before processing.');
+      throw new BadRequestException(
+        'Image too large. Maximum 5MB before processing.',
+      );
     }
 
     if (!this.hasSafeImageSignature(input.buffer)) {
-      throw new BadRequestException('Invalid or corrupted image file (magic byte check failed).');
+      throw new BadRequestException(
+        'Invalid or corrupted image file (magic byte check failed).',
+      );
     }
 
     try {
@@ -87,7 +96,9 @@ export class ImageProcessorService {
           effort: 4,
         });
 
-      const { data, info } = await pipeline.toBuffer({ resolveWithObject: true });
+      const { data, info } = await pipeline.toBuffer({
+        resolveWithObject: true,
+      });
 
       return {
         buffer: data,
@@ -100,7 +111,9 @@ export class ImageProcessorService {
       this.logger.error('Sharp processing failed', {
         error: err instanceof Error ? err.message : String(err),
       });
-      throw new BadRequestException('Failed to process image. The file may be corrupted or unsupported.');
+      throw new BadRequestException(
+        'Failed to process image. The file may be corrupted or unsupported.',
+      );
     }
   }
 }

@@ -45,10 +45,7 @@ export class UpdatePostHandler implements ICommandHandler<UpdatePostCommand> {
 
     await this.cache.delByPattern(POSTS_CACHE_PATTERN);
 
-    this.eventEmitter.emit(
-      'post.updated',
-      new PostUpdatedEvent(id),
-    );
+    this.eventEmitter.emit('post.updated', new PostUpdatedEvent(id));
 
     this.logger.info('UpdatePostHandler end', {
       traceId,
@@ -67,13 +64,29 @@ export class UpdatePostHandler implements ICommandHandler<UpdatePostCommand> {
     // Server-side sanitization on every update (same rules as create).
     post.updateDetails({
       postTitle: dto.postTitle ? sanitizePlainText(dto.postTitle) : undefined,
-      postTitleSlug: dto.postTitleSlug ? sanitizePlainText(dto.postTitleSlug) : undefined,
-      postContent: dto.postContent ? sanitizeRichContent(dto.postContent) : undefined,
-      postExcerpt: dto.postExcerpt !== undefined ? sanitizePlainText(dto.postExcerpt) : undefined,
+      postTitleSlug: dto.postTitleSlug
+        ? sanitizePlainText(dto.postTitleSlug)
+        : undefined,
+      postContent: dto.postContent
+        ? sanitizeRichContent(dto.postContent)
+        : undefined,
+      postExcerpt:
+        dto.postExcerpt !== undefined
+          ? sanitizePlainText(dto.postExcerpt)
+          : undefined,
       postCoverImage: dto.postCoverImage,
-      metaTitle: dto.metaTitle !== undefined ? sanitizePlainText(dto.metaTitle) : undefined,
-      metaDescription: dto.metaDescription !== undefined ? sanitizePlainText(dto.metaDescription) : undefined,
-      metaKeywords: dto.metaKeywords !== undefined ? sanitizePlainText(dto.metaKeywords) : undefined,
+      metaTitle:
+        dto.metaTitle !== undefined
+          ? sanitizePlainText(dto.metaTitle)
+          : undefined,
+      metaDescription:
+        dto.metaDescription !== undefined
+          ? sanitizePlainText(dto.metaDescription)
+          : undefined,
+      metaKeywords:
+        dto.metaKeywords !== undefined
+          ? sanitizePlainText(dto.metaKeywords)
+          : undefined,
       categoryId: dto.categoryId,
       postStatus: dto.postStatus,
       scheduledAt: dto.scheduledAt ? new Date(dto.scheduledAt) : null,

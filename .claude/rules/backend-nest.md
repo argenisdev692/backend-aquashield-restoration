@@ -9,8 +9,10 @@ trigger: always_on
 - **TypeScript:** `strict: true` enforced on ALL `.ts` files. No `any`. No `@ts-ignore`. No `as unknown as X`.
 - **NestJS CLI:** Use `npx nest` — NEVER bare `nest` globally unless confirmed installed.
 - **Single Source of Truth:** Follow `.claude/skills/BACKEND-NEST/SKILL.md` §0–§4 for ALL TypeScript/NestJS syntax decisions.
-- **Architecture (default):** Follow `.claude/skills/ARCHITECTURE-NEST-CRUD/SKILL.md` for ALL new modules unless an explicit upgrade trigger is met.
-- **Architecture (upgrade):** Follow `.claude/skills/ARCHITECTURE-NEST/SKILL.md` ONLY for modules that meet upgrade triggers (domain events, cross-context ACL, state machines, invariants beyond "validate + save").
+- **Architecture decision:** ALWAYS consult `.claude/skills/ARCHITECTURE-DECISION-GUIDE.md` first to pick the tier.
+- **Architecture (simple):** Follow `.claude/skills/ARCHITECTURE-SIMPLE/SKILL.md` for lookup/config modules (≤5 fields, validate+save, no cache/audit/exports).
+- **Architecture (default):** Follow `.claude/skills/ARCHITECTURE-DEFAULT/SKILL.md` for CRUDs with business logic, cache, audit, exports, bulk operations — the most common tier.
+- **Architecture (upgrade):** Follow `.claude/skills/ARCHITECTURE-ENTERPRISE/SKILL.md` ONLY for modules that meet upgrade triggers (domain events, cross-context ACL, state machines, invariants beyond "validate + save").
 - **Security baseline:** Follow `.claude/skills/OWASP/SKILL.md` for all backend/API security decisions.
 - **Claude Code 2026:** MCP servers are enabled by default in settings.json. Use MCP tools when available.
 - **Investigate:** Run web search immediately before responding on any version-sensitive topic.
@@ -22,15 +24,18 @@ trigger: always_on
 | Task type                                       | Required reading                                         |
 | ----------------------------------------------- | -------------------------------------------------------- |
 | NestJS / TypeScript / Backend / Business logic  | `.claude/skills/BACKEND-NEST/SKILL.md`                   |
-| New module (default — CRUD / lookups / configs) | `.claude/skills/ARCHITECTURE-NEST-CRUD/SKILL.md`         |
-| New module (only if upgrade trigger is met)     | `.claude/skills/ARCHITECTURE-NEST/SKILL.md`              |
+| New module (ANY architecture)                  | `.claude/skills/ARCHITECTURE-DECISION-GUIDE.md` — FIRST, then the selected architecture skill |
+| New module (simple lookups/configs)             | `.claude/skills/ARCHITECTURE-SIMPLE/SKILL.md`         |
+| New module (CRUDs with business logic)          | `.claude/skills/ARCHITECTURE-DEFAULT/SKILL.md`         |
+| New module (complex bounded contexts)           | `.claude/skills/ARCHITECTURE-ENTERPRISE/SKILL.md`       |
 | Writing or reviewing a CRUD service/repository  | `.claude/skills/BACKEND-NEST-PATTERNS/SKILL.md`          |
 | Security baseline / OWASP rules                 | `.claude/skills/OWASP/SKILL.md`                          |
-| Audit agent / code review                       | `.claude/commands/BACKEND-AUDIT-NEST.md`                 |
+| Audit agent / code review                       | `.claude/commands/BACKEND-AUDIT-NEST.md`                  |
 
 > **Rule:** If a skill file covers the task, read it FIRST — no exceptions.
-> **Architecture default:** when in doubt, use `ARCHITECTURE-NEST-CRUD`. Escalate to `ARCHITECTURE-NEST` only with an explicit, justified upgrade trigger.
-> **Total files:** 6 (this router + 4 skills + security baseline). No redundancy.
+> **Architecture decision:** ALWAYS read `ARCHITECTURE-DECISION-GUIDE.md` first when creating a new module to determine which architecture to use.
+> **Architecture default:** for most CRUDs use `ARCHITECTURE-DEFAULT`. Drop to `ARCHITECTURE-SIMPLE` only for lookups/configs (≤5 fields, no cache/audit/exports). Escalate to `ARCHITECTURE-ENTERPRISE` only with an explicit, justified upgrade trigger.
+> **Total files:** 8 (this router + decision guide + 3 architecture skills + BACKEND-NEST + BACKEND-NEST-PATTERNS + OWASP). No redundancy.
 
 ---
 
@@ -69,9 +74,10 @@ Every write path that mutates state across **more than one statement** (entity u
 
 # [MUST] Architecture
 
-- Every module lives in `src/modules/{name}/`. Two layouts are allowed; pick ONE per module and never mix them inside the same module.
-- **DEFAULT — flat CRUD:** Service/Repository pattern. Full file layout, contracts, and Canonical Mutation Pattern live in `.claude/skills/ARCHITECTURE-NEST-CRUD/SKILL.md`.
-- **UPGRADE — Hex/DDD + CQRS:** allowed ONLY when an Upgrade Trigger is met. The canonical Upgrade Trigger list lives in `.claude/skills/ARCHITECTURE-NEST-CRUD/SKILL.md § Upgrade Triggers` (single source of truth — do not restate here). Full Hex/DDD layout, ports, mappers, and CommandHandler/QueryHandler structure live in `.claude/skills/ARCHITECTURE-NEST/SKILL.md`.
+- Every module lives in `src/modules/{name}/`. Three layouts are allowed; pick ONE per module and never mix them inside the same module.
+- **SIMPLE — lookups/configs:** Service/Repository, 8–10 files, no cache/audit/exports/bulk. Full layout in `.claude/skills/ARCHITECTURE-SIMPLE/SKILL.md`.
+- **DEFAULT — CRUDs with business logic:** Service/Repository with the Canonical Mutation Pattern (tx + audit + cache), bulk delete/restore, soft-delete visibility, exports. 10–12 files. Full layout and contracts live in `.claude/skills/ARCHITECTURE-DEFAULT/SKILL.md`.
+- **UPGRADE — Hex/DDD + UseCase (CQRS optional):** allowed ONLY when an Upgrade Trigger is met. Upgrade triggers live in `.claude/skills/ARCHITECTURE-DECISION-GUIDE.md`. Full Hex/DDD layout, ports, mappers, and UseCase structure live in `.claude/skills/ARCHITECTURE-ENTERPRISE/SKILL.md`. `CommandBus`/`QueryBus` are opt-in per bounded context.
 
 ## Migration rule
 
@@ -89,7 +95,7 @@ Every write path that mutates state across **more than one statement** (entity u
 - Zod DTO: `ids: z.array(z.string().uuid()).min(1).max(100)` — DoS bound (OWASP API #4).
 - CASL: `Action.Restore` (distinct from `Action.Delete`) gates bulk-restore.
 - Soft vs hard delete: pick **one** strategy per module/context and stick with it. Mixing is forbidden.
-- Full spec: `.claude/skills/ARCHITECTURE-NEST-CRUD/SKILL.md` § "Bulk Delete / Bulk Restore (flat CRUD)" and `.claude/skills/ARCHITECTURE-NEST/SKILL.md` § "Bulk Delete / Bulk Restore (Hex/DDD)".
+- Full spec: `.claude/skills/ARCHITECTURE-DEFAULT/SKILL.md` § "Bulk Delete / Bulk Restore (flat CRUD)" and `.claude/skills/ARCHITECTURE-ENTERPRISE/SKILL.md` § "Bulk Delete / Bulk Restore (Hex/DDD)".
 
 ## Soft-delete visibility (`withTrashed` / `onlyTrashed`)
 
@@ -98,7 +104,7 @@ Every write path that mutates state across **more than one statement** (entity u
 - Repository takes `TrashedMode` (`'exclude' | 'include' | 'only'`) and calls `buildTrashedWhere(mode)` once; the single-get variant takes a `boolean withTrashed`.
 - `?onlyTrashed=true` (or a dedicated `GET /{module}/trash` route) MUST be gated by `Action.Restore`, not `Action.Read` — prevents enumeration of tombstoned rows via the read permission.
 - Response shape MUST expose `deletedAt: string | null` when the entity is soft-delete-aware; otherwise `withTrashed` is useless on the client.
-- Full spec: `.claude/skills/ARCHITECTURE-NEST-CRUD/SKILL.md` § "Soft-delete visibility — withTrashed / onlyTrashed (flat CRUD)" and `.claude/skills/ARCHITECTURE-NEST/SKILL.md` § "Soft-delete visibility — withTrashed / onlyTrashed (Hex/DDD)".
+- Full spec: `.claude/skills/ARCHITECTURE-DEFAULT/SKILL.md` § "Soft-delete visibility — withTrashed / onlyTrashed (flat CRUD)" and `.claude/skills/ARCHITECTURE-ENTERPRISE/SKILL.md` § "Soft-delete visibility — withTrashed / onlyTrashed (Hex/DDD)".
 
 ## Identity responses — `roles[]` + `permissions[]`
 
@@ -108,7 +114,7 @@ Every write path that mutates state across **more than one statement** (entity u
 - Token-issuing endpoints (`POST /auth/login`, `POST /auth/refresh`) MUST NOT include these arrays — clients call `/auth/me` after login.
 - Never echo `passwordHash`, `totpSecret`, `backupCodes`, `mfaSecret`, or any refresh/session token in a user projection. `UserResponseSchema` is a strict allowlist.
 - `GET /auth/me` MUST use `@SkipCache()` or per-user TTL ≤ 60s — permissions change mid-session. Every ACL mutation MUST `cache.delByPattern` both the `users` and `auth/me` cache keys.
-- Full spec: `.claude/skills/ARCHITECTURE-NEST-CRUD/SKILL.md` § "Users & Auth response shape — roles + permissions" and `.claude/skills/ARCHITECTURE-NEST/SKILL.md` § "Users & Auth response shape — roles + permissions (Hex/DDD)".
+- Full spec: `.claude/skills/ARCHITECTURE-DEFAULT/SKILL.md` § "Users & Auth response shape — roles + permissions" and `.claude/skills/ARCHITECTURE-ENTERPRISE/SKILL.md` § "Users & Auth response shape — roles + permissions (Hex/DDD)".
 
 ---
 

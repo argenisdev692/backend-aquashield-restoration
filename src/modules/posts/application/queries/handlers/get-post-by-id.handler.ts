@@ -28,10 +28,7 @@ export class GetPostByIdHandler implements IQueryHandler<GetPostByIdQuery> {
       postId: query.id,
       withTrashed: query.withTrashed,
     });
-    const post = await this.repo.findReadModelById(
-      query.id,
-      query.withTrashed,
-    );
+    const post = await this.repo.findReadModelById(query.id, query.withTrashed);
     if (!post) {
       throw new NotFoundException(`Post ${query.id} not found`);
     }

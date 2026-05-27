@@ -128,7 +128,9 @@ describe('CompanyDataService', () => {
       const repo = makeRepo({ findFirst: jest.fn().mockResolvedValue(null) });
       const { svc } = makeService(repo);
 
-      await expect(svc.findSingletonOrFail()).rejects.toThrow(NotFoundException);
+      await expect(svc.findSingletonOrFail()).rejects.toThrow(
+        NotFoundException,
+      );
     });
   });
 
@@ -182,7 +184,9 @@ describe('CompanyDataService', () => {
       const repo = makeRepo({ findById: jest.fn().mockResolvedValue(null) });
       const { svc, audit } = makeService(repo);
 
-      await expect(svc.update(baseRow.id, {})).rejects.toThrow(NotFoundException);
+      await expect(svc.update(baseRow.id, {})).rejects.toThrow(
+        NotFoundException,
+      );
       expect(repo.update).not.toHaveBeenCalled();
       expect(audit.log).not.toHaveBeenCalled();
     });

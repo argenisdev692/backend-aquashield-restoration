@@ -9,7 +9,9 @@ import type { ContactSupportReadModel } from '../../domain/read-models/contact-s
 
 const ACTOR = 'admin-uuid';
 
-function row(over: Partial<ContactSupportReadModel> = {}): ContactSupportReadModel {
+function row(
+  over: Partial<ContactSupportReadModel> = {},
+): ContactSupportReadModel {
   return {
     id: 'aaaaaaaa-0000-0000-0000-000000000001',
     firstName: 'John',
@@ -69,7 +71,9 @@ describe('ExportContactSupportHandler', () => {
       expect(result.filename).toMatch(/^contact-support-.*\.csv$/);
 
       // BOM
-      expect(result.buffer.subarray(0, 3)).toEqual(Buffer.from([0xef, 0xbb, 0xbf]));
+      expect(result.buffer.subarray(0, 3)).toEqual(
+        Buffer.from([0xef, 0xbb, 0xbf]),
+      );
 
       const text = result.buffer.subarray(3).toString('utf8');
       expect(text.startsWith('id,firstName,lastName')).toBe(true);

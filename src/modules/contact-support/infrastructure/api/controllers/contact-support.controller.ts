@@ -256,10 +256,7 @@ export class ContactSupportController {
   })
   findOne(
     @Param('id', ParseUUIDPipe) id: string,
-    @Query(
-      'withTrashed',
-      new ZodValidationPipe(stringBoolean.optional()),
-    )
+    @Query('withTrashed', new ZodValidationPipe(stringBoolean.optional()))
     withTrashed?: boolean,
   ): Promise<ContactSupportReadModel> {
     return this.queryBus.execute<

@@ -104,13 +104,19 @@ export class CreatePostHandler implements ICommandHandler<CreatePostCommand> {
     // All other text fields are stripped of HTML entirely.
     const post = Post.create({
       postTitle: sanitizePlainText(dto.postTitle),
-      postTitleSlug: dto.postTitleSlug ? sanitizePlainText(dto.postTitleSlug) : undefined,
+      postTitleSlug: dto.postTitleSlug
+        ? sanitizePlainText(dto.postTitleSlug)
+        : undefined,
       postContent: sanitizeRichContent(dto.postContent),
       postExcerpt: dto.postExcerpt ? sanitizePlainText(dto.postExcerpt) : null,
       postCoverImage: dto.postCoverImage,
       metaTitle: dto.metaTitle ? sanitizePlainText(dto.metaTitle) : null,
-      metaDescription: dto.metaDescription ? sanitizePlainText(dto.metaDescription) : null,
-      metaKeywords: dto.metaKeywords ? sanitizePlainText(dto.metaKeywords) : null,
+      metaDescription: dto.metaDescription
+        ? sanitizePlainText(dto.metaDescription)
+        : null,
+      metaKeywords: dto.metaKeywords
+        ? sanitizePlainText(dto.metaKeywords)
+        : null,
       categoryId: dto.categoryId,
       userId: actorId, // Set the creator/user ID
       postStatus: dto.postStatus,

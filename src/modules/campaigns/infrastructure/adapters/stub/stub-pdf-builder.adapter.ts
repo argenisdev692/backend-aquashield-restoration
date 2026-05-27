@@ -1,5 +1,8 @@
 import { Injectable } from '@nestjs/common';
-import { IPdfBuilderPort, BuildProductionBriefInput } from '../../../domain/ports/pdf-builder.port';
+import {
+  IPdfBuilderPort,
+  BuildProductionBriefInput,
+} from '../../../domain/ports/pdf-builder.port';
 
 /**
  * STUB PDF builder.
@@ -11,7 +14,9 @@ export class StubPdfBuilderAdapter implements IPdfBuilderPort {
   async build(input: BuildProductionBriefInput): Promise<Buffer> {
     // Return a tiny valid PDF (minimal header) so the pipeline doesn't explode.
     // Real implementation will use pdfkit to generate proper timeline pages.
-    const fakePdf = Buffer.from('%PDF-1.4\n1 0 obj\n<< /Type /Catalog >>\nendobj\n%%EOF\n');
+    const fakePdf = Buffer.from(
+      '%PDF-1.4\n1 0 obj\n<< /Type /Catalog >>\nendobj\n%%EOF\n',
+    );
     return fakePdf;
   }
 }

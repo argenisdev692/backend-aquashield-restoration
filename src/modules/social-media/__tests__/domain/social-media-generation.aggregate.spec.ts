@@ -48,7 +48,10 @@ describe('SocialMediaGenerationAggregate (pure domain, zero NestJS/Prisma)', () 
     ).toThrow(SocialMediaGenerationDomainException);
 
     // linkedin is selected
-    agg.addGeneratedPost('linkedin', { body: 'hello linkedin', hashtags: ['#ai'] });
+    agg.addGeneratedPost('linkedin', {
+      body: 'hello linkedin',
+      hashtags: ['#ai'],
+    });
     expect(agg.generatedPosts.linkedin?.body).toContain('hello linkedin');
   });
 

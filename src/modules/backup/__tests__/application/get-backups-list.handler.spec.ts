@@ -44,7 +44,12 @@ describe('GetBackupsListHandler', () => {
   });
 
   it('forwards page+limit to the repository and returns its paginated result', async () => {
-    const expected: PaginatedBackups = { data: [], total: 0, page: 2, limit: 25 };
+    const expected: PaginatedBackups = {
+      data: [],
+      total: 0,
+      page: 2,
+      limit: 25,
+    };
     repo.findAll.mockResolvedValueOnce(expected);
 
     const result = await handler.execute(new GetBackupsListQuery(2, 25));

@@ -13,10 +13,10 @@
 import type { IPolicy } from 'cockatiel';
 
 export type ExternalServiceProfile =
-  | 'ai'              // LLM calls (Gemini, OpenAI, Anthropic...) — higher timeouts
-  | 'research'        // Web search / grounding APIs (Tavily, etc.)
-  | 'email'           // Transactional email (Resend, SendGrid...)
-  | 'http-default';   // Generic outbound HTTP
+  | 'ai' // LLM calls (Gemini, OpenAI, Anthropic...) — higher timeouts
+  | 'research' // Web search / grounding APIs (Tavily, etc.)
+  | 'email' // Transactional email (Resend, SendGrid...)
+  | 'http-default'; // Generic outbound HTTP
 
 export interface ResiliencePolicyConfig {
   maxRetries: number;

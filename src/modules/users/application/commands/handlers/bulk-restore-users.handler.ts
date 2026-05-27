@@ -11,9 +11,7 @@ import { AUDIT_PORT } from '../../../../../shared/activity-log/audit.port';
 import { BulkRestoreUsersCommand } from '../bulk-restore-users.command';
 
 @CommandHandler(BulkRestoreUsersCommand)
-export class BulkRestoreUsersHandler
-  implements ICommandHandler<BulkRestoreUsersCommand>
-{
+export class BulkRestoreUsersHandler implements ICommandHandler<BulkRestoreUsersCommand> {
   constructor(
     @Inject(USER_REPOSITORY)
     private readonly userRepo: IUserRepository,
@@ -24,9 +22,7 @@ export class BulkRestoreUsersHandler
     private readonly cache: CacheService,
   ) {}
 
-  async execute(
-    command: BulkRestoreUsersCommand,
-  ): Promise<{ count: number }> {
+  async execute(command: BulkRestoreUsersCommand): Promise<{ count: number }> {
     const { ids } = command;
     const traceId = this.cls.get<string>('traceId');
     this.logger.info('BulkRestoreUsersHandler start', {

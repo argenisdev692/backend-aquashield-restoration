@@ -7,7 +7,10 @@ import {
   AI_POST_GENERATION_PORT,
   type AiPostGenerationPort,
 } from '../../domain/ports/ai-post-generation.port';
-import { CACHE_PORT, type ICachePort } from '../../../../shared/cache/cache.port';
+import {
+  CACHE_PORT,
+  type ICachePort,
+} from '../../../../shared/cache/cache.port';
 import { QUEUE_NAMES } from '../../../../shared/messaging/queues.constants';
 import { GeneratedPostPreview } from '../../domain/value-objects/generated-post-preview.vo';
 import { PostsGateway } from '../gateways/posts.gateway';

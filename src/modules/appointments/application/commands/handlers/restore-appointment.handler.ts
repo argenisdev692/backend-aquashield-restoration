@@ -13,9 +13,7 @@ import { ClsService } from 'nestjs-cls';
 
 @Injectable()
 @CommandHandler(RestoreAppointmentCommand)
-export class RestoreAppointmentHandler
-  implements ICommandHandler<RestoreAppointmentCommand>
-{
+export class RestoreAppointmentHandler implements ICommandHandler<RestoreAppointmentCommand> {
   private static readonly CACHE_PATTERN = 'http:*:/appointments*';
 
   constructor(

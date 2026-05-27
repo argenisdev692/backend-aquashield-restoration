@@ -12,7 +12,9 @@ export const VideoFormatSchema = z.enum(VIDEO_FORMATS);
 
 export class InvalidVideoFormatException extends Error {
   constructor(value: unknown) {
-    super(`Invalid video format: ${String(value)}. Allowed: ${VIDEO_FORMATS.join(', ')}`);
+    super(
+      `Invalid video format: ${String(value)}. Allowed: ${VIDEO_FORMATS.join(', ')}`,
+    );
     this.name = 'InvalidVideoFormatException';
   }
 }

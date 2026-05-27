@@ -52,7 +52,7 @@ export class CampaignExportRequestedListener {
           delay: 60_000, // 1 minute between retries
         },
         removeOnComplete: 100, // keep last 100 completed for debugging
-        removeOnFail: false,   // keep failures for inspection
+        removeOnFail: false, // keep failures for inspection
       },
     );
 

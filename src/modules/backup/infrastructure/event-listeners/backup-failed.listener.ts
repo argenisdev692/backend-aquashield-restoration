@@ -30,7 +30,9 @@ export class BackupFailedListener {
   @OnEvent('backup.failed')
   handle(event: BackupFailedEvent): void {
     this.logger.error('Backup failed', {
-      traceId: this.cls.isActive() ? this.cls.get<string>('traceId') : undefined,
+      traceId: this.cls.isActive()
+        ? this.cls.get<string>('traceId')
+        : undefined,
       backupId: event.backupId,
       error: event.error,
       occurredAt: event.occurredAt.toISOString(),

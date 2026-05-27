@@ -21,7 +21,9 @@ export class PrismaUserRepository implements IUserRepository {
   async findById(id: string, trashed: boolean = false): Promise<User | null> {
     // Without `trashed=true` we replicate Laravel `Model::find()` —
     // suspended rows are invisible. With it, we replicate `withTrashed()`.
-    const where: Prisma.UserWhereInput = trashed ? { id } : { id, deletedAt: null };
+    const where: Prisma.UserWhereInput = trashed
+      ? { id }
+      : { id, deletedAt: null };
     const row = await this.prisma.user.findFirst({ where });
     return row ? UserMapper.toDomain(row) : null;
   }
@@ -230,7 +232,10 @@ export class PrismaUserRepository implements IUserRepository {
     }
 
     // Bucket roles + role-inherited permissions
-    const permIndex = new Map<string, Map<string, { action: string; subject: string }>>();
+    const permIndex = new Map<
+      string,
+      Map<string, { action: string; subject: string }>
+    >();
     for (const userId of userIds) {
       permIndex.set(userId, new Map());
     }

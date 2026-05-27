@@ -1,6 +1,9 @@
 import { Injectable } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
-import { IAudioGeneratorPort, GenerateAudioInput } from '../../../domain/ports/audio-generator.port';
+import {
+  IAudioGeneratorPort,
+  GenerateAudioInput,
+} from '../../../domain/ports/audio-generator.port';
 import { LoggerService } from '../../../../../logger/logger.service';
 
 /**

@@ -70,9 +70,7 @@ function toRow(r: PostReadModel): Row {
 
 @Injectable()
 @QueryHandler(ExportPostsQuery)
-export class ExportPostsHandler
-  implements IQueryHandler<ExportPostsQuery>
-{
+export class ExportPostsHandler implements IQueryHandler<ExportPostsQuery> {
   constructor(
     @Inject(POST_REPOSITORY)
     private readonly repo: IPostRepository,
@@ -83,9 +81,7 @@ export class ExportPostsHandler
     this.logger.setContext(ExportPostsHandler.name);
   }
 
-  async execute(
-    query: ExportPostsQuery,
-  ): Promise<ExportPostsResult> {
+  async execute(query: ExportPostsQuery): Promise<ExportPostsResult> {
     const { dto, format, userId } = query;
     const traceId = this.cls.get<string>('traceId');
     this.logger.info('ExportPostsHandler start', {
@@ -140,7 +136,8 @@ export class ExportPostsHandler
         return COLUMNS.map((c) => csvEscape(row[c.key])).join(',');
       })
       .join('\r\n');
-    const csv = body.length === 0 ? `${header}\r\n` : `${header}\r\n${body}\r\n`;
+    const csv =
+      body.length === 0 ? `${header}\r\n` : `${header}\r\n${body}\r\n`;
     const buffer = Buffer.concat([
       Buffer.from([0xef, 0xbb, 0xbf]),
       Buffer.from(csv, 'utf8'),
@@ -152,9 +149,7 @@ export class ExportPostsHandler
     };
   }
 
-  private async buildXlsx(
-    rows: PostReadModel[],
-  ): Promise<ExportPostsResult> {
+  private async buildXlsx(rows: PostReadModel[]): Promise<ExportPostsResult> {
     const wb = new ExcelJS.Workbook();
     wb.creator = 'Aquashield Restoration LLC';
     wb.created = new Date();
@@ -186,9 +181,7 @@ export class ExportPostsHandler
     };
   }
 
-  private buildPdf(
-    rows: PostReadModel[],
-  ): Promise<ExportPostsResult> {
+  private buildPdf(rows: PostReadModel[]): Promise<ExportPostsResult> {
     return new Promise<ExportPostsResult>((resolve, reject) => {
       const doc = new PDFDocument({ size: 'A4', margin: 36 });
       const chunks: Buffer[] = [];
@@ -217,10 +210,7 @@ export class ExportPostsHandler
         for (const r of rows) {
           doc
             .fontSize(11)
-            .text(
-              `${r.postTitle}` +
-                (r.userName ? `  by ${r.userName}` : ''),
-            );
+            .text(`${r.postTitle}` + (r.userName ? `  by ${r.userName}` : ''));
           doc
             .fontSize(9)
             .fillColor('#475569')

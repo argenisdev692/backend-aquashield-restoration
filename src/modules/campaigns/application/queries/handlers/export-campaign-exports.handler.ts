@@ -72,9 +72,10 @@ function toRow(item: {
 
 @QueryHandler(ExportCampaignExportsQuery)
 @Injectable()
-export class ExportCampaignExportsHandler
-  implements IQueryHandler<ExportCampaignExportsQuery, CampaignExportFileResult>
-{
+export class ExportCampaignExportsHandler implements IQueryHandler<
+  ExportCampaignExportsQuery,
+  CampaignExportFileResult
+> {
   constructor(
     @Inject(CAMPAIGN_GENERATION_REPOSITORY)
     private readonly campaignRepo: ICampaignGenerationRepository,
@@ -144,11 +145,14 @@ export class ExportCampaignExportsHandler
     const body = rows
       .map((r) => {
         const row = toRow(r);
-        return COLUMNS.map((c) => csvEscape(row[c.key as keyof ExportRow])).join(',');
+        return COLUMNS.map((c) =>
+          csvEscape(row[c.key as keyof ExportRow]),
+        ).join(',');
       })
       .join('\r\n');
 
-    const csv = body.length === 0 ? `${header}\r\n` : `${header}\r\n${body}\r\n`;
+    const csv =
+      body.length === 0 ? `${header}\r\n` : `${header}\r\n${body}\r\n`;
 
     const buffer = Buffer.concat([
       Buffer.from([0xef, 0xbb, 0xbf]),
@@ -191,7 +195,8 @@ export class ExportCampaignExportsHandler
     return {
       buffer: Buffer.from(arrayBuffer),
       filename: `campaign-exports-${this.timestamp()}.xlsx`,
-      contentType: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+      contentType:
+        'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
     };
   }
 
@@ -241,7 +246,10 @@ export class ExportCampaignExportsHandler
             )
             .fillColor('#000');
           if (r.errorMessage) {
-            doc.fontSize(8).fillColor('#b91c1c').text(`Error: ${r.errorMessage}`);
+            doc
+              .fontSize(8)
+              .fillColor('#b91c1c')
+              .text(`Error: ${r.errorMessage}`);
           }
           doc.moveDown(0.5);
         }

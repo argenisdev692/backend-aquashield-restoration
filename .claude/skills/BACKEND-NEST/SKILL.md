@@ -1,10 +1,12 @@
 # BACKEND-NEST.md — NestJS 11 · TypeScript 5.x · Enterprise Backend (2026)
 
 > **Authority**: SINGLE SOURCE OF TRUTH for all NestJS/TypeScript rules, patterns, naming, testing, logging, cache, and exports.
-> **Pattern**: Hexagonal Architecture + DDD + CQRS — CommandBus/QueryBus dispatch (`@nestjs/cqrs`), Port/Adapter, Domain Events via EventEmitter2.
-> **For directory trees and bounded context structure → see `.claude/skills/ARCHITECTURE-NEST/SKILL.md`.**
+> **Pattern (default)**: Service/Repository for flat CRUD (SIMPLE / DEFAULT tiers). Hexagonal + DDD + UseCase pattern for ENTERPRISE tier, with Domain Events via `EventEmitter2`.
+> **CQRS (`@nestjs/cqrs`)**: installed but **OPT-IN per bounded context**. `CommandBus` / `QueryBus` / `EventBus` are NOT the default — they require an explicit, documented decision. The Command/Query handler examples below are reference material for the opt-in case; the default Hex/DDD shape is one `@Injectable()` UseCase per operation with a single `execute()` method (see `.claude/skills/ARCHITECTURE-ENTERPRISE/SKILL.md`).
+> **For directory trees and bounded context structure → see `.claude/skills/ARCHITECTURE-DECISION-GUIDE.md`.**
+> **For Service/Repository DRY patterns (findOrFail, singleton, repo return rules) → see `.claude/skills/BACKEND-NEST-PATTERNS/SKILL.md`.**
 > **Security baseline → see `.claude/skills/OWASP/SKILL.md` and apply it to every endpoint, use case, adapter, and external integration.**
-> **Stack**: NestJS 11.1.x · Prisma 7.x (`prisma-client` generator + `@prisma/adapter-pg`) · Zod 4.x · nestjs-cls 6.x · cockatiel 3.x · BullMQ 5.x · @nestjs/event-emitter 3.x · @nestjs/cqrs 11.x
+> **Stack**: NestJS 11.1.x · Prisma 7.x (`prisma-client` generator + `@prisma/adapter-pg`) · Zod 4.x · nestjs-cls 6.x · cockatiel 3.x · BullMQ 5.x · @nestjs/event-emitter 3.x · @nestjs/cqrs 11.x (opt-in)
 
 ---
 
@@ -20,7 +22,7 @@
 - `@nestjs/config 4.0` — minor breaking changes.
 - `@nestjs/bullmq` — native BullMQ v5 support (Redis Streams, job priorities, rate limits).
 - Socket.io v4 + `@socket.io/redis-adapter` v8 for multi-instance pub/sub.
-- `@nestjs/cqrs` v11 — **adopted for ALL Hex/DDD modules**. Controllers dispatch via `CommandBus`/`QueryBus`. Command/Query Handlers replace the old Use Case `@Injectable()` pattern. Domain Events still use `EventEmitter2` (not CQRS `EventBus`). CRUD modules do NOT use CQRS.
+- `@nestjs/cqrs` v11 — **available but OPT-IN per bounded context**. Default Hex/DDD shape is one `@Injectable()` UseCase per operation (`application/use-cases/{verb}-{module}.use-case.ts`) with a single `execute()` method, called directly by the controller. Modules MAY adopt `CommandBus`/`QueryBus` when there is a documented reason (e.g. saga orchestration, multiple handlers per command). Domain Events always use `EventEmitter2` (never CQRS `EventBus`). CRUD modules (SIMPLE / DEFAULT) do NOT use CQRS.
 
 ---
 
@@ -37,9 +39,68 @@
 
 ## §1 — TypeScript Patterns (Required)
 
-### CQRS — Command & Query Handlers (Hex/DDD modules)
+### UseCase pattern (default for Hex/DDD — ENTERPRISE tier)
 
-Every write operation is a **Command** dispatched via `CommandBus`. Every read operation is a **Query** dispatched via `QueryBus`. Handlers implement `ICommandHandler<T>` or `IQueryHandler<T>` from `@nestjs/cqrs`.
+Every Hex/DDD module's `application/` layer exposes one `@Injectable()` UseCase per operation, each with a single `execute()` method. Controllers inject the UseCases directly. This is the default — `CommandBus`/`QueryBus` are NOT used unless the bounded context has a documented reason (see "CQRS (opt-in)" below).
+
+```typescript
+// application/use-cases/create-project.use-case.ts
+@Injectable()
+export class CreateProjectUseCase {
+  constructor(
+    @Inject(PROJECT_REPOSITORY) private readonly repo: IProjectRepository,
+    @Inject(AUDIT_PORT) private readonly audit: IAuditPort,
+    private readonly logger: LoggerService,
+    private readonly cls: ClsService,
+    private readonly eventEmitter: EventEmitter2,
+  ) {}
+
+  @Transactional()
+  async execute(dto: CreateProjectDto): Promise<string> {
+    const traceId = this.cls.get<string>('traceId');
+    this.logger.info('CreateProjectUseCase.execute start', { traceId });
+
+    const project = Project.create(dto);
+    await this.repo.save(project);
+
+    await this.audit.log(
+      { action: 'projects.created', actorId: dto.actorId, resourceId: project.id.value },
+      { strict: true },
+    );
+
+    this.eventEmitter.emit('project.created', new ProjectCreatedEvent(project.id.value));
+
+    this.logger.info('CreateProjectUseCase.execute end', { traceId, projectId: project.id.value });
+    return project.id.value;
+  }
+}
+
+// infrastructure/api/controllers/projects.controller.ts
+@Controller('projects')
+@UseGuards(JwtAuthGuard, CaslGuard)
+export class ProjectsController {
+  constructor(
+    private readonly createUseCase: CreateProjectUseCase,
+    private readonly getUseCase: GetProjectByIdUseCase,
+  ) {}
+
+  @Post()
+  @CheckAbilities({ action: Action.Create, subject: 'PROJECT' })
+  async create(
+    @Body(new ZodValidationPipe(CreateProjectSchema)) dto: CreateProjectDto,
+    @CurrentUser() user: UserJwtPayload,
+  ): Promise<{ id: string }> {
+    const id = await this.createUseCase.execute({ ...dto, actorId: user.id });
+    return { id };
+  }
+}
+```
+
+### CQRS (opt-in) — Command & Query Handlers
+
+> **OPT-IN PATTERN.** Only adopt this when the bounded context has a documented justification (saga orchestration, multiple handlers per command, decoupled write/read models). For all other Hex/DDD modules use the UseCase pattern above. CRUD modules (SIMPLE / DEFAULT) NEVER use CQRS.
+
+When CQRS is justified, write operations become **Commands** dispatched via `CommandBus` and reads become **Queries** dispatched via `QueryBus`. Handlers implement `ICommandHandler<T>` or `IQueryHandler<T>` from `@nestjs/cqrs`.
 
 #### Command (payload class — plain TS, no NestJS deps)
 
@@ -268,15 +329,11 @@ export class ProjectsController {
   findAll(@Query() query: ProjectFiltersDto): Promise<ProjectListResponse> { ... }
 
   @Get('export')     // ← MUST be before /:id to avoid route shadowing
-  @ApiProduces('text/csv', 'application/pdf')
-  @ApiOkResponse({
-    description: 'CSV (default) or PDF report.',
-    content: { 'text/csv': {}, 'application/pdf': {} },
-  })
-  @ApiQuery({ name: 'format', enum: ['csv', 'pdf'], required: false })
+  @ApiOkResponse({ description: 'Binary file', content: { 'application/octet-stream': {} } })
+  @ApiQuery({ name: 'format', enum: ['xlsx', 'pdf'], required: true })
   @SkipCache()
   @CheckAbilities({ action: Action.Read, subject: 'PROJECT' })
-  async export(@Query('format') format: 'csv' | 'pdf' = 'csv'): Promise<StreamableFile> { ... }
+  async export(@Query('format') format: 'xlsx' | 'pdf'): Promise<StreamableFile> { ... }
 
   @Get(':id')
   @ApiOkResponse({ type: ProjectResponse })
@@ -424,7 +481,9 @@ async execute(dto: CreateProjectDto, traceId: string): Promise<string>
 
 ---
 
-## §2 — CQRS Handler Rules (Hex/DDD modules)
+## §2 — UseCase & (opt-in) CQRS Handler Rules (Hex/DDD modules)
+
+> The rules below apply to BOTH the default UseCase pattern AND the opt-in CQRS Command/Query handlers — replace "Handler" with "UseCase" when reading them in a non-CQRS module. CRUD modules (SIMPLE / DEFAULT) are out of scope; their mutation contract lives in `.claude/skills/ARCHITECTURE-DEFAULT/SKILL.md` (Canonical Mutation Pattern).
 
 ### Command Handlers (write logic)
 
@@ -484,7 +543,7 @@ export class ApproveProjectHandler implements ICommandHandler<ApproveProjectComm
 }
 ```
 
-> This is the **canonical CommandHandler example for the whole repo**. The 6-step Canonical Mutation Pattern (load → mutate → save → audit → cache → emit) is detailed in `.claude/skills/ARCHITECTURE-NEST/SKILL.md § Canonical Mutation Pattern`. Bulk variant: see § "Bulk Delete / Bulk Restore (Hex/DDD)" in the same file.
+> This is the **canonical CommandHandler example for the whole repo**. The 6-step Canonical Mutation Pattern (load → mutate → save → audit → cache → emit) is detailed in `.claude/skills/ARCHITECTURE-ENTERPRISE/SKILL.md`. Bulk variant: see § "Bulk Delete / Bulk Restore (Hex/DDD)" in the same file.
 
 ### Query Handlers (read logic)
 
@@ -679,7 +738,7 @@ await Promise.all(ids.map((id) => this.prisma.widget.update({ where: { id }, dat
 await this.prisma.widget.updateMany({ where: { id: { in: ids } }, data });
 ```
 
-> Bulk delete / bulk restore endpoints (`POST /{module}/bulk-delete` and `bulk-restore`) are the canonical application of this rule — see `.claude/skills/ARCHITECTURE-NEST-CRUD/SKILL.md` § "Bulk Delete / Bulk Restore" and the matching Hex/DDD section. **One** `updateMany` / `deleteMany` per call — never a loop.
+> Bulk delete / bulk restore endpoints (`POST /{module}/bulk-delete` and `bulk-restore`) are the canonical application of this rule — see `.claude/skills/ARCHITECTURE-SIMPLE/SKILL.md` § "Bulk Delete / Bulk Restore (flat CRUD)" and `.claude/skills/ARCHITECTURE-ENTERPRISE/SKILL.md` for the Hex/DDD variant. **One** `updateMany` / `deleteMany` per call — never a loop.
 
 ### Rule 2 — Eager-load relations with `include` / `select` (no implicit lazy loading)
 
@@ -1054,57 +1113,49 @@ Key construction is owned by `CacheTTLInterceptor` — controllers never build c
 
 ---
 
-## §7 — Export (CSV + PDF) — Mandatory on Every CRUD
+## §7 — Export (Excel + PDF) — Mandatory on Every CRUD
 
-> **[ABSOLUTE]** Every entity with a list endpoint MUST expose `GET /{entities}/export` that supports **BOTH** `format=csv` AND `format=pdf`. Shipping only one of the two formats is a ❌ FAIL — frontends rely on both: CSV for data pipelines / re-import / spreadsheets, PDF for printable / auditor-friendly reports. The Excel format (`xlsx`) is NOT supported by this skill — CSV is the data interchange format (every spreadsheet app opens it).
+Every entity with a list endpoint MUST also expose `GET /{entities}/export?format=xlsx|pdf`.
 
 ### Export Flow
 
 ```
-GET /projects/export?format=csv      ← default when format is omitted
-GET /projects/export?format=pdf
+GET /projects/export?format=xlsx
   └─► Controller.export(format, filters)
-        └─► ExportProjectsUseCase.execute(filters, format, actorId)
-              ├─► Fetches all matching rows (capped at 5_000 — OWASP API #4)
-              ├─► Branches by format:
-              │     ├─► 'csv' → CsvExporter → Buffer (UTF-8 BOM + CRLF)
-              │     └─► 'pdf' → PdfExporter → Buffer (PDFKit)
-              └─► IAuditPort.log({ action: 'projects.export', metadata: { format, count, …filters } })
-        └─► Controller returns StreamableFile + Content-Disposition + dynamic Content-Type
+        └─► ExportProjectsUseCase.execute(filters, format)
+              ├─► Fetches all matching rows (no pagination)
+              ├─► ExportService.generate(rows, format, @ExportColumn metadata)
+              │     ├─► 'xlsx' → ExcelExporterService → Buffer
+              │     └─► 'pdf'  → PdfExporterService   → Buffer
+              └─► IAuditPort.log({ action: 'projects.export', properties: { format, rowCount } })
+        └─► Controller streams buffer with Content-Disposition header
 ```
 
-### CsvExporter Rules
+### ExcelExporterService Rules
 
-- Hand-rolled inside the export handler — **no library**. CSV is trivial and an extra dep is unjustified.
-- First line is the header row from `@ExportColumn({ label })` (or the read-model field names if the decorator is not used).
-- Field separator `,`; row terminator `\r\n`; every cell wrapped in `"`; embedded `"` doubled to `""`.
-- Output is prefixed with the UTF-8 BOM (`0xEF 0xBB 0xBF`) so Excel auto-detects the encoding.
-- **CSV injection defence (OWASP)**: any cell starting with `=`, `+`, `-`, `@`, `\t`, or `\r` is prefixed with a single quote `'` so spreadsheets do not evaluate it as a formula.
-- Sensitive fields (`password`, `token`, `secret`, `passwordHash`, `mfaSecret`) MUST NOT have `@ExportColumn`.
-- Dates serialised as ISO 8601 (`YYYY-MM-DDTHH:mm:ss.sssZ`), the same shape the read-model exposes.
-- `Content-Type: text/csv; charset=utf-8` and `Content-Disposition: attachment; filename="{module}-<iso-timestamp>.csv"`.
+- Uses `ExcelJS` only — never the `xlsx` package.
+- Header row: bold font, accent background, auto-fit column width.
+- Column labels come from `@ExportColumn({ label })` on ReadModel — never hardcoded.
+- Dates formatted as `YYYY-MM-DD HH:mm UTC`.
+- Sensitive fields (`password`, `token`, `secret`) MUST NOT have `@ExportColumn`.
+- Datasets > 10k rows use worksheet streaming mode.
 
-### PdfExporter Rules
+### PdfExporterService Rules
 
 - Uses **PDFKit** only (lightweight, streaming). Puppeteer is explicitly NOT used in this project — kept off the dependency tree to avoid the Chromium footprint.
-- Every PDF includes: entity name, export date, applied filters, total row count.
-- Block-per-row layout for narrow datasets (≤ 6 columns) OR a paginated table for wider ones. Tables paginate automatically.
-- Minimum font size 10pt for body text, 8pt for footnotes (id, timestamps).
-- Column labels from the same `@ExportColumn` metadata as the CSV path — never hardcoded twice.
-- `Content-Type: application/pdf` and `Content-Disposition: attachment; filename="{module}-<iso-timestamp>.pdf"`.
+- Every PDF includes: entity name, export date, applied filters, total row count, data table.
+- Header/footer includes page number and org logo.
+- Minimum font size 10pt. Tables paginate automatically.
+- Column labels from same `@ExportColumn` metadata as Excel.
 
 ### Export Checklist
 
-- [ ] Export route registered BEFORE `/:id` in controller (no route shadowing)
-- [ ] **BOTH** `format=csv` AND `format=pdf` implemented and reachable — neither is optional
-- [ ] `format` query parameter defaults to `csv` when omitted
-- [ ] Same `FilterDTO` reused for list and export (no separate filter schema)
-- [ ] `?withTrashed` and `?onlyTrashed` accepted by the export endpoint when the module is soft-delete-aware; `onlyTrashed=true` gated by `Action.Restore`
-- [ ] `IAuditPort.log()` called with `action: '{module}.export'` and `metadata: { format, count, …filters }` (read paths use the default fire-and-forget `strict: false`)
+- [ ] Export route registered BEFORE `/:id` in controller
+- [ ] Same `FilterDTO` reused for list and export
+- [ ] `IAuditPort.log()` called with `action: '{module}.export'`
 - [ ] `@SkipCache()` applied — export buffers never cached
-- [ ] Row cap enforced at the repository (`EXPORT_MAX_ROWS = 5_000` by default — OWASP API #4)
-- [ ] CSV cells starting with `= + - @ \t \r` prefixed with `'` (formula-injection defence)
-- [ ] Sensitive fields have no `@ExportColumn` decorator and are not present in the read-model used by the export
+- [ ] `@Throttle()` — max 1 export per user per 30 seconds
+- [ ] Sensitive fields have no `@ExportColumn` decorator
 
 ---
 
@@ -1208,7 +1259,7 @@ GET /projects/export?format=pdf
 | Security        | `helmet`, `csrf-csrf`, `sanitize-html`, `hpp`                                | latest        |
 | Throttling      | `@nestjs/throttler`                                                          | ^6.5.x        |
 
-> ✅ `@nestjs/cqrs` v11 — **adopted for ALL Hex/DDD modules**. `CommandBus`/`QueryBus` dispatch in controllers. `EventEmitter2` remains for domain events. CRUD modules do NOT use CQRS — they keep the Service/Repository pattern.
+> ✅ `@nestjs/cqrs` v11 — **available but OPT-IN per bounded context**. Default Hex/DDD shape: one `@Injectable()` UseCase per operation, controllers inject UseCases directly. Adopt `CommandBus`/`QueryBus` only with a documented justification per bounded context. `EventEmitter2` remains the channel for domain events. CRUD modules (SIMPLE / DEFAULT) do NOT use CQRS — they keep the Service/Repository pattern.
 
 ---
 

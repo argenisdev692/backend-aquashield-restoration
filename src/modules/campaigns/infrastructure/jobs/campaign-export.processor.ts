@@ -5,7 +5,10 @@ import { EventEmitter2 } from '@nestjs/event-emitter';
 import { ClsService } from 'nestjs-cls';
 import PDFDocument from 'pdfkit';
 import { LoggerService } from '../../../../logger/logger.service';
-import { STORAGE_PORT, type IStoragePort } from '../../../../shared/storage/storage.port';
+import {
+  STORAGE_PORT,
+  type IStoragePort,
+} from '../../../../shared/storage/storage.port';
 import { QUEUE_NAMES } from '../../../../shared/messaging/queues.constants';
 
 import type { ICampaignGenerationRepository } from '../../domain/ports/campaign-generation.repository.port';
@@ -149,9 +152,15 @@ export class CampaignExportProcessor extends WorkerHost {
       doc.on('error', reject);
 
       // ─── Header ──────────────────────────────────────────────
-      doc.fontSize(22).font('Helvetica-Bold').text('Campaign Analysis Report', { align: 'center' });
+      doc
+        .fontSize(22)
+        .font('Helvetica-Bold')
+        .text('Campaign Analysis Report', { align: 'center' });
       doc.moveDown(0.3);
-      doc.fontSize(10).font('Helvetica').fillColor('#64748b')
+      doc
+        .fontSize(10)
+        .font('Helvetica')
+        .fillColor('#64748b')
         .text(`Generated: ${new Date().toISOString()}`, { align: 'center' })
         .fillColor('#000');
       doc.moveDown(0.5);
@@ -167,7 +176,9 @@ export class CampaignExportProcessor extends WorkerHost {
       doc.text(`Niche: ${input.niche}`);
       doc.text(`Location: ${input.location}`);
       if (input.city || input.state || input.country) {
-        const geo = [input.city, input.state, input.country].filter(Boolean).join(', ');
+        const geo = [input.city, input.state, input.country]
+          .filter(Boolean)
+          .join(', ');
         doc.text(`Geo: ${geo}`);
       }
       doc.text(`Phone: ${input.phone}`);
@@ -178,7 +189,9 @@ export class CampaignExportProcessor extends WorkerHost {
       doc.fontSize(14).font('Helvetica-Bold').text('Campaign Configuration');
       doc.moveDown(0.3);
       doc.fontSize(10).font('Helvetica');
-      doc.text(`Format: ${input.format}  ·  Duration: ${input.durationSeconds}s  ·  Language: ${input.language}`);
+      doc.text(
+        `Format: ${input.format}  ·  Duration: ${input.durationSeconds}s  ·  Language: ${input.language}`,
+      );
       doc.text(`Stages: ${input.stages.join(' → ')}`);
       doc.text(`Generate Images: ${input.generateImages ? 'Yes' : 'No'}`);
       if (input.aiObservations) {
@@ -193,21 +206,33 @@ export class CampaignExportProcessor extends WorkerHost {
       doc.moveDown(0.4);
 
       const vScore = input.viralityScore ?? 0;
-      const vColor = vScore >= 70 ? '#16a34a' : vScore >= 40 ? '#ca8a04' : '#dc2626';
+      const vColor =
+        vScore >= 70 ? '#16a34a' : vScore >= 40 ? '#ca8a04' : '#dc2626';
       doc.fontSize(10).font('Helvetica-Bold').text('Virality Score');
-      doc.font('Helvetica').fillColor(vColor).text(`${vScore}/100`, { indent: 20 }).fillColor('#000');
+      doc
+        .font('Helvetica')
+        .fillColor(vColor)
+        .text(`${vScore}/100`, { indent: 20 })
+        .fillColor('#000');
       doc.moveDown(0.2);
 
       const rScore = input.roiScore ?? 0;
-      const rColor = rScore >= 70 ? '#16a34a' : rScore >= 40 ? '#ca8a04' : '#dc2626';
+      const rColor =
+        rScore >= 70 ? '#16a34a' : rScore >= 40 ? '#ca8a04' : '#dc2626';
       doc.font('Helvetica-Bold').text('ROI Score');
-      doc.font('Helvetica').fillColor(rColor).text(`${rScore}/100`, { indent: 20 }).fillColor('#000');
+      doc
+        .font('Helvetica')
+        .fillColor(rColor)
+        .text(`${rScore}/100`, { indent: 20 })
+        .fillColor('#000');
       doc.moveDown(0.2);
 
       if (input.aiDetectionScore) {
         const ai = input.aiDetectionScore;
         doc.font('Helvetica-Bold').text('AI Detection Breakdown');
-        doc.font('Helvetica').text(`  Human Written: ${ai.humanWritten}%`, { indent: 20 });
+        doc
+          .font('Helvetica')
+          .text(`  Human Written: ${ai.humanWritten}%`, { indent: 20 });
         doc.text(`  Shows AI Signs: ${ai.showsAiSigns}%`, { indent: 20 });
         doc.text(`  AI Generated: ${ai.aiGenerated}%`, { indent: 20 });
         doc.text(`  AI Paraphrased: ${ai.aiParaphrased}%`, { indent: 20 });
@@ -245,7 +270,10 @@ export class CampaignExportProcessor extends WorkerHost {
         doc.moveDown(0.3);
         for (const c of input.viralityResult.similarCampaigns) {
           doc.fontSize(10).font('Helvetica-Bold').text(c.title);
-          doc.font('Helvetica').fontSize(9).fillColor('#64748b')
+          doc
+            .font('Helvetica')
+            .fontSize(9)
+            .fillColor('#64748b')
             .text(`Engagement: ${c.engagementEstimate}  ·  ${c.url}`)
             .fillColor('#000');
           doc.fontSize(9).text(c.snippet, { indent: 10 });
@@ -272,12 +300,24 @@ export class CampaignExportProcessor extends WorkerHost {
         const status = sr.isSuccess() ? '✓ SUCCESS' : '✗ FAILED';
         const statusColor = sr.isSuccess() ? '#16a34a' : '#dc2626';
         doc.fontSize(10).font('Helvetica-Bold').text(`${sr.stage}`);
-        doc.font('Helvetica').fillColor(statusColor).text(`  ${status}`, { indent: 20 }).fillColor('#000');
+        doc
+          .font('Helvetica')
+          .fillColor(statusColor)
+          .text(`  ${status}`, { indent: 20 })
+          .fillColor('#000');
         if (sr.zipUrl) {
-          doc.fontSize(8).fillColor('#64748b').text(`  ${sr.zipUrl}`, { indent: 20 }).fillColor('#000');
+          doc
+            .fontSize(8)
+            .fillColor('#64748b')
+            .text(`  ${sr.zipUrl}`, { indent: 20 })
+            .fillColor('#000');
         }
         if (sr.error) {
-          doc.fontSize(9).fillColor('#dc2626').text(`  Error: ${sr.error}`, { indent: 20 }).fillColor('#000');
+          doc
+            .fontSize(9)
+            .fillColor('#dc2626')
+            .text(`  Error: ${sr.error}`, { indent: 20 })
+            .fillColor('#000');
         }
         doc.moveDown(0.15);
       }
@@ -286,8 +326,14 @@ export class CampaignExportProcessor extends WorkerHost {
       doc.moveDown(1);
       doc.moveTo(48, doc.y).lineTo(547, doc.y).strokeColor('#e2e8f0').stroke();
       doc.moveDown(0.5);
-      doc.fontSize(8).font('Helvetica').fillColor('#94a3b8')
-        .text(`Generation ID: ${input.generationId}  ·  Aquashield Restoration LLC Campaign Engine`, { align: 'center' })
+      doc
+        .fontSize(8)
+        .font('Helvetica')
+        .fillColor('#94a3b8')
+        .text(
+          `Generation ID: ${input.generationId}  ·  Aquashield Restoration LLC Campaign Engine`,
+          { align: 'center' },
+        )
         .fillColor('#000');
 
       doc.end();
@@ -309,7 +355,10 @@ export class CampaignExportProcessor extends WorkerHost {
     // 1. Load aggregate and mark as processing
     const aggregate = await this.campaignRepo.findById(generationId);
     if (!aggregate) {
-      this.logger.error('Campaign generation not found for processing', { traceId, generationId });
+      this.logger.error('Campaign generation not found for processing', {
+        traceId,
+        generationId,
+      });
       return;
     }
 
@@ -343,7 +392,10 @@ export class CampaignExportProcessor extends WorkerHost {
         this.logger.warn('Virality research failed, continuing without it', {
           traceId,
           generationId,
-          error: researchErr instanceof Error ? researchErr.message : String(researchErr),
+          error:
+            researchErr instanceof Error
+              ? researchErr.message
+              : String(researchErr),
         });
         viralityResult = null;
       }
@@ -356,7 +408,11 @@ export class CampaignExportProcessor extends WorkerHost {
         const validatedStage = FunnelStageVO.fromString(rawStage).value;
 
         try {
-          this.logger.info('Processing campaign stage', { traceId, generationId, stage: validatedStage });
+          this.logger.info('Processing campaign stage', {
+            traceId,
+            generationId,
+            stage: validatedStage,
+          });
 
           // 3.1 Generate creative content (Gemini) with aiObservations + virality recommendations
           const content = await this.stageGenerator.generate({
@@ -400,7 +456,10 @@ export class CampaignExportProcessor extends WorkerHost {
             });
 
             // Quality gate: warn if content looks too AI-generated
-            if (detectionScore.showsAiSigns > 50 || detectionScore.humanWritten < 40) {
+            if (
+              detectionScore.showsAiSigns > 50 ||
+              detectionScore.humanWritten < 40
+            ) {
               this.logger.warn('Content flagged as likely AI-generated', {
                 traceId,
                 generationId,
@@ -413,7 +472,10 @@ export class CampaignExportProcessor extends WorkerHost {
               traceId,
               generationId,
               stage: validatedStage,
-              error: detectionErr instanceof Error ? detectionErr.message : String(detectionErr),
+              error:
+                detectionErr instanceof Error
+                  ? detectionErr.message
+                  : String(detectionErr),
             });
             detectionScore = null;
           }
@@ -424,8 +486,14 @@ export class CampaignExportProcessor extends WorkerHost {
 
           if (this.audioGenerator?.isEnabled()) {
             const [a916, a169] = await Promise.allSettled([
-              this.audioGenerator.generate({ text: content.scripts.vertical_916.narration, language: payload.language }),
-              this.audioGenerator.generate({ text: content.scripts.horizontal_169.narration, language: payload.language }),
+              this.audioGenerator.generate({
+                text: content.scripts.vertical_916.narration,
+                language: payload.language,
+              }),
+              this.audioGenerator.generate({
+                text: content.scripts.horizontal_169.narration,
+                language: payload.language,
+              }),
             ]);
             audio916 = a916.status === 'fulfilled' ? a916.value : null;
             audio169 = a169.status === 'fulfilled' ? a169.value : null;
@@ -481,7 +549,11 @@ export class CampaignExportProcessor extends WorkerHost {
 
           // 2.6 Upload to R2
           const zipKey = `campaign-exports/${generationId}/${validatedStage}/${validatedStage}_campaign.zip`;
-          await this.storage.upload(zipKey, zipResult.buffer, 'application/zip');
+          await this.storage.upload(
+            zipKey,
+            zipResult.buffer,
+            'application/zip',
+          );
           const zipUrl = this.storage.publicUrl(zipKey);
 
           // 2.7 Persist stage result
@@ -499,7 +571,11 @@ export class CampaignExportProcessor extends WorkerHost {
           // Emit real-time progress
           this.eventEmitter.emit(
             'campaign.stage.ready',
-            new CampaignStageExportReadyEvent(generationId, validatedStage, zipUrl),
+            new CampaignStageExportReadyEvent(
+              generationId,
+              validatedStage,
+              zipUrl,
+            ),
           );
 
           this.logger.info('Stage export completed', {
@@ -509,8 +585,16 @@ export class CampaignExportProcessor extends WorkerHost {
             zipUrl,
           });
         } catch (stageError) {
-          const errorMsg = stageError instanceof Error ? stageError.message : String(stageError);
-          this.logger.error('Stage export failed', { traceId, generationId, stage: validatedStage, error: errorMsg });
+          const errorMsg =
+            stageError instanceof Error
+              ? stageError.message
+              : String(stageError);
+          this.logger.error('Stage export failed', {
+            traceId,
+            generationId,
+            stage: validatedStage,
+            error: errorMsg,
+          });
 
           errors[validatedStage] = errorMsg;
 
@@ -524,7 +608,10 @@ export class CampaignExportProcessor extends WorkerHost {
 
       // 3. Generate Campaign Analysis Report PDF
       try {
-        this.logger.info('Generating campaign analysis report', { traceId, generationId });
+        this.logger.info('Generating campaign analysis report', {
+          traceId,
+          generationId,
+        });
         const reportBuffer = await this.buildAnalysisReport({
           generationId,
           companyName: payload.companyNameSnapshot,
@@ -554,12 +641,17 @@ export class CampaignExportProcessor extends WorkerHost {
         aggregate.setAnalysisReport(reportKey, reportUrl);
         await this.campaignRepo.save(aggregate);
 
-        this.logger.info('Analysis report generated', { traceId, generationId, reportUrl });
+        this.logger.info('Analysis report generated', {
+          traceId,
+          generationId,
+          reportUrl,
+        });
       } catch (reportErr) {
         this.logger.warn('Failed to generate analysis report, continuing', {
           traceId,
           generationId,
-          error: reportErr instanceof Error ? reportErr.message : String(reportErr),
+          error:
+            reportErr instanceof Error ? reportErr.message : String(reportErr),
         });
       }
 
@@ -598,7 +690,9 @@ export class CampaignExportProcessor extends WorkerHost {
       });
 
       try {
-        aggregate.fail(error instanceof Error ? error.message : 'Unknown processing error');
+        aggregate.fail(
+          error instanceof Error ? error.message : 'Unknown processing error',
+        );
         await this.campaignRepo.save(aggregate);
 
         this.eventEmitter.emit(
@@ -611,7 +705,11 @@ export class CampaignExportProcessor extends WorkerHost {
           ),
         );
       } catch (saveErr) {
-        this.logger.error('Failed to persist failure state', { traceId, generationId, saveErr });
+        this.logger.error('Failed to persist failure state', {
+          traceId,
+          generationId,
+          saveErr,
+        });
       }
     }
   }

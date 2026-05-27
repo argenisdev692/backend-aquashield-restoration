@@ -42,7 +42,10 @@ export interface PaginatedResult<T> {
 
 export interface IPostRepository {
   findById(id: string, trashed?: boolean): Promise<Post | null>;
-  findReadModelById(id: string, trashed?: boolean): Promise<PostReadModel | null>;
+  findReadModelById(
+    id: string,
+    trashed?: boolean,
+  ): Promise<PostReadModel | null>;
   findIdBySlug(slug: string): Promise<string | null>;
   findAll(filters: PostFilters): Promise<PaginatedResult<PostReadModel>>;
   findScheduledDue(): Promise<Post[]>;

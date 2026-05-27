@@ -118,4 +118,3 @@ import { CampaignsModule } from './modules/campaigns/campaigns.module';
   providers: [AppService, { provide: APP_GUARD, useClass: ThrottlerGuard }],
 })
 export class AppModule {}
-

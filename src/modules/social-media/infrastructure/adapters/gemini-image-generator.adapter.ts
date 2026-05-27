@@ -2,7 +2,10 @@ import { Injectable, Inject } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { LoggerService } from '../../../../logger/logger.service';
 import { ClsService } from 'nestjs-cls';
-import { AI_CLIENT, type IAiClient } from '../../../../shared/external/ai/ai-client.port';
+import {
+  AI_CLIENT,
+  type IAiClient,
+} from '../../../../shared/external/ai/ai-client.port';
 import type {
   IImageGeneratorPort,
   GenerateImageInput,
@@ -44,7 +47,9 @@ export class GeminiImageGeneratorAdapter implements IImageGeneratorPort {
       prompt,
     });
 
-    this.logger.info('GeminiImageGeneratorAdapter.generateImage done', { traceId });
+    this.logger.info('GeminiImageGeneratorAdapter.generateImage done', {
+      traceId,
+    });
 
     return {
       base64: result.base64,

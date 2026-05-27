@@ -8,7 +8,12 @@ export class SocialNetworkVO {
   private constructor(private readonly value: SocialNetwork) {}
 
   static create(network: string): SocialNetworkVO {
-    const valid: SocialNetwork[] = ['facebook', 'instagram', 'tiktok', 'linkedin'];
+    const valid: SocialNetwork[] = [
+      'facebook',
+      'instagram',
+      'tiktok',
+      'linkedin',
+    ];
     if (!valid.includes(network as SocialNetwork)) {
       throw new Error(`Invalid social network: ${network}`);
     }

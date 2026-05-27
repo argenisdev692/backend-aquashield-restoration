@@ -33,7 +33,10 @@ export class CampaignExportCompletedListener {
     });
 
     if (event.status === 'failed') {
-      this.gateway.broadcastExportFailed(event.generationId, event.errorMessage ?? 'Export failed');
+      this.gateway.broadcastExportFailed(
+        event.generationId,
+        event.errorMessage ?? 'Export failed',
+      );
     } else {
       this.gateway.broadcastExportCompleted(
         event.generationId,

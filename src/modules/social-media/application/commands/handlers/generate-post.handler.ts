@@ -22,13 +22,15 @@ export class GeneratePostHandler implements ICommandHandler<GeneratePostCommand>
     this.logger.setContext(GeneratePostHandler.name);
   }
 
-  async execute(command: GeneratePostCommand): Promise<EnqueueGeneratePostResult> {
+  async execute(
+    command: GeneratePostCommand,
+  ): Promise<EnqueueGeneratePostResult> {
     const { dto, actorId } = command;
     const traceId = this.cls.get<string>('traceId');
 
-    const activeNetworks = (Object.keys(dto.networks) as SocialNetwork[]).filter(
-      (n) => dto.networks[n],
-    );
+    const activeNetworks = (
+      Object.keys(dto.networks) as SocialNetwork[]
+    ).filter((n) => dto.networks[n]);
 
     this.logger.info('GeneratePostHandler start', {
       traceId,

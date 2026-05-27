@@ -201,11 +201,9 @@ describe('BlogCategoryService', () => {
     const repo = makeRepo({ findById: jest.fn().mockResolvedValue(null) });
     const audit = makeAudit();
     await expect(
-      makeService(repo, makeStorage(), audit).update(
-        USER_ID,
-        baseEntity.id,
-        { name: 'X' },
-      ),
+      makeService(repo, makeStorage(), audit).update(USER_ID, baseEntity.id, {
+        name: 'X',
+      }),
     ).rejects.toBeInstanceOf(NotFoundException);
     expect(audit.log).not.toHaveBeenCalled();
     expect(cache.delByPattern).not.toHaveBeenCalled();

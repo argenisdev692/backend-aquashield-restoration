@@ -11,9 +11,7 @@ import { ClsService } from 'nestjs-cls';
 
 @Injectable()
 @QueryHandler(GetAppointmentByIdQuery)
-export class GetAppointmentByIdHandler
-  implements IQueryHandler<GetAppointmentByIdQuery>
-{
+export class GetAppointmentByIdHandler implements IQueryHandler<GetAppointmentByIdQuery> {
   constructor(
     @Inject(APPOINTMENT_REPOSITORY)
     private readonly repo: IAppointmentRepository,

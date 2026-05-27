@@ -66,8 +66,7 @@
 
 ## Available slash commands
 
-- `/backend-new` — Scaffold a new NestJS backend with enterprise architecture, BullMQ job queue, OWASP security baseline
-- `/backend-new-crud` — Scaffold a simple NestJS CRUD module with Service/Repository pattern and OWASP security baseline
+- `/backend-new` — Scaffold a new NestJS backend module. Uses ARCHITECTURE-DECISION-GUIDE to select the appropriate architecture (SIMPLE/DEFAULT/ENTERPRISE) based on complexity
 - `/backend-audit-nest` — Audit a NestJS/TypeScript module against architecture, security, audit & test rules
 
 ## Repo structure
@@ -86,6 +85,5 @@
 ├── agents/                             # specialized sub-agents (empty for now)
 └── commands/                           # manual slash commands
     ├── BACKEND-NEW.md
-    ├── BACKEND-NEW-CRUD.md
     └── BACKEND-AUDIT-NEST.md
 ```

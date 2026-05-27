@@ -40,10 +40,7 @@ export class DeletePostHandler implements ICommandHandler<DeletePostCommand> {
     await this.persist(command);
 
     await this.cache.delByPattern(POSTS_CACHE_PATTERN);
-    this.eventEmitter.emit(
-      'post.deleted',
-      new PostDeletedEvent(id),
-    );
+    this.eventEmitter.emit('post.deleted', new PostDeletedEvent(id));
 
     this.logger.info('DeletePostHandler end', {
       traceId,

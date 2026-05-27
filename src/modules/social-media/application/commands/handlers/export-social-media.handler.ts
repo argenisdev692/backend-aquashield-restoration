@@ -12,7 +12,10 @@ import { AUDIT_PORT } from '../../../../../shared/activity-log/audit.port';
 import type { IAuditPort } from '../../../../../shared/activity-log/audit.port';
 import { LoggerService } from '../../../../../logger/logger.service';
 import { ClsService as NestClsService } from 'nestjs-cls';
-import { csvEscape, sheetEscape } from '../../../../../shared/export/export.util';
+import {
+  csvEscape,
+  sheetEscape,
+} from '../../../../../shared/export/export.util';
 import type { SocialMediaGeneration } from '../../../domain/entities/social-media-generation.entity';
 import ExcelJS from 'exceljs';
 import PDFDocument from 'pdfkit';
@@ -60,11 +63,16 @@ export class ExportSocialMediaHandler implements ICommandHandler<ExportSocialMed
     this.logger.setContext(ExportSocialMediaHandler.name);
   }
 
-  async execute(command: ExportSocialMediaCommand): Promise<ExportSocialMediaResult> {
+  async execute(
+    command: ExportSocialMediaCommand,
+  ): Promise<ExportSocialMediaResult> {
     const { dto, actorId } = command;
     const traceId = this.cls.get<string>('traceId');
 
-    this.logger.info('ExportSocialMediaHandler start', { traceId, format: dto.format });
+    this.logger.info('ExportSocialMediaHandler start', {
+      traceId,
+      format: dto.format,
+    });
 
     const { data } = await this.repo.findAll(
       {
@@ -100,7 +108,10 @@ export class ExportSocialMediaHandler implements ICommandHandler<ExportSocialMed
       count: data.length,
     });
 
-    this.logger.info('ExportSocialMediaHandler end', { traceId, count: data.length });
+    this.logger.info('ExportSocialMediaHandler end', {
+      traceId,
+      count: data.length,
+    });
 
     return result;
   }
@@ -113,7 +124,8 @@ export class ExportSocialMediaHandler implements ICommandHandler<ExportSocialMed
         return COLUMNS.map((c) => csvEscape(row[c.key as keyof Row])).join(',');
       })
       .join('\r\n');
-    const csv = body.length === 0 ? `${header}\r\n` : `${header}\r\n${body}\r\n`;
+    const csv =
+      body.length === 0 ? `${header}\r\n` : `${header}\r\n${body}\r\n`;
     const buffer = Buffer.concat([
       Buffer.from([0xef, 0xbb, 0xbf]),
       Buffer.from(csv, 'utf8'),
@@ -159,7 +171,9 @@ export class ExportSocialMediaHandler implements ICommandHandler<ExportSocialMed
     };
   }
 
-  private buildPdf(rows: SocialMediaGeneration[]): Promise<ExportSocialMediaResult> {
+  private buildPdf(
+    rows: SocialMediaGeneration[],
+  ): Promise<ExportSocialMediaResult> {
     return new Promise<ExportSocialMediaResult>((resolve, reject) => {
       const doc = new PDFDocument({ size: 'A4', margin: 36 });
       const chunks: Buffer[] = [];
@@ -173,7 +187,9 @@ export class ExportSocialMediaHandler implements ICommandHandler<ExportSocialMed
       );
       doc.on('error', reject);
 
-      doc.fontSize(16).text('Social Media Generations — Export', { align: 'left' });
+      doc
+        .fontSize(16)
+        .text('Social Media Generations — Export', { align: 'left' });
       doc.moveDown(0.5);
       doc
         .fontSize(9)
@@ -196,7 +212,12 @@ export class ExportSocialMediaHandler implements ICommandHandler<ExportSocialMed
             .text(`Niche: ${r.niche}  ·  Networks: ${nets || '—'}`)
             .fillColor('#000');
           if (r.topicDescription) {
-            doc.fontSize(9).text(r.topicDescription.slice(0, 120) + (r.topicDescription.length > 120 ? '...' : ''));
+            doc
+              .fontSize(9)
+              .text(
+                r.topicDescription.slice(0, 120) +
+                  (r.topicDescription.length > 120 ? '...' : ''),
+              );
           }
           doc
             .fontSize(8)

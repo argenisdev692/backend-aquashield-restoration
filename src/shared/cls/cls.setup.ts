@@ -14,7 +14,10 @@ type ContextRequest = IncomingMessage & {
 
 const TRUSTED_DEVICE_COOKIE = 'td';
 
-function parseCookie(header: string | undefined, name: string): string | undefined {
+function parseCookie(
+  header: string | undefined,
+  name: string,
+): string | undefined {
   if (!header) return undefined;
   for (const part of header.split(';')) {
     const [k, ...v] = part.trim().split('=');
@@ -69,7 +72,8 @@ export function buildClsOptions(): ClsModuleOptions {
         const trustedDevice =
           req.cookies?.[TRUSTED_DEVICE_COOKIE] ??
           parseCookie(cookieHeader, TRUSTED_DEVICE_COOKIE);
-        if (trustedDevice) cls.set(CLS_KEYS.TRUSTED_DEVICE_TOKEN, trustedDevice);
+        if (trustedDevice)
+          cls.set(CLS_KEYS.TRUSTED_DEVICE_TOKEN, trustedDevice);
 
         // Expose to pino-http customProps (automatic request logging).
         try {

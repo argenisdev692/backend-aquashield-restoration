@@ -1,4 +1,7 @@
-import type { SocialNetwork, GeneratedPost } from '../../domain/entities/social-media-generation.entity';
+import type {
+  SocialNetwork,
+  GeneratedPost,
+} from '../../domain/entities/social-media-generation.entity';
 
 /**
  * Read Model for Social Media Generation (used in list, get-by-id, export).

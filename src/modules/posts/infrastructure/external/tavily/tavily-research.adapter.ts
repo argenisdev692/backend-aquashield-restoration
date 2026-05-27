@@ -5,7 +5,10 @@ import { ClsService } from 'nestjs-cls';
 import { type IPolicy } from 'cockatiel'; // still needed for the private field type (infrastructure only)
 import { createExternalServicePolicy } from '../../../../../shared/external/resilience';
 import type { ResearchPort } from '../../../domain/ports/research.port';
-import { ResearchResult, type Source } from '../../../domain/value-objects/research-result.vo';
+import {
+  ResearchResult,
+  type Source,
+} from '../../../domain/value-objects/research-result.vo';
 
 /**
  * Minimal typed shape for the Tavily /search response (only fields we consume).
@@ -38,8 +41,14 @@ export class TavilyResearchAdapter implements ResearchPort, OnModuleInit {
   ) {
     this.logger.setContext(TavilyResearchAdapter.name);
     this.apiKey = this.config.getOrThrow<string>('TAVILY_API_KEY');
-    this.searchUrl = this.config.get<string>('TAVILY_SEARCH_URL', 'https://api.tavily.com/search');
-    this.searchDepth = this.config.get<string>('TAVILY_SEARCH_DEPTH', 'advanced');
+    this.searchUrl = this.config.get<string>(
+      'TAVILY_SEARCH_URL',
+      'https://api.tavily.com/search',
+    );
+    this.searchDepth = this.config.get<string>(
+      'TAVILY_SEARCH_DEPTH',
+      'advanced',
+    );
     this.maxResults = this.config.get<number>('TAVILY_MAX_RESULTS', 8);
   }
 
@@ -51,10 +60,16 @@ export class TavilyResearchAdapter implements ResearchPort, OnModuleInit {
 
   async research(query: string): Promise<ResearchResult> {
     const traceId = this.cls.get<string>('traceId');
-    this.logger.info('TavilyResearchAdapter.research start', { traceId, query });
+    this.logger.info('TavilyResearchAdapter.research start', {
+      traceId,
+      query,
+    });
 
     if (!this.apiKey) {
-      this.logger.warn('TavilyResearchAdapter: no API key, returning empty result', { traceId });
+      this.logger.warn(
+        'TavilyResearchAdapter: no API key, returning empty result',
+        { traceId },
+      );
       return ResearchResult.empty();
     }
 

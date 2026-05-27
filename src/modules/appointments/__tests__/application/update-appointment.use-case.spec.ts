@@ -71,7 +71,9 @@ describe('UpdateAppointmentHandler', () => {
       del: jest.fn(),
       delByPattern: jest.fn(),
     };
-    mockEventEmitter = { emit: jest.fn() } as unknown as jest.Mocked<EventEmitter2>;
+    mockEventEmitter = {
+      emit: jest.fn(),
+    } as unknown as jest.Mocked<EventEmitter2>;
 
     const module: TestingModule = await Test.createTestingModule({
       providers: [
@@ -116,7 +118,9 @@ describe('UpdateAppointmentHandler', () => {
       },
       { strict: true },
     );
-    expect(mockCache.delByPattern).toHaveBeenCalledWith('http:*:/appointments*');
+    expect(mockCache.delByPattern).toHaveBeenCalledWith(
+      'http:*:/appointments*',
+    );
     expect(mockEventEmitter.emit).toHaveBeenCalledWith(
       'appointment.updated',
       expect.any(Object),
@@ -128,7 +132,11 @@ describe('UpdateAppointmentHandler', () => {
 
     await expect(
       handler.execute(
-        new UpdateAppointmentCommand('missing', { firstName: 'Jane' }, 'user-123'),
+        new UpdateAppointmentCommand(
+          'missing',
+          { firstName: 'Jane' },
+          'user-123',
+        ),
       ),
     ).rejects.toThrow('Appointment with id missing not found');
   });

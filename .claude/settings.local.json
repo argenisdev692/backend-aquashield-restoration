@@ -27,7 +27,8 @@
       "Bash(rmdir domain/value-objects)",
       "Bash(powershell *)",
       "Bash(bash *)",
-      "Bash(rmdir \"src/modules/backup/application/read-models\")"
+      "Bash(rmdir \"src/modules/backup/application/read-models\")",
+      "mcp__sequential-thinking__sequentialthinking"
     ]
   }
 }

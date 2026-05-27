@@ -9,7 +9,9 @@ import { EventEmitter2 } from '@nestjs/event-emitter';
 
 // Mock the transactional decorator so it becomes a no-op in tests
 jest.mock('@nestjs-cls/transactional', () => ({
-  Transactional: () => (_target: unknown, _key: string, descriptor: PropertyDescriptor) => descriptor,
+  Transactional:
+    () => (_target: unknown, _key: string, descriptor: PropertyDescriptor) =>
+      descriptor,
 }));
 
 describe('RequestCampaignExportHandler', () => {
@@ -24,7 +26,9 @@ describe('RequestCampaignExportHandler', () => {
 
   beforeEach(() => {
     campaignRepo = { save: jest.fn().mockResolvedValue('gen-123') };
-    companyDataLookup = { getCompanyNameByIdForUser: jest.fn().mockResolvedValue('Acme Corp') };
+    companyDataLookup = {
+      getCompanyNameByIdForUser: jest.fn().mockResolvedValue('Acme Corp'),
+    };
     audit = { log: jest.fn().mockResolvedValue(undefined) };
     cache = { delByPattern: jest.fn().mockResolvedValue(undefined) };
     logger = { info: jest.fn(), setContext: jest.fn() };

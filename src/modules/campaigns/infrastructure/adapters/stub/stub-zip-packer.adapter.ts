@@ -1,5 +1,9 @@
 import { Injectable } from '@nestjs/common';
-import { IZipPackerPort, BuildStageZipInput, ZipPackageResult } from '../../../domain/ports/zip-packer.port';
+import {
+  IZipPackerPort,
+  BuildStageZipInput,
+  ZipPackageResult,
+} from '../../../domain/ports/zip-packer.port';
 import archiver from 'archiver';
 
 /**
@@ -15,28 +19,40 @@ export class StubZipPackerAdapter implements IZipPackerPort {
     archive.on('data', (chunk: Buffer) => chunks.push(chunk));
 
     // script/
-    archive.append(Buffer.from(input.scripts.vertical_916), { name: 'script/script_916.txt' });
-    archive.append(Buffer.from(input.scripts.horizontal_169), { name: 'script/script_169.txt' });
+    archive.append(Buffer.from(input.scripts.vertical_916), {
+      name: 'script/script_916.txt',
+    });
+    archive.append(Buffer.from(input.scripts.horizontal_169), {
+      name: 'script/script_169.txt',
+    });
 
     // audio/ (if present)
     if (input.audios.vertical_916) {
-      archive.append(input.audios.vertical_916, { name: 'audio/narration_916.mp3' });
+      archive.append(input.audios.vertical_916, {
+        name: 'audio/narration_916.mp3',
+      });
     }
     if (input.audios.horizontal_169) {
-      archive.append(input.audios.horizontal_169, { name: 'audio/narration_169.mp3' });
+      archive.append(input.audios.horizontal_169, {
+        name: 'audio/narration_169.mp3',
+      });
     }
 
     // scenes/
     for (const scene of input.scenes) {
       const sceneDir = `scenes/scene_${String(scene.id).padStart(2, '0')}/`;
-      archive.append(Buffer.from(scene.description), { name: `${sceneDir}description.txt` });
+      archive.append(Buffer.from(scene.description), {
+        name: `${sceneDir}description.txt`,
+      });
       if (scene.image) {
         archive.append(scene.image, { name: `${sceneDir}image.jpg` });
       }
     }
 
     // production/
-    archive.append(input.productionBriefPdf, { name: 'production/production_brief.pdf' });
+    archive.append(input.productionBriefPdf, {
+      name: 'production/production_brief.pdf',
+    });
 
     await archive.finalize();
 
@@ -52,8 +68,15 @@ export class StubZipPackerAdapter implements IZipPackerPort {
         'production/production_brief.pdf',
         ...(input.audios.vertical_916 ? ['audio/narration_916.mp3'] : []),
         ...(input.audios.horizontal_169 ? ['audio/narration_169.mp3'] : []),
-        ...input.scenes.map(s => `scenes/scene_${String(s.id).padStart(2, '0')}/description.txt`),
-        ...input.scenes.filter(s => s.image).map(s => `scenes/scene_${String(s.id).padStart(2, '0')}/image.jpg`),
+        ...input.scenes.map(
+          (s) =>
+            `scenes/scene_${String(s.id).padStart(2, '0')}/description.txt`,
+        ),
+        ...input.scenes
+          .filter((s) => s.image)
+          .map(
+            (s) => `scenes/scene_${String(s.id).padStart(2, '0')}/image.jpg`,
+          ),
       ],
     };
   }

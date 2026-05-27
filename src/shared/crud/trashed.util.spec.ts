@@ -23,9 +23,9 @@ describe('trashed.util', () => {
     });
 
     it('prefers "only" if both flags are somehow true', () => {
-      expect(
-        resolveTrashedMode({ withTrashed: true, onlyTrashed: true }),
-      ).toBe('only');
+      expect(resolveTrashedMode({ withTrashed: true, onlyTrashed: true })).toBe(
+        'only',
+      );
     });
   });
 

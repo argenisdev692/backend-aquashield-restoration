@@ -19,4 +19,6 @@ export const GeneratePostPreviewResponseSchema = z.object({
   ),
 });
 
-export class GeneratePostPreviewResponse extends createZodDto(GeneratePostPreviewResponseSchema) {}
+export class GeneratePostPreviewResponse extends createZodDto(
+  GeneratePostPreviewResponseSchema,
+) {}
