@@ -24,6 +24,7 @@ import {
   ApiProduces,
   ApiNotFoundResponse,
   ApiBadRequestResponse,
+  ApiBody,
 } from '@nestjs/swagger';
 import { Throttle } from '@nestjs/throttler';
 import { CacheTTL } from '@nestjs/cache-manager';
@@ -39,6 +40,7 @@ import { SkipCache } from '../../../../../core/decorators/skip-cache.decorator';
 import {
   RequestCampaignExportSchema,
   type RequestCampaignExportDto,
+  RequestCampaignExportBody,
 } from '../../../application/dtos/request-campaign-export.dto';
 
 import {
@@ -87,6 +89,7 @@ export class CampaignsController {
       'Rate limited to 3 requests per minute per user. ' +
       'Only super-admin may invoke (expensive AI pipeline).',
   })
+  @ApiBody({ type: RequestCampaignExportBody })
   @ApiResponse({ status: 202, description: 'Export request accepted' })
   @ApiBadRequestResponse({ description: 'Validation failed' })
   @ApiResponse({ status: 401, description: 'Unauthorized' })
