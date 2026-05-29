@@ -1,12 +1,12 @@
 import { Test, TestingModule } from '@nestjs/testing';
 import { ClsService } from 'nestjs-cls';
-import { GeneratePostHandler } from '../../../../application/commands/handlers/generate-post.handler';
-import { GeneratePostCommand } from '../../../../application/commands/generate-post.command';
+import { GeneratePostHandler } from '../../../application/commands/handlers/generate-post.handler';
+import { GeneratePostCommand } from '../../../application/commands/generate-post.command';
 import {
   SOCIAL_MEDIA_JOB_PORT,
   type ISocialMediaJobPort,
   type EnqueueGeneratePostResult,
-} from '../../../../../domain/ports/social-media-job.port';
+} from '../../../domain/ports/social-media-job.port';
 import { LoggerService } from '../../../../../logger/logger.service';
 
 describe('GeneratePostHandler', () => {
@@ -47,13 +47,11 @@ describe('GeneratePostHandler', () => {
       },
       networks: { linkedin: true },
       language: 'es',
+      saveToHistory: true,
     };
 
     const result = await handler.execute(
-      new GeneratePostCommand(
-        dto as unknown as Parameters<typeof GeneratePostCommand>[0],
-        'actor-1',
-      ),
+      new GeneratePostCommand(dto, 'actor-1'),
     );
 
     expect(mockJobPort.enqueueGeneratePost).toHaveBeenCalledWith({

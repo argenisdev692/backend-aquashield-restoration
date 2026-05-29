@@ -1,5 +1,6 @@
 import { CampaignGeneration } from '../entities/campaign-generation.aggregate';
 import { StageExportResult } from '../value-objects/stage-export-result.vo';
+import type { DateRange } from '../../../../shared/crud/date-range.util';
 
 /**
  * Repository Port for CampaignGeneration aggregate.
@@ -28,8 +29,13 @@ export interface ICampaignGenerationRepository {
    */
   findByUserId(
     userId: string,
-    options?: { limit?: number; offset?: number; withTrashed?: boolean },
-  ): Promise<CampaignGeneration[]>;
+    options?: {
+      limit?: number;
+      offset?: number;
+      withTrashed?: boolean;
+      dateRange?: DateRange;
+    },
+  ): Promise<{ data: CampaignGeneration[]; total: number }>;
 
   /**
    * Soft delete (sets deletedAt).
@@ -37,12 +43,24 @@ export interface ICampaignGenerationRepository {
   softDelete(id: string): Promise<void>;
 
   /**
+   * Hard delete (permanently removes from database).
+   * Used for bulk delete operations.
+   */
+  hardDelete(id: string): Promise<void>;
+
+  /**
+   * Bulk hard delete by IDs.
+   * Returns the count of deleted records.
+   */
+  bulkHardDelete(ids: string[]): Promise<number>;
+
+  /**
    * Optimized query for export (CSV/XLSX/PDF of the generation list).
    * Returns a flat projection without full stage results for performance.
    */
   findForExport(
     userId: string,
-    filters?: { status?: string; from?: Date; to?: Date },
+    filters?: { status?: string; dateRange?: DateRange },
   ): Promise<
     Array<{
       id: string;

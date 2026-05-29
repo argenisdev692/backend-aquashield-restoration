@@ -11,6 +11,7 @@ import type {
 import { LoggerService } from '../../../../../logger/logger.service';
 import { ClsService } from 'nestjs-cls';
 import { resolveTrashedMode } from '../../../../../shared/crud/trashed.util';
+import { resolveDateRange } from '../../../../../shared/crud/date-range.util';
 
 @Injectable()
 @QueryHandler(GetPostsListQuery)
@@ -40,6 +41,10 @@ export class GetPostsListHandler implements IQueryHandler<GetPostsListQuery> {
       trashed: resolveTrashedMode({
         withTrashed: query.filters.withTrashed,
         onlyTrashed: query.filters.onlyTrashed,
+      }),
+      range: resolveDateRange({
+        start_date: query.filters.start_date,
+        end_date: query.filters.end_date,
       }),
     };
 

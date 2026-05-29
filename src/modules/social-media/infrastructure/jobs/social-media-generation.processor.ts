@@ -24,6 +24,7 @@ import type {
   SocialNetwork,
   GeneratedPost,
   GeneratedPostImage,
+  SocialMediaGeneration,
 } from '../../domain/entities/social-media-generation.entity';
 import { SocialMediaGenerationAggregate } from '../../domain/entities/social-media-generation.aggregate';
 import type { AiDetectionScore } from '../../domain/entities/social-media-generation.aggregate';
@@ -39,6 +40,88 @@ import type { IViralityResearchPort } from '../../domain/ports/virality-research
 import type { ViralityResearchResult } from '../../domain/ports/virality-research.port';
 import { AI_DETECTION_PORT } from '../../domain/ports/ai-detection.port';
 import type { IAiDetectionPort } from '../../domain/ports/ai-detection.port';
+import {
+  TRANSACTION_MANAGER,
+  type ITransactionManager,
+} from '../../../../shared/database/transaction-manager.port';
+
+// Score thresholds from AI MODULES prompt
+const SCORE_THRESHOLDS = {
+  human_writing_index: 75,
+  virality_score: 70,
+  engagement_score: 70,
+  roi_score: 70,
+  trend_alignment: 70,
+} as const;
+
+const MAX_ITERATIONS = 5;
+
+function identifyWeaknesses(
+  scores: import('../../domain/ports/post-generator.port').ScoreEvaluation,
+): Array<{
+  score: string;
+  current: number;
+  target: number;
+  gap: number;
+  explanation: string;
+}> {
+  const weaknesses: Array<{
+    score: string;
+    current: number;
+    target: number;
+  gap: number;
+  explanation: string;
+  }> = [];
+
+  for (const [key, threshold] of Object.entries(SCORE_THRESHOLDS)) {
+    const current = scores[key as keyof typeof scores] ?? 0;
+    if (current < threshold) {
+      let explanation = '';
+      switch (key) {
+        case 'human_writing_index':
+          explanation = 'El contenido suena demasiado generado por IA. Añade anécdotas personales, lenguaje más natural y variación en la estructura de oraciones.';
+          break;
+        case 'virality_score':
+          explanation = 'El hook no es suficientemente fuerte. Mejora el inicio con algo más impactante o controversial.';
+          break;
+        case 'engagement_score':
+          explanation = 'Falta un call-to-action claro. Añade una pregunta o invitación a comentar.';
+          break;
+        case 'roi_score':
+          explanation = 'El contenido no tiene suficiente valor comercial. Añade beneficios claros o demostración de expertise.';
+          break;
+        case 'trend_alignment':
+          explanation = 'El contenido no está alineado con tendencias actuales. Incorpora temas más relevantes del momento.';
+          break;
+      }
+      weaknesses.push({
+        score: key,
+        current,
+        target: threshold,
+        gap: threshold - current,
+        explanation,
+      });
+    }
+  }
+
+  return weaknesses;
+}
+
+function calculateOverallScore(
+  scores: import('../../domain/ports/post-generator.port').ScoreEvaluation,
+): number {
+  const values = Object.values(scores);
+  return values.reduce((sum, val) => sum + val, 0) / values.length;
+}
+
+function allScoresPass(
+  scores: import('../../domain/ports/post-generator.port').ScoreEvaluation,
+): boolean {
+  return Object.entries(SCORE_THRESHOLDS).every(
+    ([key, threshold]) =>
+      (scores[key as keyof typeof scores] ?? 0) >= threshold,
+  );
+}
 
 export interface SocialMediaGenerationJobData {
   actorId: string;
@@ -75,6 +158,8 @@ export class SocialMediaGenerationProcessor extends WorkerHost {
     private readonly aiDetection: IAiDetectionPort,
     @Inject(STORAGE_PORT)
     private readonly storage: IStoragePort,
+    @Inject(TRANSACTION_MANAGER)
+    private readonly tx: ITransactionManager,
     private readonly logger: LoggerService,
     private readonly cls: ClsService,
     private readonly eventEmitter: EventEmitter2,
@@ -354,26 +439,126 @@ export class SocialMediaGenerationProcessor extends WorkerHost {
       viralityResult = null;
     }
 
-    // 2. Generate posts via Gemini (single structured call)
-    const generatedPostsMap = await this.generator.generatePosts({
-      topicTitle,
-      topicDescription,
-      activeNetworks,
-      language,
-    });
+    // 2. Generate posts via Gemini with quality loop (max 5 iterations)
+    let bestGeneratedPosts: Partial<Record<SocialNetwork, GeneratedPost>> = {};
+    let bestScores: import('../../domain/ports/post-generator.port').ScoreEvaluation = {
+      human_writing_index: 0,
+      virality_score: 0,
+      engagement_score: 0,
+      roi_score: 0,
+      trend_alignment: 0,
+    };
+    let bestAiDetectionRisk = 100;
+    let bestOverallScore = 0;
+    let iteration = 0;
+    let qualityWarning = false;
+    let previousScores: import('../../domain/ports/post-generator.port').ScoreEvaluation | null = null;
+    let previousWeaknesses: Array<{
+      score: string;
+      current: number;
+      target: number;
+      gap: number;
+      explanation: string;
+    }> = [];
 
-    const generatedPosts: Partial<Record<SocialNetwork, GeneratedPost>> = {};
-    for (const net of activeNetworks) {
-      const post = generatedPostsMap[net];
-      if (post) {
-        generatedPosts[net] = {
-          body: post.body,
-          hashtags: post.hashtags,
-          ...(post.emojis ? { emojis: post.emojis } : {}),
-          ...(post.hook ? { hook: post.hook } : {}),
-        };
+    while (iteration < MAX_ITERATIONS) {
+      iteration++;
+      this.logger.info('Quality loop iteration', {
+        traceId,
+        iteration,
+        maxIterations: MAX_ITERATIONS,
+      });
+
+      const generationResult = await this.generator.generatePostsWithFeedback({
+        topicTitle,
+        topicDescription,
+        activeNetworks,
+        language,
+        feedback:
+          previousScores && previousWeaknesses.length > 0
+            ? {
+                iteration,
+                previousScores,
+                weaknesses: previousWeaknesses,
+              }
+            : undefined,
+      });
+
+      const { scores, ai_detection_risk, ...posts } = generationResult;
+      const overallScore = calculateOverallScore(scores);
+      const iterationPassed = allScoresPass(scores);
+
+      this.logger.info('Generation iteration completed', {
+        traceId,
+        iteration,
+        scores,
+        ai_detection_risk,
+        overallScore,
+      });
+
+      // Real-time progress to the user (UI shows "optimizing…" with partial scores)
+      this.gateway.broadcastGenerationProgress({
+        userId: actorId,
+        jobId: job.id as string,
+        topicTitle,
+        iteration,
+        maxIterations: MAX_ITERATIONS,
+        scores,
+        overallScore: Math.round(overallScore),
+        allPassed: iterationPassed,
+      });
+
+      // Track best attempt
+      if (overallScore > bestOverallScore) {
+        bestOverallScore = overallScore;
+        bestScores = scores;
+        bestAiDetectionRisk = ai_detection_risk;
+        bestGeneratedPosts = {};
+        for (const net of activeNetworks) {
+          const post = posts[net];
+          if (post) {
+            bestGeneratedPosts[net] = {
+              body: post.body,
+              hashtags: post.hashtags,
+              ...(post.emojis ? { emojis: post.emojis } : {}),
+              ...(post.hook ? { hook: post.hook } : {}),
+            };
+          }
+        }
+      }
+
+      // Check if all scores pass thresholds
+      if (iterationPassed) {
+        this.logger.info('All scores pass thresholds', {
+          traceId,
+          iteration,
+          scores,
+        });
+        qualityWarning = false;
+        break;
+      }
+
+      // Prepare feedback for next iteration
+      previousScores = scores;
+      previousWeaknesses = identifyWeaknesses(scores);
+
+      this.logger.info('Scores below thresholds, preparing next iteration', {
+        traceId,
+        iteration,
+        weaknesses: previousWeaknesses,
+      });
+
+      if (iteration === MAX_ITERATIONS) {
+        qualityWarning = true;
+        this.logger.warn('Max iterations reached, using best attempt', {
+          traceId,
+          iteration,
+          bestOverallScore,
+        });
       }
     }
+
+    const generatedPosts = bestGeneratedPosts;
 
     // 2.5 AI Detection check — verify content passes as human-written
     let aiDetectionScore: AiDetectionScore | null = null;
@@ -434,7 +619,7 @@ export class SocialMediaGenerationProcessor extends WorkerHost {
       // Attach the same image to all generated network posts
       for (const net of Object.keys(generatedPosts) as SocialNetwork[]) {
         if (generatedPosts[net]) {
-          generatedPosts[net]!.image = sharedImage;
+          generatedPosts[net].image = sharedImage;
         }
       }
 
@@ -467,52 +652,101 @@ export class SocialMediaGenerationProcessor extends WorkerHost {
       viralityScore: viralityResult?.score ?? null,
       roiScore: viralityResult?.roiScore ?? null,
       aiDetectionScore: aiDetectionScore ?? null,
+      qualityScores: bestScores,
+      qualityWarning,
+      iterationsRequired: iteration,
     });
 
-    const saved = await this.repo.save(aggregate);
-
-    // 5. Generate Analysis Report PDF
+    // 5. Generate Analysis Report PDF (before transaction - upload happens outside tx)
+    let reportKey: string | undefined;
+    let reportUrl: string | undefined;
     try {
       this.logger.info('Generating social media analysis report', {
         traceId,
-        generationId: saved.id,
       });
       const reportBuffer = await this.buildAnalysisReport({
-        generationId: saved.id,
-        niche: saved.niche,
-        topicTitle: saved.topicTitle,
-        topicDescription: saved.topicDescription ?? null,
-        language: saved.language ?? null,
+        generationId: aggregate.id,
+        niche: aggregate.niche,
+        topicTitle: aggregate.topicTitle,
+        topicDescription: aggregate.topicDescription ?? null,
+        language: aggregate.language ?? null,
         networks: activeNetworks,
         generatedPosts,
-        viralityScore: saved.viralityScore ?? null,
-        roiScore: saved.roiScore ?? null,
-        aiDetectionScore: saved.aiDetectionScore ?? null,
+        viralityScore: aggregate.viralityScore ?? null,
+        roiScore: aggregate.roiScore ?? null,
+        aiDetectionScore: aggregate.aiDetectionScore ?? null,
         viralityResult,
       });
 
-      const reportKey = `social-media/analysis/${saved.id}/social_media_analysis_report.pdf`;
+      reportKey = `social-media/analysis/${aggregate.id}/social_media_analysis_report.pdf`;
       await this.storage.upload(reportKey, reportBuffer, 'application/pdf');
-      const reportUrl = this.storage.publicUrl(reportKey);
+      reportUrl = this.storage.publicUrl(reportKey);
 
-      aggregate.setAnalysisReport(reportKey, reportUrl);
-      await this.repo.update(aggregate);
-
-      this.logger.info('Analysis report generated', {
+      this.logger.info('Analysis report uploaded to R2', {
         traceId,
-        generationId: saved.id,
-        reportUrl,
+        reportKey,
       });
     } catch (reportErr) {
-      this.logger.warn('Failed to generate analysis report, continuing', {
+      this.logger.warn('Failed to generate analysis report, continuing without it', {
         traceId,
-        generationId: saved.id,
         error:
           reportErr instanceof Error ? reportErr.message : String(reportErr),
       });
     }
 
-    // 6. Upload history JSON to R2 (best effort, outside the core mutation)
+    // 6. Transactional write: save + update (with report) + audit (strict)
+    let saved: SocialMediaGeneration;
+    try {
+      saved = await this.tx.runInTx(async () => {
+        const savedAggregate = await this.repo.save(aggregate);
+
+        // Update with analysis report if it was successfully uploaded
+        if (reportKey && reportUrl) {
+          aggregate.setAnalysisReport(reportKey, reportUrl);
+          await this.repo.update(aggregate);
+        }
+
+        // Audit with strict mode - must succeed or transaction rolls back
+        await this.audit.log(
+          {
+            action: 'social-media.post.generated',
+            actorId,
+            resourceId: savedAggregate.id,
+            resourceType: 'SOCIAL_MEDIA',
+            metadata: {
+              topic: topicTitle,
+              networks: activeNetworks,
+              language,
+              viralityScore: savedAggregate.viralityScore,
+              roiScore: savedAggregate.roiScore,
+            },
+          },
+          { strict: true },
+        );
+
+        return savedAggregate;
+      });
+    } catch (txErr) {
+      // Best-effort cleanup: delete the freshly-uploaded report if transaction failed
+      if (reportKey) {
+        try {
+          await this.storage.delete(reportKey);
+          this.logger.warn('Cleaned up analysis report after transaction failure', {
+            traceId,
+            reportKey,
+          });
+        } catch (cleanupErr) {
+          this.logger.error('Failed to cleanup analysis report after transaction failure', {
+            traceId,
+            reportKey,
+            error: cleanupErr instanceof Error ? cleanupErr.message : String(cleanupErr),
+          });
+        }
+      }
+      throw txErr;
+    }
+
+    // 7. Upload history JSON to R2 (best effort, outside the core mutation)
     let r2Key: string | undefined;
     try {
       const historyPayload = {
@@ -546,24 +780,6 @@ export class SocialMediaGenerationProcessor extends WorkerHost {
         },
       );
     }
-
-    // 7. Audit (strict) — must succeed or the mutation is considered failed
-    await this.audit.log(
-      {
-        action: 'social-media.post.generated',
-        actorId,
-        resourceId: saved.id,
-        resourceType: 'SOCIAL_MEDIA',
-        metadata: {
-          topic: topicTitle,
-          networks: activeNetworks,
-          language,
-          viralityScore: saved.viralityScore,
-          roiScore: saved.roiScore,
-        },
-      },
-      { strict: true },
-    );
 
     // 8. Invalidate list cache so GET /social-media reflects the new item
     await this.cache.delByPattern(SOCIAL_MEDIA_CACHE_PATTERN);

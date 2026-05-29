@@ -10,6 +10,10 @@ interface JwtPayload {
   roleIds?: string[];
   /** Lowercase role names; absent for legacy tokens issued before phase 3. */
   roleNames?: string[];
+  /** AuthSession id (auth_sessions row). Used by logout / revocation. */
+  sid?: string;
+  /** `true` when 2FA was satisfied during the session that issued this token. */
+  tfa?: boolean;
 }
 
 /**
@@ -39,6 +43,8 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
       email: payload.email,
       roleIds: payload.roleIds ?? [],
       roleNames: payload.roleNames ?? [],
+      sessionId: payload.sid,
+      twoFactorSatisfied: payload.tfa ?? false,
     };
   }
 }

@@ -1,34 +1,20 @@
-import { Injectable, OnModuleInit } from '@nestjs/common';
-import { ConfigService } from '@nestjs/config';
-import { Resend } from 'resend';
+import { Inject, Injectable } from '@nestjs/common';
 import sanitize from 'sanitize-html';
-import { ClsService } from 'nestjs-cls';
-import { type IPolicy } from 'cockatiel';
-import { createExternalServicePolicy } from '../../../../shared/external/resilience';
-import { LoggerService } from '../../../../logger/logger.service';
+import { MAILER } from '../../../../shared/external/email/mailer.port';
+import type { IMailer } from '../../../../shared/external/email/mailer.port';
 import type { IEmailPort } from '../../domain/ports/outbound/email.port';
 
+/**
+ * Users-domain email templates.
+ *
+ * Builds the password-setup / password-change HTML and delegates the actual
+ * delivery to the shared {@link IMailer} (Resend in prod, Console in dev).
+ * The Resend SDK is NOT instantiated here — single source of truth lives in
+ * `shared/external/email/`.
+ */
 @Injectable()
-export class ResendEmailAdapter implements IEmailPort, OnModuleInit {
-  private resend!: Resend;
-  private from!: string;
-  private resilience!: IPolicy;
-
-  constructor(
-    private readonly config: ConfigService,
-    private readonly logger: LoggerService,
-    private readonly cls: ClsService,
-  ) {}
-
-  onModuleInit(): void {
-    const apiKey = this.config.getOrThrow<string>('RESEND_API_KEY');
-    this.from = this.config.getOrThrow<string>('RESEND_FROM_EMAIL');
-    this.resend = new Resend(apiKey);
-
-    // Centralized resilience policy for transactional email.
-    // 'email' profile is tuned for providers that can be a bit flaky under load.
-    this.resilience = createExternalServicePolicy('resend', 'email');
-  }
+export class ResendEmailAdapter implements IEmailPort {
+  constructor(@Inject(MAILER) private readonly mailer: IMailer) {}
 
   async sendPasswordSetupLink(params: {
     to: string;
@@ -66,45 +52,6 @@ export class ResendEmailAdapter implements IEmailPort, OnModuleInit {
       </div>
     `;
 
-    await this.send(params.to, subject, html);
-  }
-
-  private async send(to: string, subject: string, html: string): Promise<void> {
-    const traceId = this.cls.get<string>('traceId');
-    await this.resilience.execute(async () => {
-      const { error } = await this.resend.emails.send({
-        from: this.from,
-        to,
-        subject,
-        html,
-      });
-
-      if (error) {
-        const statusCode = (error as Record<string, unknown>)['statusCode'];
-        const code = typeof statusCode === 'number' ? statusCode : 500;
-
-        if (code >= 400 && code < 500) {
-          this.logger.warn('Resend 4xx — client error', {
-            traceId,
-            to,
-            subject,
-            statusCode: code,
-            error: error.message,
-          });
-        } else {
-          this.logger.error('Resend 5xx — server error', {
-            traceId,
-            to,
-            subject,
-            statusCode: code,
-            error: error.message,
-          });
-        }
-
-        throw new Error(`Email delivery failed (${code}): ${error.message}`);
-      }
-
-      this.logger.info('Email sent via Resend', { traceId, to, subject });
-    });
+    await this.mailer.send({ to: params.to, subject, html });
   }
 }

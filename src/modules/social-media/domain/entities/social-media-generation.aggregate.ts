@@ -4,6 +4,7 @@ import {
   GeneratedPostImage,
 } from './social-media-generation.entity';
 import { SocialNetworkVO } from '../value-objects/social-network.vo';
+import { SocialMediaGenerationDomainException } from '../exceptions/social-media-generation-domain.exception';
 
 /**
  * AI Detection Score for social media posts.
@@ -13,16 +14,6 @@ export interface AiDetectionScore {
   aiParaphrased: number;
   humanWritten: number;
   showsAiSigns: number;
-}
-
-/**
- * Domain Exception for Social Media Generation invariants.
- */
-export class SocialMediaGenerationDomainException extends Error {
-  constructor(message: string) {
-    super(message);
-    this.name = 'SocialMediaGenerationDomainException';
-  }
 }
 
 /**
@@ -51,6 +42,15 @@ export class SocialMediaGenerationAggregate {
     private _analysisReportKey: string | null,
     private _analysisReportUrl: string | null,
     private readonly _createdAt: Date,
+    private _qualityScores: {
+      human_writing_index: number;
+      virality_score: number;
+      engagement_score: number;
+      roi_score: number;
+      trend_alignment: number;
+    } | null,
+    private _qualityWarning: boolean,
+    private _iterationsRequired: number,
   ) {}
 
   // ── Factory ────────────────────────────────────────────────────────────────
@@ -71,6 +71,15 @@ export class SocialMediaGenerationAggregate {
     analysisReportKey?: string | null;
     analysisReportUrl?: string | null;
     createdAt?: Date;
+    qualityScores?: {
+      human_writing_index: number;
+      virality_score: number;
+      engagement_score: number;
+      roi_score: number;
+      trend_alignment: number;
+    } | null;
+    qualityWarning?: boolean;
+    iterationsRequired?: number;
   }): SocialMediaGenerationAggregate {
     const id = params.id ?? crypto.randomUUID();
 
@@ -128,6 +137,9 @@ export class SocialMediaGenerationAggregate {
       params.analysisReportKey ?? null,
       params.analysisReportUrl ?? null,
       params.createdAt ?? new Date(),
+      params.qualityScores ?? null,
+      params.qualityWarning ?? false,
+      params.iterationsRequired ?? 1,
     );
   }
 
@@ -199,6 +211,24 @@ export class SocialMediaGenerationAggregate {
 
   get createdAt(): Date {
     return this._createdAt;
+  }
+
+  get qualityScores(): {
+    human_writing_index: number;
+    virality_score: number;
+    engagement_score: number;
+    roi_score: number;
+    trend_alignment: number;
+  } | null {
+    return this._qualityScores;
+  }
+
+  get qualityWarning(): boolean {
+    return this._qualityWarning;
+  }
+
+  get iterationsRequired(): number {
+    return this._iterationsRequired;
   }
 
   // ── Behavior / Invariants ──────────────────────────────────────────────────
@@ -290,6 +320,15 @@ export class SocialMediaGenerationAggregate {
     analysisReportKey: string | null;
     analysisReportUrl: string | null;
     createdAt: Date;
+    qualityScores: {
+      human_writing_index: number;
+      virality_score: number;
+      engagement_score: number;
+      roi_score: number;
+      trend_alignment: number;
+    } | null;
+    qualityWarning: boolean;
+    iterationsRequired: number;
   } {
     return {
       id: this._id,
@@ -307,6 +346,9 @@ export class SocialMediaGenerationAggregate {
       analysisReportKey: this._analysisReportKey,
       analysisReportUrl: this._analysisReportUrl,
       createdAt: this._createdAt,
+      qualityScores: this._qualityScores,
+      qualityWarning: this._qualityWarning,
+      iterationsRequired: this._iterationsRequired,
     };
   }
 }

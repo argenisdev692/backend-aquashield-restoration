@@ -1,5 +1,6 @@
 import type { SocialMediaGeneration } from '../entities/social-media-generation.entity';
 import type { SocialMediaGenerationAggregate } from '../entities/social-media-generation.aggregate';
+import type { DateRange } from '../../../../shared/crud/date-range.util';
 
 export const SOCIAL_MEDIA_REPOSITORY = Symbol('ISocialMediaRepository');
 
@@ -7,9 +8,8 @@ export interface SocialMediaFilters {
   userId?: string;
   niche?: string;
   language?: string;
-  network?: string; // facebook | instagram | tiktok | linkedin
-  from?: Date;
-  to?: Date;
+  network?: string; // facebook | instagram | tiktok | linkedin | twitter
+  dateRange?: DateRange;
 }
 
 export interface PaginatedSocialMediaGenerations {

@@ -5,6 +5,7 @@ export const CompanyDataResponseSchema = z.object({
   id: z.string().uuid(),
   name: z.string().max(255).nullable(),
   companyName: z.string().max(255),
+  taxId: z.string().max(50).nullable(),
   signaturePath: z.string().max(255).nullable(),
   email: z.string().max(255).nullable(),
   phone: z.string().max(20).nullable(),

@@ -1,43 +1,27 @@
-import { Injectable, OnModuleInit } from '@nestjs/common';
-import { ConfigService } from '@nestjs/config';
+import { Inject, Injectable } from '@nestjs/common';
 import { ClsService } from 'nestjs-cls';
-import { Resend } from 'resend';
 import { LoggerService } from '../../../../logger/logger.service';
+import { escapeHtml } from '../../../../shared/external/email/email-html.util';
+import { MAILER } from '../../../../shared/external/email/mailer.port';
+import type { IMailer } from '../../../../shared/external/email/mailer.port';
 import type { IEmailPort } from '../../domain/ports/outbound/email.port.interface';
 
-/** Escape untrusted text before interpolation into an HTML email body (OWASP #3). */
-function escapeHtml(value: string): string {
-  return value
-    .replace(/&/g, '&amp;')
-    .replace(/</g, '&lt;')
-    .replace(/>/g, '&gt;')
-    .replace(/"/g, '&quot;')
-    .replace(/'/g, '&#39;');
-}
-
-/** `true` when the address is on the example.com domain — never e-mailed. */
-function isExampleDomain(email: string): boolean {
-  const domain = email.toLowerCase().split('@').at(1) ?? '';
-  return domain === 'example.com' || domain.endsWith('.example.com');
-}
-
+/**
+ * Appointments-domain email templates.
+ *
+ * Wraps the shared {@link IMailer} with the per-template HTML for
+ * admin-lead notifications and submission confirmations. The generic
+ * `sendEmail` passthrough is kept for callers that already render their
+ * own HTML.
+ */
 @Injectable()
-export class ResendAppointmentEmailAdapter implements IEmailPort, OnModuleInit {
-  private resend!: Resend;
-  private from!: string;
-
+export class ResendAppointmentEmailAdapter implements IEmailPort {
   constructor(
-    private readonly config: ConfigService,
+    @Inject(MAILER) private readonly mailer: IMailer,
     private readonly logger: LoggerService,
     private readonly cls: ClsService,
   ) {
     this.logger.setContext(ResendAppointmentEmailAdapter.name);
-  }
-
-  onModuleInit(): void {
-    const apiKey = this.config.getOrThrow<string>('RESEND_API_KEY');
-    this.from = this.config.getOrThrow<string>('RESEND_FROM_EMAIL');
-    this.resend = new Resend(apiKey);
   }
 
   async sendEmail(params: {
@@ -47,19 +31,13 @@ export class ResendAppointmentEmailAdapter implements IEmailPort, OnModuleInit {
     text?: string;
   }): Promise<void> {
     const traceId = this.cls.get<string>('traceId');
-    if (isExampleDomain(params.to)) {
-      this.logger.info('Skipping email (example.com address)', { traceId });
-      return;
-    }
-    const { error } = await this.resend.emails.send({
-      from: this.from,
-      to: params.to,
-      subject: params.subject,
-      html: params.html,
-      text: params.text,
-    });
-    if (error) {
-      this.logger.warn('sendEmail failed', { traceId, error: error.message });
+    try {
+      await this.mailer.send(params);
+    } catch (error) {
+      this.logger.warn('sendEmail failed', {
+        traceId,
+        error: error instanceof Error ? error.message : String(error),
+      });
     }
   }
 
@@ -73,15 +51,6 @@ export class ResendAppointmentEmailAdapter implements IEmailPort, OnModuleInit {
     message: string | null;
   }): Promise<void> {
     const traceId = this.cls.get<string>('traceId');
-    const recipients = params.adminEmails.filter((e) => !isExampleDomain(e));
-
-    if (recipients.length === 0) {
-      this.logger.warn(
-        'No mailable admin recipients (all empty or example.com) — skipping',
-        { traceId, appointmentId: params.appointmentId },
-      );
-      return;
-    }
 
     const safe = {
       firstName: escapeHtml(params.firstName),
@@ -120,26 +89,23 @@ export class ResendAppointmentEmailAdapter implements IEmailPort, OnModuleInit {
       </div>
     `;
 
-    const { error } = await this.resend.emails.send({
-      from: this.from,
-      to: recipients,
+    const result = await this.mailer.send({
+      to: params.adminEmails,
       subject: `New message – appointment: ${params.firstName} ${params.lastName}`,
       html,
     });
 
-    if (error) {
-      this.logger.error('Failed to send admin lead notification', {
-        traceId,
-        appointmentId: params.appointmentId,
-        error: error.message,
-      });
-      throw new Error(`Email delivery failed: ${error.message}`);
+    if (result.skipped) {
+      this.logger.warn(
+        'No mailable admin recipients (all empty or example.com) — skipped',
+        { traceId, appointmentId: params.appointmentId },
+      );
+      return;
     }
 
     this.logger.info('Admin lead notification sent', {
       traceId,
       appointmentId: params.appointmentId,
-      recipients: recipients.length,
     });
   }
 
@@ -148,14 +114,6 @@ export class ResendAppointmentEmailAdapter implements IEmailPort, OnModuleInit {
     toName: string;
   }): Promise<void> {
     const traceId = this.cls.get<string>('traceId');
-
-    if (isExampleDomain(params.toEmail)) {
-      this.logger.info(
-        'Skipping submission confirmation (example.com address)',
-        { traceId },
-      );
-      return;
-    }
 
     const safe = { toName: escapeHtml(params.toName) };
     const html = `
@@ -169,21 +127,18 @@ export class ResendAppointmentEmailAdapter implements IEmailPort, OnModuleInit {
       </div>
     `;
 
-    const { error } = await this.resend.emails.send({
-      from: this.from,
-      to: params.toEmail,
-      subject: 'Message sent successfully',
-      html,
-    });
-
-    if (error) {
+    try {
+      await this.mailer.send({
+        to: params.toEmail,
+        subject: 'Message sent successfully',
+        html,
+      });
+      this.logger.info('Submission confirmation sent', { traceId });
+    } catch (error) {
       this.logger.warn('Failed to send submission confirmation', {
         traceId,
-        error: error.message,
+        error: error instanceof Error ? error.message : String(error),
       });
-      return;
     }
-
-    this.logger.info('Submission confirmation sent', { traceId });
   }
 }

@@ -390,6 +390,240 @@ async bulkDelete(@Body(new ZodValidationPipe(BulkIdsSchema)) dto: BulkIdsDto) {
 
 ---
 
+## 🗃️ Soft-delete visibility — `status` / `withTrashed` / `onlyTrashed` (Hex/DDD)
+
+> **Authority.** Same contract as `ARCHITECTURE-DEFAULT` § "Soft-delete visibility" — the difference is wiring: the resolved `TrashedMode` flows into the **Query** value object and is consumed by the QueryHandler / read-side UseCase, never directly by an HTTP DTO. Repositories (ports + adapters) use `TrashedMode`; HTTP exposes both `?status=…` (preferred) and the raw `withTrashed` / `onlyTrashed` aliases.
+
+### Contract (identical to flat CRUD)
+
+```http
+GET /{module}?status=active                         → active rows only (default)
+GET /{module}?status=suspended                      → soft-deleted only
+GET /{module}?status=all                            → both
+GET /{module}?withTrashed=true                      → alias of status=all
+GET /{module}?onlyTrashed=true                      → alias of status=suspended
+GET /{module}?status=active&withTrashed=true        → 400 BadRequest (aliases — mixing forbidden)
+GET /{module}?withTrashed=true&onlyTrashed=true     → 400 BadRequest
+```
+
+- `status` is the canonical public API; raw flags remain for Laravel-style parity.
+- Applies to read-side UseCases (list / search / export). Write-side UseCases (`Create…`, `Update…`, `Delete…`, `Bulk…`) ignore visibility and operate on identity.
+- `?status=suspended` (or `?onlyTrashed=true`, or a dedicated `GET /{module}/trash` route) MUST be gated by `Action.Restore`, not `Action.Read`.
+- Native `status` collision: bounded contexts whose aggregate already owns a `status` value object (Order, Subscription, Post status machines) MUST rename the soft-delete alias on their HTTP DTO (e.g. expose `lifecycle` instead of `status`) OR fall back to the raw flags. Mixing two `status` semantics on the same route is forbidden.
+
+### Query value object
+
+```typescript
+// application/queries/list-subscriptions.query.ts
+import { DateRange } from '../../../../shared/crud/date-range.util';
+import { TrashedMode } from '../../../../shared/crud/trashed.util';
+
+export interface ListSubscriptionsQuery {
+  page: number;
+  limit: number;
+  search?: string;
+  trashed: TrashedMode;        // ← resolved from status / withTrashed / onlyTrashed
+  range: DateRange;
+}
+```
+
+### Controller → UseCase
+
+```typescript
+import {
+  resolveTrashedMode,
+  statusFlagShape,
+  trashedFlagsShape,
+  rejectBothTrashedFlags,
+  rejectMixedStatusAndTrashedFlags,
+  BOTH_TRASHED_FLAGS_ERROR,
+  MIXED_STATUS_FLAGS_ERROR,
+} from '../../../shared/crud/trashed.util';
+
+export const SubscriptionsListQuerySchema = z
+  .object({
+    page: z.coerce.number().int().positive().default(1),
+    limit: z.coerce.number().int().min(1).max(100).default(20),
+    ...statusFlagShape,
+    ...trashedFlagsShape,
+    ...dateRangeShape,
+  })
+  .refine(rejectBothTrashedFlags, BOTH_TRASHED_FLAGS_ERROR)
+  .refine(rejectMixedStatusAndTrashedFlags, MIXED_STATUS_FLAGS_ERROR)
+  .refine(rejectInvertedDateRange, INVERTED_DATE_RANGE_ERROR);
+
+@Get()
+@CheckAbilities({ action: Action.Read, subject: 'Subscription' })
+@UsePipes(new ZodValidationPipe(SubscriptionsListQuerySchema))
+list(@Query() dto: SubscriptionsListQueryDto) {
+  return this.listSubscriptions.execute({
+    page: dto.page,
+    limit: dto.limit,
+    trashed: resolveTrashedMode({
+      status: dto.status,
+      withTrashed: dto.withTrashed,
+      onlyTrashed: dto.onlyTrashed,
+    }),
+    range: resolveDateRange({ start_date: dto.start_date, end_date: dto.end_date }),
+  });
+}
+```
+
+### Repository (port + adapter)
+
+```typescript
+import { buildTrashedWhere } from '../../../../shared/crud/trashed.util';
+
+async findAll(query: ListSubscriptionsQuery): Promise<PaginatedSubscriptions> {
+  const where: Prisma.SubscriptionWhereInput = {
+    ...buildTrashedWhere(query.trashed),
+    ...buildDateRangeWhere(query.range),
+  };
+  // … paginated read
+}
+```
+
+### Read-model / mapper
+
+```typescript
+import { entityStatus } from '../../../../shared/crud/trashed.util';
+
+function toResponse(row: SubscriptionRow): SubscriptionResponse {
+  return {
+    ...row,
+    status: entityStatus(row.deletedAt),        // 'active' | 'suspended'
+    deletedAt: row.deletedAt?.toISOString() ?? null,
+  };
+}
+```
+
+### Rules — soft-delete visibility (Hex/DDD)
+
+```
+✅ Resolve `TrashedMode` in the controller via `resolveTrashedMode({ status, withTrashed, onlyTrashed })`; hand it to the UseCase as part of the `Query` VO
+✅ The port (`I…Repository`) takes the `Query` VO; the adapter calls `buildTrashedWhere(query.trashed)` ONCE
+✅ Mapper derives `status: 'active' | 'suspended'` via `entityStatus(row.deletedAt)` so the read model is null-check-free on the client
+✅ Read-side only — write/bulk UseCases never accept status / withTrashed / onlyTrashed
+✅ Domain events carry the entity, NEVER `TrashedMode` — visibility is a query concern, not a domain concern
+✅ When the aggregate already owns a domain status enum, expose the soft-delete filter under a different URL key (e.g. `?lifecycle=`)
+
+❌ Injecting the raw HTTP DTO into the UseCase — always pass a domain-shaped `Query` VO with the resolved `TrashedMode`
+❌ Re-defining `statusFlagShape` / `trashedFlagsShape` / `buildTrashedWhere` per bounded context
+❌ Repository exposing `findAllSuspended()` as a separate method — branch via `TrashedMode` instead
+❌ Mixing two `status` semantics (domain status + soft-delete status) on the same DTO
+❌ Domain events emitted with a `TrashedMode` payload
+```
+
+---
+
+## 📅 Date-range filter — `start_date` / `end_date` (Hex/DDD)
+
+> **Authority.** Same contract as `ARCHITECTURE-DEFAULT` § "Date-range filter" — the difference is wiring: the resolved `DateRange` flows into the **Query** value object and is consumed by the QueryHandler / read-side UseCase, never directly by an HTTP DTO.
+
+### Contract (identical to flat CRUD)
+
+```http
+GET /{module}?start_date=2024-01-01&end_date=2024-01-31  → inclusive window
+GET /{module}?start_date=2024-02-01&end_date=2024-01-01  → 400 BadRequest
+```
+
+- Snake_case at the HTTP boundary, camelCase inside the domain.
+- Empty strings → absent. Both bounds optional, inclusive.
+- Applies to read-side UseCases (list / search / export). Write-side UseCases (`Create…`, `Update…`, `Delete…`, `Bulk…`) MUST NOT accept it.
+
+### Query value object
+
+```typescript
+// application/queries/list-subscriptions.query.ts
+import { DateRange } from '../../../../shared/crud/date-range.util';
+
+export interface ListSubscriptionsQuery {
+  page: number;
+  limit: number;
+  search?: string;
+  trashed: TrashedMode;
+  range: DateRange;            // ← resolved, monotonic, optional
+}
+```
+
+### Controller → UseCase
+
+```typescript
+import {
+  resolveDateRange,
+} from '../../../shared/crud/date-range.util';
+
+@Get()
+@CheckAbilities({ action: Action.Read, subject: 'Subscription' })
+@UsePipes(new ZodValidationPipe(SubscriptionsListQuerySchema))
+list(@Query() dto: SubscriptionsListQueryDto) {
+  return this.listSubscriptions.execute({
+    page: dto.page,
+    limit: dto.limit,
+    search: dto.search,
+    trashed: resolveTrashedMode(dto),
+    range: resolveDateRange({
+      start_date: dto.start_date,
+      end_date: dto.end_date,
+    }),
+  });
+}
+```
+
+### Read-side UseCase / QueryHandler
+
+```typescript
+@Injectable()
+export class ListSubscriptionsUseCase {
+  async execute(query: ListSubscriptionsQuery): Promise<PaginatedSubscriptions> {
+    this.logger.info('ListSubscriptionsUseCase.execute start', {
+      traceId: this.cls.get('traceId'),
+      range: query.range,
+    });
+    return this.repository.findAll(query);
+  }
+}
+```
+
+### Repository (port + adapter)
+
+```typescript
+// domain/ports/subscription.repository.ts
+export interface ISubscriptionRepository {
+  findAll(query: ListSubscriptionsQuery): Promise<PaginatedSubscriptions>;
+}
+
+// infrastructure/persistence/subscription.prisma.repository.ts
+import { buildDateRangeWhere } from '../../../../shared/crud/date-range.util';
+
+async findAll(query: ListSubscriptionsQuery): Promise<PaginatedSubscriptions> {
+  const where: Prisma.SubscriptionWhereInput = {
+    ...buildTrashedWhere(query.trashed),
+    ...buildDateRangeWhere(query.range),               // default column: createdAt
+  };
+  // … paginated read
+}
+```
+
+> Pass the column explicitly when the bounded context filters on a domain-specific timestamp (e.g. `'occurredAt'` for an event log, `'invoicedAt'` for billing). Document the chosen column on the port interface JSDoc so adapter and tests stay aligned.
+
+### Rules — date-range filter (Hex/DDD)
+
+```
+✅ Resolve `DateRange` in the controller via `resolveDateRange(...)`; hand it to the UseCase as part of the `Query` VO
+✅ The port (`I…Repository`) takes the `Query` VO; the adapter calls `buildDateRangeWhere(query.range, column?)` ONCE
+✅ Read-side only — write/bulk UseCases never accept `start_date` / `end_date`
+✅ Domain events do NOT carry the range — events describe what happened, not how it was queried
+✅ Same Redis cache key strategy as flat CRUD (`originalUrl` keys handle every window automatically)
+
+❌ Injecting the raw HTTP DTO into the UseCase — always pass a domain-shaped `Query` VO
+❌ Re-defining `dateRangeShape` or `buildDateRangeWhere` per bounded context
+❌ Date filtering inside the domain entity / aggregate — the where clause is infra concern
+❌ Re-emitting CRUD-style snake_case inside the domain — domain layer is camelCase
+```
+
+---
+
 ## �🔗 Related Skills
 
 - **`.windsurf/skills/ARCHITECTURE-SIMPLE/SKILL.md`** — Para lookups/configs simples

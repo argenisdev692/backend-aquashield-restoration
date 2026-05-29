@@ -178,6 +178,84 @@ private async deleteStorageFile(url: string): Promise<void> {
 
 ---
 
+## Pattern 6 — List endpoints MUST return `{ data, total, page, limit }`
+
+**Rule:** All paginated list endpoints (GET /resource) must return `{ data: T[]; total: number; page: number; limit: number }` instead of just `T[]`. The `total` count enables the frontend to display "X of Y records" and calculate total pages. Use `Promise.all([count(), findMany()])` for parallel execution.
+
+### ✅ CORRECT
+
+```typescript
+// repository
+async findAll(
+  limit = 50,
+  skip = 0,
+  search?: string,
+  trashed: TrashedMode = 'exclude',
+): Promise<{ data: Widget[]; total: number }> {
+  const where: Prisma.WidgetWhereInput = {
+    ...buildTrashedWhere(trashed),
+    ...(search ? { name: { contains: search, mode: 'insensitive' } } : {}),
+  };
+
+  const [total, rows] = await Promise.all([
+    this.prisma.widget.count({ where }),
+    this.prisma.widget.findMany({
+      where,
+      orderBy: { createdAt: 'desc' },
+      take: Math.min(limit, 100),
+      skip,
+    }),
+  ]);
+
+  return {
+    data: rows.map((r) => this.mapToEntity(r)),
+    total,
+  };
+}
+
+// service
+async findAll(
+  limit = 50,
+  skip = 0,
+  search?: string,
+  trashed: TrashedMode = 'exclude',
+): Promise<{ data: Widget[]; total: number }> {
+  return this.repository.findAll(limit, skip, search, trashed);
+}
+
+// controller
+@Get()
+async findAll(
+  @Query() query: ListWidgetDto,
+): Promise<{ data: WidgetResponse[]; total: number }> {
+  const result = await this.service.findAll(query.limit, query.skip, query.search, query.trashed);
+  return {
+    data: result.data.map((w) => this.toResponse(w)),
+    total: result.total,
+  };
+}
+```
+
+### ❌ FORBIDDEN — returning only array
+
+```typescript
+// repository — missing total count
+async findAll(...): Promise<Widget[]> {
+  const rows = await this.prisma.widget.findMany({ ... });
+  return rows.map((r) => this.mapToEntity(r));
+}
+
+// controller — frontend cannot calculate total pages
+@Get()
+async findAll(...): Promise<WidgetResponse[]> {
+  return this.service.findAll(...);
+}
+```
+
+**Why it matters:** Without `total`, the frontend must make a separate API call to count records, or cannot show pagination metadata like "Page 1 of 5" or "Showing 1-20 of 95 records". The backend should provide this information in a single, efficient query using `Promise.all([count(), findMany()])`.
+
+---
+
 ## Quick Reference — when to apply each pattern
 
 | Situation | Pattern |
@@ -187,6 +265,7 @@ private async deleteStorageFile(url: string): Promise<void> {
 | Entity that must be unique platform-wide (e.g. company, config) | `existsAny()` + `ConflictException` (#3) |
 | Repository method receiving a list of ids | `{ id: { in: ids } }` set-based query (#4) |
 | Delete entity that has an associated storage file | try-catch wrapper (#5) |
+| Paginated list endpoint (GET /resource) | Return `{ data, total, page, limit }` (#6) |
 
 ---
 
@@ -198,10 +277,12 @@ private async deleteStorageFile(url: string): Promise<void> {
 ✅ existsAny() for singleton guards — not raw DB unique constraint error
 ✅ One Prisma statement per ids[] input — findMany/updateMany/deleteMany with { in: ids }
 ✅ Storage deletion always wrapped in try-catch — never rethrows
+✅ List endpoints return { data, total, page, limit } — use Promise.all([count(), findMany()])
 
 ❌ Copy-pasting if (!result) throw new NotFoundException(...) across methods
 ❌ Returning null from repository.update() — Prisma throws P2025 instead
 ❌ Catching P2025 Prisma errors in the service to produce NotFoundException — use findOrFail pre-check
 ❌ Promise.all(ids.map(id => this.findById(id))) or .delete(id) — N+1 cliff (see BACKEND-NEST §3.5)
 ❌ Letting a failed file delete block the entity operation
+❌ List endpoints returning only T[] instead of { data, total, page, limit }
 ```

@@ -17,6 +17,7 @@ import type { IAuditPort } from '../../../domain/ports/outbound/audit.port.inter
 import { LoggerService } from '../../../../../logger/logger.service';
 import { ClsService } from 'nestjs-cls';
 import { resolveTrashedMode } from '../../../../../shared/crud/trashed.util';
+import { resolveDateRange } from '../../../../../shared/crud/date-range.util';
 import {
   csvEscape,
   sheetEscape,
@@ -110,6 +111,7 @@ export class ExportAppointmentsHandler implements IQueryHandler<ExportAppointmen
         withTrashed: dto.withTrashed,
         onlyTrashed: dto.onlyTrashed,
       }),
+      range: query.range,
     };
 
     const { data } = await this.repo.findAll(filters);

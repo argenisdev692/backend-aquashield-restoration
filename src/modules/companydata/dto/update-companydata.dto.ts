@@ -4,6 +4,7 @@ export const UpdateCompanyDataSchema = z
   .object({
     name: z.string().max(255).optional(),
     companyName: z.string().max(255).optional(),
+    taxId: z.string().max(50).optional().or(z.literal('')),
     email: z.string().email().max(255).optional().or(z.literal('')),
     phone: z.string().max(20).optional(),
     address: z.string().max(255).optional(),

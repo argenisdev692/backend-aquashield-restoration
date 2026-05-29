@@ -44,11 +44,19 @@ const SIGNATURE_MAX_BYTES = 2 * 1024 * 1024;
 @ApiTags('company-data')
 @ApiBearerAuth()
 @Controller('company-data')
-@UseGuards(JwtAuthGuard, CaslGuard)
 export class CompanyDataController {
   constructor(private readonly service: CompanyDataService) {}
 
+  @Get('public')
+  @ApiOkResponse({ type: CompanyDataResponse })
+  @ApiNotFoundResponse({ description: 'Company data not found' })
+  @CacheTTL(TTL_SECONDS.LONG)
+  async findPublic(): Promise<CompanyDataResponse> {
+    return this.service.findSingletonOrFail();
+  }
+
   @Get()
+  @UseGuards(JwtAuthGuard, CaslGuard)
   @ApiOkResponse({ type: CompanyDataResponse })
   @ApiNotFoundResponse({ description: 'Company data not found' })
   @CacheTTL(TTL_SECONDS.LONG)

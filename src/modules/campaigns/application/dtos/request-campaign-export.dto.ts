@@ -84,9 +84,9 @@ export class RequestCampaignExportBody {
   stages!: string[];
 
   @ApiProperty({
-    description: 'Video format',
-    enum: ['mp4', 'webm'],
-    example: 'mp4',
+    description: 'Video aspect ratio',
+    enum: ['9:16', '16:9', 'both'],
+    example: '9:16',
   })
   format!: string;
 

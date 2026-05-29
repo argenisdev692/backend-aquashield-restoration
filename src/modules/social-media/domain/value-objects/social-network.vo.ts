@@ -13,6 +13,7 @@ export class SocialNetworkVO {
       'instagram',
       'tiktok',
       'linkedin',
+      'twitter',
     ];
     if (!valid.includes(network as SocialNetwork)) {
       throw new Error(`Invalid social network: ${network}`);

@@ -21,22 +21,24 @@ export class ListMyCampaignExportsHandler implements IQueryHandler<ListMyCampaig
 
   async execute(
     query: ListMyCampaignExportsQuery,
-  ): Promise<CampaignExportListItem[]> {
+  ): Promise<{ data: CampaignExportListItem[]; total: number }> {
     const traceId = this.cls.get<string>('traceId');
     const { actorId, options } = query;
-    const { limit = 20, offset = 0 } = options;
+    const { limit = 20, offset = 0, dateRange } = options;
 
     this.logger.info('ListMyCampaignExportsHandler', {
       traceId,
       actorId,
       limit,
       offset,
+      dateRange,
     });
 
-    const aggregates = await this.campaignRepo.findByUserId(actorId, {
+    const { data: aggregates, total } = await this.campaignRepo.findByUserId(actorId, {
       limit,
       offset,
       withTrashed: false,
+      dateRange,
     });
 
     const items: CampaignExportListItem[] = aggregates.map((agg) => {
@@ -66,6 +68,6 @@ export class ListMyCampaignExportsHandler implements IQueryHandler<ListMyCampaig
       count: items.length,
     });
 
-    return items;
+    return { data: items, total };
   }
 }

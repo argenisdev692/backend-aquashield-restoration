@@ -13,13 +13,8 @@ const fsContents = new Map<string, Buffer>();
 let nextWriteBuffer: Buffer = Buffer.alloc(0);
 
 jest.mock('node:fs', () => {
-  const actual = jest.requireActual('node:fs') as Record<string, unknown>;
-  const { PassThrough: PT, Readable: RD } = jest.requireActual(
-    'node:stream',
-  ) as {
-    PassThrough: typeof PassThrough;
-    Readable: typeof import('node:stream').Readable;
-  };
+  const actual = jest.requireActual('node:fs');
+  const { PassThrough: PT, Readable: RD } = jest.requireActual('node:stream');
   return {
     ...actual,
     promises: {

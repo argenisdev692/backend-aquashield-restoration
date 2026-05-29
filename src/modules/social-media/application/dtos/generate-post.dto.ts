@@ -7,13 +7,15 @@ const NetworksSchema = z
     instagram: z.boolean().optional(),
     tiktok: z.boolean().optional(),
     linkedin: z.boolean().optional(),
+    twitter: z.boolean().optional(),
   })
   .refine(
     (val) =>
       val.facebook === true ||
       val.instagram === true ||
       val.tiktok === true ||
-      val.linkedin === true,
+      val.linkedin === true ||
+      val.twitter === true,
     { message: 'At least one social network must be selected' },
   );
 

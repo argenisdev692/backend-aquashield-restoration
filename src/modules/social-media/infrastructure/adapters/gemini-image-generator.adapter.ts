@@ -1,7 +1,9 @@
-import { Injectable, Inject } from '@nestjs/common';
+import { Injectable, Inject, OnModuleInit } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { LoggerService } from '../../../../logger/logger.service';
 import { ClsService } from 'nestjs-cls';
+import { type IPolicy } from 'cockatiel';
+import { createExternalServicePolicy } from '../../../../shared/external/resilience';
 import {
   AI_CLIENT,
   type IAiClient,
@@ -13,8 +15,11 @@ import type {
 } from '../../domain/ports/image-generator.port';
 
 @Injectable()
-export class GeminiImageGeneratorAdapter implements IImageGeneratorPort {
+export class GeminiImageGeneratorAdapter
+  implements IImageGeneratorPort, OnModuleInit
+{
   private readonly model: string;
+  private resilience!: IPolicy;
 
   constructor(
     private readonly config: ConfigService,
@@ -30,6 +35,10 @@ export class GeminiImageGeneratorAdapter implements IImageGeneratorPort {
     );
   }
 
+  onModuleInit(): void {
+    this.resilience = createExternalServicePolicy('gemini', 'ai');
+  }
+
   async generateImage(input: GenerateImageInput): Promise<GeneratedImage> {
     const traceId = this.cls.get<string>('traceId');
 
@@ -42,9 +51,11 @@ export class GeminiImageGeneratorAdapter implements IImageGeneratorPort {
 
     // The shared GeminiAiClient already implements generateImage using
     // responseModalities: ['TEXT', 'IMAGE'].
-    const result = await this.aiClient.generateImage!({
-      model: this.model,
-      prompt,
+    const result = await this.resilience.execute(async () => {
+      return await this.aiClient.generateImage!({
+        model: this.model,
+        prompt,
+      });
     });
 
     this.logger.info('GeminiImageGeneratorAdapter.generateImage done', {

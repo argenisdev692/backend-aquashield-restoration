@@ -10,6 +10,8 @@ import {
   type IStoragePort,
 } from '../../../../shared/storage/storage.port';
 import { QUEUE_NAMES } from '../../../../shared/messaging/queues.constants';
+import { AUDIT_PORT } from '../../../../shared/activity-log/audit.port';
+import type { IAuditPort } from '../../../../shared/activity-log/audit.port';
 
 import type { ICampaignGenerationRepository } from '../../domain/ports/campaign-generation.repository.port';
 import { CAMPAIGN_GENERATION_REPOSITORY } from '../../domain/ports/campaign-generation.repository.port';
@@ -42,6 +44,14 @@ import { FunnelStageVO } from '../../domain/value-objects/funnel-stage.vo';
 import { CampaignStageExportReadyEvent } from '../../domain/events/campaign-stage-export-ready.event';
 import { CampaignExportCompletedEvent } from '../../domain/events/campaign-export-completed.event';
 import type { ViralityResearchResult } from '../../domain/ports/virality-research.port';
+import type { GeneratedStageContent } from '../../domain/ports/stage-export-generator.port';
+import type { FunnelStage } from '../../domain/value-objects/funnel-stage.vo';
+import {
+  evaluateCampaignScores,
+  type CampaignScores,
+  type ScoreWeakness,
+  MAX_QUALITY_ITERATIONS,
+} from '../../domain/value-objects/campaign-scores.vo';
 
 export interface CampaignExportJobData {
   generationId: string;
@@ -62,6 +72,7 @@ export interface CampaignExportJobData {
     language: string;
     generateImages: boolean;
     aiObservations?: string;
+    topicId?: string;
   };
 }
 
@@ -87,6 +98,9 @@ export class CampaignExportProcessor extends WorkerHost {
   constructor(
     @Inject(CAMPAIGN_GENERATION_REPOSITORY)
     private readonly campaignRepo: ICampaignGenerationRepository,
+
+    @Inject(AUDIT_PORT)
+    private readonly audit: IAuditPort,
 
     @Inject(STAGE_EXPORT_GENERATOR_PORT)
     private readonly stageGenerator: IStageExportGeneratorPort,
@@ -340,6 +354,95 @@ export class CampaignExportProcessor extends WorkerHost {
     });
   }
 
+  /**
+   * Quality loop (prompt-campaigns-generator-v2.md): regenerate the stage video
+   * up to MAX_QUALITY_ITERATIONS times until all 5 scores pass their thresholds,
+   * feeding the failing-score weaknesses back into each retry. Keeps the best
+   * attempt by overall average and returns it with a quality_warning flag if the
+   * cap was hit without all scores passing.
+   *
+   * NOTE: research is performed once before the loop (cost control) and its
+   * recommendations are reused across iterations rather than re-querying Tavily
+   * every attempt.
+   */
+  private async generateStageWithQualityLoop(
+    base: {
+      companyName: string;
+      niche: string;
+      location: string;
+      city?: string;
+      state?: string;
+      country?: string;
+      phone: string;
+      website?: string;
+      stage: FunnelStage;
+      format: '9:16' | '16:9' | 'both';
+      durationSeconds: 15 | 20;
+      language: string;
+      generateImages: boolean;
+      aiObservations?: string | null;
+      topicId?: string | null;
+      viralityRecommendations?: string[];
+    },
+    traceId: string,
+    generationId: string,
+  ): Promise<{
+    content: GeneratedStageContent;
+    iterations: number;
+    qualityWarning: boolean;
+  }> {
+    let best: GeneratedStageContent | null = null;
+    let bestAverage = -1;
+    let previousScores: CampaignScores | null = null;
+    let weaknesses: ScoreWeakness[] = [];
+
+    for (let iteration = 1; iteration <= MAX_QUALITY_ITERATIONS; iteration++) {
+      const content = await this.stageGenerator.generate({
+        ...base,
+        iteration,
+        previousScores,
+        weaknesses,
+      });
+
+      const evaluation = evaluateCampaignScores(content.scores);
+
+      if (evaluation.overallAverage > bestAverage) {
+        bestAverage = evaluation.overallAverage;
+        best = content;
+      }
+
+      this.logger.info('Campaign quality iteration evaluated', {
+        traceId,
+        generationId,
+        stage: base.stage,
+        iteration,
+        overallAverage: evaluation.overallAverage,
+        allPass: evaluation.allPass,
+        failing: evaluation.failing.map((f) => f.score),
+      });
+
+      if (evaluation.allPass) {
+        return { content, iterations: iteration, qualityWarning: false };
+      }
+
+      previousScores = content.scores;
+      weaknesses = evaluation.failing;
+    }
+
+    // Cap reached without all scores passing — return the best attempt.
+    this.logger.warn('Campaign quality loop hit max iterations', {
+      traceId,
+      generationId,
+      stage: base.stage,
+      bestAverage,
+    });
+    return {
+      content: best!,
+      iterations: MAX_QUALITY_ITERATIONS,
+      qualityWarning: true,
+    };
+  }
+
   async process(job: Job<CampaignExportJobData>): Promise<void> {
     const { generationId, userId, payload } = job.data;
     const traceId = this.cls.get<string>('traceId') ?? job.id ?? generationId;
@@ -365,6 +468,20 @@ export class CampaignExportProcessor extends WorkerHost {
     try {
       aggregate.markProcessing();
       await this.campaignRepo.save(aggregate);
+
+      // Audit state transition
+      await this.audit.log(
+        {
+          action: 'campaigns.processing_started',
+          actorId: userId,
+          resourceId: generationId,
+          metadata: {
+            stages: payload.stages,
+            format: payload.format,
+          },
+        },
+        { strict: false }, // Job processor - non-strict to avoid blocking async work
+      );
 
       // 2. Virality Research (Tavily) — real-time trend analysis
       this.logger.info('Running virality research', { traceId, generationId });
@@ -414,20 +531,43 @@ export class CampaignExportProcessor extends WorkerHost {
             stage: validatedStage,
           });
 
-          // 3.1 Generate creative content (Gemini) with aiObservations + virality recommendations
-          const content = await this.stageGenerator.generate({
-            companyName: payload.companyNameSnapshot,
-            niche: payload.niche,
-            location: payload.location,
-            phone: payload.phone,
-            website: payload.website,
+          // 3.1 Generate creative content via the quality loop (up to 5 iterations
+          // until all 5 scores pass their thresholds).
+          const { content, iterations, qualityWarning } =
+            await this.generateStageWithQualityLoop(
+              {
+                companyName: payload.companyNameSnapshot,
+                niche: payload.niche,
+                location: payload.location,
+                city: payload.city,
+                state: payload.state,
+                country: payload.country,
+                phone: payload.phone,
+                website: payload.website,
+                stage: validatedStage,
+                format: payload.format,
+                durationSeconds: payload.durationSeconds,
+                language: payload.language,
+                generateImages: payload.generateImages,
+                aiObservations: payload.aiObservations ?? null,
+                topicId: payload.topicId ?? null,
+                viralityRecommendations: viralityResult?.recommendations,
+              },
+              traceId,
+              generationId,
+            );
+
+          // Canonical scores come from the AI evaluation (override Tavily baseline).
+          aggregate.setViralityScore(content.scores.viralityProbability.value);
+          aggregate.setRoiScore(content.scores.roiPotential.value);
+          await this.campaignRepo.save(aggregate);
+
+          this.logger.info('Stage content finalized', {
+            traceId,
+            generationId,
             stage: validatedStage,
-            format: payload.format,
-            durationSeconds: payload.durationSeconds,
-            language: payload.language,
-            generateImages: payload.generateImages,
-            aiObservations: payload.aiObservations ?? null,
-            viralityRecommendations: viralityResult?.recommendations,
+            iterations,
+            qualityWarning,
           });
 
           // 3.1b AI Detection check — verify content passes as human-written
@@ -659,6 +799,22 @@ export class CampaignExportProcessor extends WorkerHost {
       aggregate.complete();
       await this.campaignRepo.save(aggregate);
 
+      // Audit completion
+      await this.audit.log(
+        {
+          action: 'campaigns.completed',
+          actorId: userId,
+          resourceId: generationId,
+          metadata: {
+            status: aggregate.status,
+            viralityScore: aggregate.viralityScore,
+            roiScore: aggregate.roiScore,
+            stagesCompleted: stageResults.length,
+          },
+        },
+        { strict: false },
+      );
+
       // Emit completion event for WebSocket + any other side effects
       this.eventEmitter.emit(
         'campaign.export.completed',
@@ -694,6 +850,19 @@ export class CampaignExportProcessor extends WorkerHost {
           error instanceof Error ? error.message : 'Unknown processing error',
         );
         await this.campaignRepo.save(aggregate);
+
+        // Audit failure
+        await this.audit.log(
+          {
+            action: 'campaigns.failed',
+            actorId: userId,
+            resourceId: generationId,
+            metadata: {
+              errorMessage: aggregate.errorMessage,
+            },
+          },
+          { strict: false },
+        );
 
         this.eventEmitter.emit(
           'campaign.export.completed',

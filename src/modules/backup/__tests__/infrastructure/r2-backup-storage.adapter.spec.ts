@@ -30,7 +30,7 @@ jest.mock('@aws-sdk/client-s3', () => ({
 }));
 
 jest.mock('node:fs', () => {
-  const actual = jest.requireActual('node:fs') as Record<string, unknown>;
+  const actual = jest.requireActual('node:fs');
   return {
     ...actual,
     createReadStream: jest.fn(() => Readable.from(Buffer.from('payload'))),

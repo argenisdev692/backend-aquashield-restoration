@@ -6,6 +6,10 @@ import {
   trashedFlagsShape,
   rejectBothTrashedFlags,
   BOTH_TRASHED_FLAGS_ERROR,
+  statusFlagShape,
+  rejectMixedStatusAndTrashedFlags,
+  MIXED_STATUS_FLAGS_ERROR,
+  entityStatus,
 } from './trashed.util';
 
 describe('trashed.util', () => {
@@ -26,6 +30,42 @@ describe('trashed.util', () => {
       expect(resolveTrashedMode({ withTrashed: true, onlyTrashed: true })).toBe(
         'only',
       );
+    });
+
+    it('maps status=active to "exclude"', () => {
+      expect(resolveTrashedMode({ status: 'active' })).toBe('exclude');
+    });
+
+    it('maps status=suspended to "only"', () => {
+      expect(resolveTrashedMode({ status: 'suspended' })).toBe('only');
+    });
+
+    it('maps status=all to "include"', () => {
+      expect(resolveTrashedMode({ status: 'all' })).toBe('include');
+    });
+
+    it('status wins over the raw flags when both are supplied', () => {
+      expect(
+        resolveTrashedMode({ status: 'active', onlyTrashed: true }),
+      ).toBe('exclude');
+    });
+  });
+
+  describe('entityStatus', () => {
+    it('returns "active" when deletedAt is null', () => {
+      expect(entityStatus(null)).toBe('active');
+    });
+
+    it('returns "active" when deletedAt is undefined', () => {
+      expect(entityStatus(undefined)).toBe('active');
+    });
+
+    it('returns "suspended" when deletedAt is a Date', () => {
+      expect(entityStatus(new Date())).toBe('suspended');
+    });
+
+    it('returns "suspended" when deletedAt is an ISO string', () => {
+      expect(entityStatus('2024-01-15T10:00:00Z')).toBe('suspended');
     });
   });
 
@@ -89,6 +129,46 @@ describe('trashed.util', () => {
       expect(() =>
         schema.parse({ withTrashed: 'true', onlyTrashed: 'false' }),
       ).not.toThrow();
+    });
+  });
+
+  describe('status flag Zod integration', () => {
+    const schema = z
+      .object({ ...statusFlagShape, ...trashedFlagsShape })
+      .refine(rejectBothTrashedFlags, BOTH_TRASHED_FLAGS_ERROR)
+      .refine(rejectMixedStatusAndTrashedFlags, MIXED_STATUS_FLAGS_ERROR);
+
+    it('accepts status alone', () => {
+      expect(schema.parse({ status: 'active' }).status).toBe('active');
+      expect(schema.parse({ status: 'suspended' }).status).toBe('suspended');
+      expect(schema.parse({ status: 'all' }).status).toBe('all');
+    });
+
+    it('treats an empty status string as absent', () => {
+      const parsed = schema.parse({ status: '' });
+      expect(parsed.status).toBeUndefined();
+    });
+
+    it('rejects garbage status values', () => {
+      expect(() => schema.parse({ status: 'archived' })).toThrow();
+    });
+
+    it('rejects mixing status with withTrashed', () => {
+      expect(() =>
+        schema.parse({ status: 'active', withTrashed: 'true' }),
+      ).toThrow(/status or withTrashed\/onlyTrashed, not both/);
+    });
+
+    it('rejects mixing status with onlyTrashed', () => {
+      expect(() =>
+        schema.parse({ status: 'suspended', onlyTrashed: 'true' }),
+      ).toThrow(/status or withTrashed\/onlyTrashed, not both/);
+    });
+
+    it('accepts raw flags when status is absent', () => {
+      const parsed = schema.parse({ withTrashed: 'true' });
+      expect(parsed.status).toBeUndefined();
+      expect(parsed.withTrashed).toBe(true);
     });
   });
 });

@@ -49,7 +49,10 @@ export class GlobalExceptionFilter implements ExceptionFilter {
       ? this.cls.get<string | undefined>(CLS_KEYS.TRACE_ID)
       : undefined;
 
-    const { status, title, detail, errors } = this.normalize(exception, isProd);
+    const { status, title, detail, errors, retryAfterSeconds } = this.normalize(
+      exception,
+      isProd,
+    );
 
     const problem: ProblemDetails = {
       type: 'about:blank',
@@ -60,6 +63,13 @@ export class GlobalExceptionFilter implements ExceptionFilter {
       traceId,
       ...(errors ? { errors } : {}),
     };
+
+    // RFC 7231 §7.1.3 — `Retry-After` MUST accompany 429 / 503 when we know
+    // the back-off window. Apps that throw HttpException with a body
+    // `{ retryAfterSeconds: N }` get the header for free.
+    if (retryAfterSeconds !== undefined && retryAfterSeconds > 0) {
+      res.setHeader('Retry-After', String(retryAfterSeconds));
+    }
 
     const logCtx = {
       layer: 'http',
@@ -85,6 +95,7 @@ export class GlobalExceptionFilter implements ExceptionFilter {
     title: string;
     detail: string;
     errors?: unknown;
+    retryAfterSeconds?: number;
   } {
     if (exception instanceof ZodError) {
       return {
@@ -105,6 +116,15 @@ export class GlobalExceptionFilter implements ExceptionFilter {
         typeof response === 'string'
           ? response
           : ((response as { message?: unknown }).message ?? exception.message);
+      const retryAfterRaw =
+        typeof response === 'object'
+          ? (response as { retryAfterSeconds?: unknown }).retryAfterSeconds
+          : undefined;
+      const retryAfterSeconds =
+        typeof retryAfterRaw === 'number' && Number.isFinite(retryAfterRaw)
+          ? retryAfterRaw
+          : undefined;
+
       return {
         status,
         title: exception.name,
@@ -117,6 +137,7 @@ export class GlobalExceptionFilter implements ExceptionFilter {
           typeof response === 'object'
             ? (response as { errors?: unknown }).errors
             : undefined,
+        retryAfterSeconds,
       };
     }
 

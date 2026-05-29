@@ -5,6 +5,11 @@ import {
   rejectBothTrashedFlags,
   BOTH_TRASHED_FLAGS_ERROR,
 } from '../../../../shared/crud/trashed.util';
+import {
+  dateRangeShape,
+  rejectInvertedDateRange,
+  INVERTED_DATE_RANGE_ERROR,
+} from '../../../../shared/crud/date-range.util';
 
 export const ExportAppointmentsSchema = z
   .object({
@@ -15,8 +20,11 @@ export const ExportAppointmentsSchema = z
     country: z.string().optional(),
     owner: z.string().optional(),
     ...trashedFlagsShape,
+    // Date-range filter (inclusive window on `createdAt`).
+    ...dateRangeShape,
   })
-  .refine(rejectBothTrashedFlags, BOTH_TRASHED_FLAGS_ERROR);
+  .refine(rejectBothTrashedFlags, BOTH_TRASHED_FLAGS_ERROR)
+  .refine(rejectInvertedDateRange, INVERTED_DATE_RANGE_ERROR);
 
 export class ExportAppointmentsDto extends createZodDto(
   ExportAppointmentsSchema,

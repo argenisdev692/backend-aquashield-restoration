@@ -10,6 +10,7 @@ import {
 } from '../../../domain/repositories/post-repository.interface';
 import { Post } from '../../../domain/entities/post.aggregate';
 import { buildTrashedWhere } from '../../../../../shared/crud/trashed.util';
+import { buildDateRangeWhere } from '../../../../../shared/crud/date-range.util';
 
 @Injectable()
 export class PrismaPostRepository implements IPostRepository {
@@ -59,10 +60,12 @@ export class PrismaPostRepository implements IPostRepository {
       page = 1,
       limit = 20,
       trashed = 'exclude',
+      range,
     } = filters;
 
     const where: Prisma.PostWhereInput = {
       ...buildTrashedWhere(trashed),
+      ...(range ? buildDateRangeWhere(range, 'createdAt') : {}),
     };
 
     if (categoryId) {
@@ -72,8 +75,7 @@ export class PrismaPostRepository implements IPostRepository {
       where.userId = userId;
     }
     if (postStatus) {
-      const parsed =
-        $Enums.PostStatus[postStatus as keyof typeof $Enums.PostStatus];
+      const parsed = $Enums.PostStatus[postStatus];
       if (parsed) where.postStatus = parsed;
     }
     if (search) {

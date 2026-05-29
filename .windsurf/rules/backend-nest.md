@@ -97,14 +97,25 @@ Every write path that mutates state across **more than one statement** (entity u
 - Soft vs hard delete: pick **one** strategy per module/context and stick with it. Mixing is forbidden.
 - Full spec: `.windsurf/skills/ARCHITECTURE-DEFAULT/SKILL.md` § "Bulk Delete / Bulk Restore (flat CRUD)" and `.windsurf/skills/ARCHITECTURE-ENTERPRISE/SKILL.md` § "Bulk Delete / Bulk Restore (Hex/DDD)".
 
-## Soft-delete visibility (`withTrashed` / `onlyTrashed`)
+## Soft-delete visibility (`status` / `withTrashed` / `onlyTrashed`)
 
-- Every list / single-get / export route of a soft-delete-aware module MUST accept `?withTrashed=true` and `?onlyTrashed=true`, defaulting to "active rows only". Sending both at the same time → 400.
-- DTO MUST spread `trashedFlagsShape` and `.refine(rejectBothTrashedFlags, BOTH_TRASHED_FLAGS_ERROR)` from `src/shared/crud/trashed.util.ts` — never re-roll the schema, never use `z.coerce.boolean()`.
-- Repository takes `TrashedMode` (`'exclude' | 'include' | 'only'`) and calls `buildTrashedWhere(mode)` once; the single-get variant takes a `boolean withTrashed`.
-- `?onlyTrashed=true` (or a dedicated `GET /{module}/trash` route) MUST be gated by `Action.Restore`, not `Action.Read` — prevents enumeration of tombstoned rows via the read permission.
-- Response shape MUST expose `deletedAt: string | null` when the entity is soft-delete-aware; otherwise `withTrashed` is useless on the client.
-- Full spec: `.windsurf/skills/ARCHITECTURE-DEFAULT/SKILL.md` § "Soft-delete visibility — withTrashed / onlyTrashed (flat CRUD)" and `.windsurf/skills/ARCHITECTURE-ENTERPRISE/SKILL.md` § "Soft-delete visibility — withTrashed / onlyTrashed (Hex/DDD)".
+- Every list / single-get / export route of a soft-delete-aware module MUST accept `?status=active|suspended|all` as the **canonical** filter (preferred on new endpoints) AND the raw Laravel-style aliases `?withTrashed=true` / `?onlyTrashed=true` for backward parity. Default = `active`. Sending `?withTrashed=true&onlyTrashed=true` → 400. Sending `?status=…` together with either raw flag → 400 (they are aliases, mixing is ambiguous).
+- `status` semantics: `active` = `deletedAt IS NULL` (maps to `TrashedMode='exclude'`), `suspended` = `deletedAt IS NOT NULL` (maps to `'only'`), `all` = no `deletedAt` filter (maps to `'include'`).
+- DTO MUST spread BOTH `statusFlagShape` and `trashedFlagsShape` and `.refine(rejectBothTrashedFlags, BOTH_TRASHED_FLAGS_ERROR).refine(rejectMixedStatusAndTrashedFlags, MIXED_STATUS_FLAGS_ERROR)` from `src/shared/crud/trashed.util.ts` — never re-roll the schema, never use `z.coerce.boolean()`. Empty strings (`status=`) normalise to `undefined`.
+- Repository stays unchanged — it still takes `TrashedMode` and calls `buildTrashedWhere(mode)` once. The bridging from `status` / raw flags to `TrashedMode` happens inside `resolveTrashedMode({ status, withTrashed, onlyTrashed })`. Single-get variant takes a `boolean withTrashed`.
+- `?status=suspended` (or `?onlyTrashed=true`, or a dedicated `GET /{module}/trash` route) MUST be gated by `Action.Restore`, not `Action.Read` — prevents enumeration of tombstoned rows via the read permission.
+- Response shape MUST expose `deletedAt: string | null` AND SHOULD expose a derived `status: 'active' | 'suspended'` (computed via `entityStatus(deletedAt)` in the mapper) so the client renders the badge without null-checking.
+- Native `status` collision: modules that already own a domain `status` enum (e.g. `Post.status: 'draft' | 'published'`, `Order.status: 'pending' | 'paid' | 'shipped'`) MUST rename it (`postStatus`, `orderStatus`, `lifecycleStatus`, …) before adopting the soft-delete `status` filter — the URL slot is reserved for the soft-delete alias. If renaming is not feasible, fall back to the raw `withTrashed` / `onlyTrashed` flags on that module.
+- Full spec: `.windsurf/skills/ARCHITECTURE-DEFAULT/SKILL.md` § "Soft-delete visibility — `status` / `withTrashed` / `onlyTrashed` (flat CRUD)" and `.windsurf/skills/ARCHITECTURE-ENTERPRISE/SKILL.md` § "Soft-delete visibility — `status` / `withTrashed` / `onlyTrashed` (Hex/DDD)".
+
+## Date-range filter (`start_date` / `end_date`)
+
+- Every list / export route that exposes a timestamp-orderable resource (orders, appointments, posts, invoices, audit rows, etc.) MUST accept the canonical filter `?start_date=YYYY-MM-DD&end_date=YYYY-MM-DD`. Both bounds are **optional** and **inclusive**. Sending `start_date > end_date` → 400. Empty strings are treated as absent so the frontend can wire the inputs without conditional URL building.
+- DTO MUST spread `dateRangeShape` and `.refine(rejectInvertedDateRange, INVERTED_DATE_RANGE_ERROR)` from `src/shared/crud/date-range.util.ts` — never re-roll the schema. Use the exported `dateQuery` (already inside `dateRangeShape`) instead of `z.coerce.date()` directly so empty query strings are normalised to `undefined`.
+- Repository takes a `DateRange` value object and calls `buildDateRangeWhere(range, column?)` once. Default column is `createdAt`; pass a different one (`'scheduledAt'`, `'invoicedAt'`, `'occurredAt'`, …) when the module's natural timeline is not creation time. Snake_case (`start_date`, `end_date`) is the HTTP contract; internals work in camelCase (`startDate`, `endDate`) — `resolveDateRange()` does the mapping.
+- The filter applies to **read** paths only (list, single-get-by-criteria, export). It does NOT apply to writes, bulks, or `:id` lookups by primary key — those operate on identity.
+- Cache: requests that include `start_date` / `end_date` key by `originalUrl` (default behaviour) — every window gets its own entry automatically. Mutations already wildcard via `delByPattern('http:*:/{module}*')`, so no extra invalidation is required.
+- Full spec: `.windsurf/skills/ARCHITECTURE-SIMPLE/SKILL.md` § "Date-range filter — `start_date` / `end_date` (SIMPLE)", `.windsurf/skills/ARCHITECTURE-DEFAULT/SKILL.md` § "Date-range filter — `start_date` / `end_date` (flat CRUD)" and `.windsurf/skills/ARCHITECTURE-ENTERPRISE/SKILL.md` § "Date-range filter — `start_date` / `end_date` (Hex/DDD)".
 
 ## Identity responses — `roles[]` + `permissions[]`
 

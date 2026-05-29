@@ -123,6 +123,48 @@ export class PostsGateway implements OnGatewayConnection, OnGatewayDisconnect {
     });
   }
 
+  // ─── Social-media generation (2-step quality loop) ──────────────────────────
+
+  broadcastSocialProgress(data: {
+    userId: string;
+    jobId: string;
+    iteration: number;
+    maxIterations: number;
+    phase: 'research' | 'generation' | 'scoring';
+    overallAverage?: number;
+    allPass?: boolean;
+  }) {
+    this.server.to(`user:${data.userId}`).emit('post:social:progress', {
+      ...data,
+      timestamp: new Date().toISOString(),
+    });
+  }
+
+  broadcastSocialCompleted(data: {
+    userId: string;
+    jobId: string;
+    generationId: string;
+    iterations: number;
+    qualityWarning: boolean;
+    overallAverage: number;
+  }) {
+    this.server.to(`user:${data.userId}`).emit('post:social:completed', {
+      ...data,
+      timestamp: new Date().toISOString(),
+    });
+  }
+
+  broadcastSocialFailed(data: {
+    userId: string;
+    jobId: string;
+    error: string;
+  }) {
+    this.server.to(`user:${data.userId}`).emit('post:social:failed', {
+      ...data,
+      timestamp: new Date().toISOString(),
+    });
+  }
+
   broadcastToUser(userId: string, event: string, data: unknown) {
     this.server.to(`user:${userId}`).emit(event, data);
   }

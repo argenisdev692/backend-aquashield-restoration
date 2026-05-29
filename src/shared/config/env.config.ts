@@ -41,8 +41,12 @@ export const EnvSchema = z.object({
   // Password lifetime in days. 0 disables expiry. Coerced because env
   // values are strings — the use cases compare it numerically.
   PASSWORD_EXPIRES_DAYS: z.coerce.number().int().min(0).max(3650).default(90),
-  // Google OAuth — optional; Google sign-in is disabled when unset.
+  // Google OAuth — optional; Google sign-in is disabled when CLIENT_ID is
+  // unset. If CLIENT_ID is set, CLIENT_SECRET and REDIRECT_URL are required
+  // at bootstrap to avoid runtime 500s on the callback endpoint.
   GOOGLE_CLIENT_ID: z.string().min(1).optional(),
+  GOOGLE_CLIENT_SECRET: z.string().min(1).optional(),
+  GOOGLE_REDIRECT_URL: z.string().url().optional(),
   // At-rest encryption key for TOTP seeds (OWASP Cryptographic Failures).
   // Any long random string; normalized to 32 bytes via SHA-256.
   TOTP_ENCRYPTION_KEY: z.string().min(32),
@@ -67,7 +71,9 @@ export const EnvSchema = z.object({
   // ── API docs ───────────────────────────────────────────────
   SWAGGER_ENABLED: booleanFromString.default(true),
 
-  // ── Email (Resend) ──────────────────────────────────────────
+  // ── Email (shared mailer) ──────────────────────────────────
+  // `resend` (default) uses Resend; `console` logs instead of sending.
+  EMAIL_PROVIDER: z.enum(['resend', 'console']).default('resend'),
   RESEND_API_KEY: z.string().min(1),
   RESEND_FROM_EMAIL: z.string().email(),
   // Contact-support notifications go to every active super-admin user
@@ -99,18 +105,25 @@ export const EnvSchema = z.object({
   // Key prefix under the bucket.
   BACKUP_R2_PREFIX: z.string().default('backups'),
 
+  // ── AI providers ───────────────────────────────────────────────
+  AI_PROVIDER: z.enum(['gemini', 'anthropic', 'openai']).default('gemini'),
   GEMINI_API_KEY: z.string().min(1),
   GEMINI_TEXT_MODEL: z.string().default('gemini-2.5-flash'),
   GEMINI_IMAGE_MODEL: z
     .string()
     .default('gemini-2.0-flash-exp-image-generation'),
+  ANTHROPIC_API_KEY: z.string().min(1).optional(),
+  ANTHROPIC_API_URL: z.string().url().default('https://api.anthropic.com/v1/messages'),
+  ANTHROPIC_VERSION: z.string().default('2023-06-01'),
+  OPENAI_API_KEY: z.string().min(1).optional(),
 
+  // ── Research (Tavily) ───────────────────────────────────────────
   TAVILY_API_KEY: z.string().min(1),
   TAVILY_SEARCH_URL: z.string().url().default('https://api.tavily.com/search'),
   TAVILY_SEARCH_DEPTH: z.enum(['basic', 'advanced']).default('advanced'),
   TAVILY_MAX_RESULTS: z.coerce.number().int().min(1).max(20).default(8),
 
-  // ElevenLabs (optional — module-level feature flag via presence of key)
+  // ── ElevenLabs (optional — module-level feature flag via presence of key)
   ELEVENLABS_API_KEY: z.string().optional(),
   ELEVENLABS_VOICE_ID: z.string().default('Rachel'),
 });

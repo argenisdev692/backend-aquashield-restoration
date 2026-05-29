@@ -12,6 +12,7 @@ export class CompanyDataRepository {
       id: row.id,
       name: row.name,
       companyName: row.companyName,
+      taxId: row.taxId,
       signaturePath: row.signaturePath,
       email: row.email,
       phone: row.phone,
@@ -57,6 +58,7 @@ export class CompanyDataRepository {
     data: Partial<{
       name: string | null;
       companyName: string;
+      taxId: string | null;
       email: string | null;
       phone: string | null;
       address: string | null;

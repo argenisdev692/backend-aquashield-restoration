@@ -1,5 +1,6 @@
 import { Appointment } from '../entities/appointment.aggregate';
 import type { TrashedMode } from '../../../../shared/crud/trashed.util';
+import type { DateRange } from '../../../../shared/crud/date-range.util';
 
 export interface AppointmentReadModel {
   id: string;
@@ -39,6 +40,8 @@ export interface AppointmentFilters {
   limit?: number;
   /** Soft-delete visibility — Laravel-style. Defaults to `exclude`. */
   trashed?: TrashedMode;
+  /** Date-range filter on `createdAt` (inclusive window). */
+  range?: DateRange;
 }
 
 export interface PaginatedResult<T> {

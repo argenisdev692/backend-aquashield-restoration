@@ -1,4 +1,9 @@
 import { z } from 'zod';
+import {
+  dateRangeShape,
+  rejectInvertedDateRange,
+  INVERTED_DATE_RANGE_ERROR,
+} from '../../../../shared/crud/date-range.util';
 
 /**
  * Zod schema for POST /campaigns/exports/export
@@ -6,14 +11,15 @@ import { z } from 'zod';
  *
  * This is a privileged, auditable operation (expensive + contains business data).
  */
-export const ExportCampaignExportsSchema = z.object({
-  format: z.enum(['csv', 'xlsx', 'pdf']).default('csv'),
-  status: z
-    .enum(['pending', 'processing', 'completed', 'failed', 'partial'])
-    .optional(),
-  from: z.string().datetime().optional(),
-  to: z.string().datetime().optional(),
-});
+export const ExportCampaignExportsSchema = z
+  .object({
+    format: z.enum(['csv', 'xlsx', 'pdf']).default('csv'),
+    status: z
+      .enum(['pending', 'processing', 'completed', 'failed', 'partial'])
+      .optional(),
+    ...dateRangeShape,
+  })
+  .refine(rejectInvertedDateRange, INVERTED_DATE_RANGE_ERROR);
 
 export type ExportCampaignExportsInput = z.infer<
   typeof ExportCampaignExportsSchema

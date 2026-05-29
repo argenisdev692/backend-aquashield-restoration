@@ -1,4 +1,8 @@
 import { FunnelStage } from '../value-objects/funnel-stage.vo';
+import type {
+  CampaignScores,
+  ScoreWeakness,
+} from '../value-objects/campaign-scores.vo';
 
 /**
  * Structured data returned by the stage export generator (Gemini).
@@ -35,6 +39,8 @@ export interface GeneratedStageContent {
   };
   scenes: GeneratedScene[];
   productionNotes: ProductionNotes;
+  /** The 5 quality scores the AI self-assigned for this attempt. */
+  scores: CampaignScores;
 }
 
 /**
@@ -44,6 +50,9 @@ export interface GenerateStageExportInput {
   companyName: string; // immutable snapshot resolved from CompanyData at request time
   niche: string;
   location: string;
+  city?: string;
+  state?: string;
+  country?: string;
   phone: string;
   website?: string;
   stage: FunnelStage;
@@ -52,7 +61,16 @@ export interface GenerateStageExportInput {
   language: string;
   generateImages: boolean;
   aiObservations?: string | null;
+  /** Selected topic id from Step 1 (generate-topics), if any. */
+  topicId?: string | null;
   viralityRecommendations?: string[];
+  // ── Quality-loop feedback (see prompt-campaigns-generator-v2.md) ──
+  /** Current iteration (1-based). Defaults to 1. */
+  iteration?: number;
+  /** Scores from the previous failed attempt (iteration > 1). */
+  previousScores?: CampaignScores | null;
+  /** Specific weaknesses to target on this iteration. */
+  weaknesses?: ScoreWeakness[];
 }
 
 /**

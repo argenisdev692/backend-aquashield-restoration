@@ -38,7 +38,7 @@ describe('GetBackupsListHandler', () => {
       findAllForExport: jest.fn(),
       findCompletedBeyond: jest.fn(),
       delete: jest.fn(),
-    } as jest.Mocked<IBackupRepository>;
+    };
 
     handler = new GetBackupsListHandler(repo, mockLogger(), mockCls());
   });

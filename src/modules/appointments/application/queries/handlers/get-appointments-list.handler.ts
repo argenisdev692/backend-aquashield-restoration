@@ -11,6 +11,7 @@ import type {
 import { LoggerService } from '../../../../../logger/logger.service';
 import { ClsService } from 'nestjs-cls';
 import { resolveTrashedMode } from '../../../../../shared/crud/trashed.util';
+import { resolveDateRange } from '../../../../../shared/crud/date-range.util';
 
 @Injectable()
 @QueryHandler(GetAppointmentsListQuery)
@@ -40,6 +41,7 @@ export class GetAppointmentsListHandler implements IQueryHandler<GetAppointments
         withTrashed: query.dto.withTrashed,
         onlyTrashed: query.dto.onlyTrashed,
       }),
+      range: query.range,
     };
 
     return this.repo.findAll(filters);

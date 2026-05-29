@@ -74,7 +74,7 @@ describe('DeleteBackupHandler', () => {
       findAllForExport: jest.fn(),
       findCompletedBeyond: jest.fn(),
       delete: jest.fn().mockResolvedValue(undefined),
-    } as jest.Mocked<IBackupRepository>;
+    };
 
     storage = {
       uploadFromFile: jest.fn(),
@@ -84,7 +84,7 @@ describe('DeleteBackupHandler', () => {
 
     audit = {
       log: jest.fn().mockResolvedValue(undefined),
-    } as jest.Mocked<IAuditPort>;
+    };
 
     cache = {
       get: jest.fn(),

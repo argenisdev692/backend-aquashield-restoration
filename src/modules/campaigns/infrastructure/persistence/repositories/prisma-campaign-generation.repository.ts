@@ -8,6 +8,7 @@ import type { ICampaignGenerationRepository } from '../../../domain/ports/campai
 import { CampaignGeneration } from '../../../domain/entities/campaign-generation.aggregate';
 import { CampaignGenerationMapper } from '../mappers/campaign-generation.mapper';
 import { StageExportResult } from '../../../domain/value-objects/stage-export-result.vo';
+import { buildDateRangeWhere, type DateRange } from '../../../../../shared/crud/date-range.util';
 
 /**
  * Prisma implementation of the CampaignGeneration repository.
@@ -66,7 +67,7 @@ export class PrismaCampaignGenerationRepository implements ICampaignGenerationRe
 
       // The caller (handler) is responsible for setting the ID on the in-memory aggregate
       // if it needs it afterwards. We return the id explicitly.
-      return created.id as string; // we will adjust the port signature in a follow-up edit
+      return created.id; // we will adjust the port signature in a follow-up edit
     }
   }
 
@@ -93,29 +94,43 @@ export class PrismaCampaignGenerationRepository implements ICampaignGenerationRe
 
   async findByUserId(
     userId: string,
-    options: { limit?: number; offset?: number; withTrashed?: boolean } = {},
-  ): Promise<CampaignGeneration[]> {
-    const { limit = 20, offset = 0, withTrashed = false } = options;
+    options: {
+      limit?: number;
+      offset?: number;
+      withTrashed?: boolean;
+      dateRange?: DateRange;
+    } = {},
+  ): Promise<{ data: CampaignGeneration[]; total: number }> {
+    const { limit = 20, offset = 0, withTrashed = false, dateRange } = options;
 
-    const where: Prisma.CampaignGenerationWhereInput = { userId };
+    const where: Prisma.CampaignGenerationWhereInput = {
+      userId,
+      ...buildDateRangeWhere(dateRange ?? {}, 'createdAt'),
+    };
     if (!withTrashed) {
       where.deletedAt = null;
     }
 
-    const rows = await this.prisma.campaignGeneration.findMany({
-      where,
-      include: {
-        stageExports: true,
-      },
-      orderBy: { createdAt: 'desc' },
-      take: limit,
-      skip: offset,
-    });
+    const [total, rows] = await Promise.all([
+      this.prisma.campaignGeneration.count({ where }),
+      this.prisma.campaignGeneration.findMany({
+        where,
+        include: {
+          stageExports: true,
+        },
+        orderBy: { createdAt: 'desc' },
+        take: limit,
+        skip: offset,
+      }),
+    ]);
 
-    return rows.map(
-      (r: Parameters<typeof CampaignGenerationMapper.toDomain>[0]) =>
-        CampaignGenerationMapper.toDomain(r),
-    );
+    return {
+      data: rows.map(
+        (r: Parameters<typeof CampaignGenerationMapper.toDomain>[0]) =>
+          CampaignGenerationMapper.toDomain(r),
+      ),
+      total,
+    };
   }
 
   async softDelete(id: string): Promise<void> {
@@ -125,9 +140,32 @@ export class PrismaCampaignGenerationRepository implements ICampaignGenerationRe
     });
   }
 
+  async hardDelete(id: string): Promise<void> {
+    // First delete child stage exports
+    await this.prisma.campaignStageExport.deleteMany({
+      where: { generationId: id },
+    });
+    // Then delete the main record
+    await this.prisma.campaignGeneration.delete({
+      where: { id },
+    });
+  }
+
+  async bulkHardDelete(ids: string[]): Promise<number> {
+    // Delete child stage exports first
+    await this.prisma.campaignStageExport.deleteMany({
+      where: { generationId: { in: ids } },
+    });
+    // Then delete main records
+    const result = await this.prisma.campaignGeneration.deleteMany({
+      where: { id: { in: ids } },
+    });
+    return result.count;
+  }
+
   async findForExport(
     userId: string,
-    filters: { status?: string; from?: Date; to?: Date } = {},
+    filters: { status?: string; dateRange?: DateRange } = {},
   ): Promise<
     Array<{
       id: string;
@@ -150,15 +188,11 @@ export class PrismaCampaignGenerationRepository implements ICampaignGenerationRe
     const where: Prisma.CampaignGenerationWhereInput = {
       userId,
       deletedAt: null,
+      ...buildDateRangeWhere(filters.dateRange ?? {}, 'createdAt'),
     };
 
     if (filters.status) {
       where.status = filters.status as CampaignGenerationStatus;
-    }
-    if (filters.from || filters.to) {
-      where.createdAt = {};
-      if (filters.from) where.createdAt.gte = filters.from;
-      if (filters.to) where.createdAt.lte = filters.to;
     }
 
     const rows = await this.prisma.campaignGeneration.findMany({

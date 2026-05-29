@@ -2,6 +2,7 @@ import { Injectable, Inject, NotFoundException } from '@nestjs/common';
 import { CommandHandler, ICommandHandler } from '@nestjs/cqrs';
 import { EventEmitter2 } from '@nestjs/event-emitter';
 import { ClsService } from 'nestjs-cls';
+import { Transactional } from '@nestjs-cls/transactional';
 import { DeleteSocialMediaCommand } from '../delete-social-media.command';
 import { SOCIAL_MEDIA_REPOSITORY } from '../../../domain/ports/social-media-repository.port';
 import type { ISocialMediaRepository } from '../../../domain/ports/social-media-repository.port';
@@ -29,6 +30,7 @@ export class DeleteSocialMediaHandler implements ICommandHandler<DeleteSocialMed
     this.logger.setContext(DeleteSocialMediaHandler.name);
   }
 
+  @Transactional()
   async execute(command: DeleteSocialMediaCommand): Promise<void> {
     const { id, actorId } = command;
     const traceId = this.cls.get<string>('traceId');

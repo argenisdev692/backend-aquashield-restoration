@@ -2,6 +2,7 @@ import { Injectable, Inject } from '@nestjs/common';
 import { CommandHandler, ICommandHandler } from '@nestjs/cqrs';
 import { EventEmitter2 } from '@nestjs/event-emitter';
 import { ClsService } from 'nestjs-cls';
+import { Transactional } from '@nestjs-cls/transactional';
 import { BulkDeleteSocialMediaCommand } from '../bulk-delete-social-media.command';
 import { SOCIAL_MEDIA_REPOSITORY } from '../../../domain/ports/social-media-repository.port';
 import type { ISocialMediaRepository } from '../../../domain/ports/social-media-repository.port';
@@ -29,6 +30,7 @@ export class BulkDeleteSocialMediaHandler implements ICommandHandler<BulkDeleteS
     this.logger.setContext(BulkDeleteSocialMediaHandler.name);
   }
 
+  @Transactional()
   async execute(
     command: BulkDeleteSocialMediaCommand,
   ): Promise<{ count: number }> {

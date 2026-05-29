@@ -77,10 +77,31 @@ import {
 } from '../../../application/dtos/generate-post-preview.dto';
 import { GeneratePostPreviewCommand } from '../../../application/commands/generate-post-preview.command';
 import { GeneratePostPreviewResponse } from '../presenters/generate-post-preview.response';
+import { GenerateSocialPostIdeasSchema } from '../../../application/dtos/generate-social-post-ideas.dto';
+import type { GenerateSocialPostIdeasDto } from '../../../application/dtos/generate-social-post-ideas.dto';
+import { GenerateSocialPostSchema } from '../../../application/dtos/generate-social-post.dto';
+import type { GenerateSocialPostDto } from '../../../application/dtos/generate-social-post.dto';
+import { GenerateSocialIdeasCommand } from '../../../application/commands/generate-social-ideas.command';
+import { GenerateSocialPostCommand } from '../../../application/commands/generate-social-post.command';
+import {
+  DownloadSocialZipQuery,
+  type SocialZipResult,
+} from '../../../application/queries/download-social-zip.query';
+import type { SocialIdeaSet } from '../../../domain/value-objects/social-content-idea.vo';
+import type { SocialGenerationResult } from '../../../application/social/social-generation.util';
+import {
+  GenerateSocialIdeasResponse,
+  toSocialIdeasResponse,
+} from '../presenters/generate-social-ideas.response';
+import {
+  GenerateSocialPostResponse,
+  toSocialPostResponse,
+} from '../presenters/generate-social-post.response';
 import type {
   PostReadModel,
   PaginatedResult,
 } from '../../../domain/repositories/post-repository.interface';
+import type { GeneratedPostPreview } from '../../../domain/value-objects/generated-post-preview.vo';
 import { PostResponse } from '../presenters/post.response';
 import { PostListResponse } from '../presenters/post-list.response';
 import { CreatePostResponse } from '../presenters/create-post.response';
@@ -149,7 +170,7 @@ export class PostsController {
     dto: CreatePostDto,
     @CurrentUser() user: AuthenticatedUser,
   ): Promise<CreatePostResponse> {
-    const id = await this.commandBus.execute(
+    const id = await this.commandBus.execute<CreatePostCommand, string>(
       new CreatePostCommand(dto, user.id),
     );
     return { id };
@@ -196,9 +217,10 @@ export class PostsController {
     dto: GeneratePostPreviewDto,
     @CurrentUser() user: AuthenticatedUser,
   ): Promise<GeneratePostPreviewResponse> {
-    const preview = await this.commandBus.execute(
-      new GeneratePostPreviewCommand(dto, user.id),
-    );
+    const preview = await this.commandBus.execute<
+      GeneratePostPreviewCommand,
+      GeneratedPostPreview
+    >(new GeneratePostPreviewCommand(dto, user.id));
     return {
       post_content: preview.postContent,
       post_title_slug: preview.postTitleSlug,
@@ -209,6 +231,134 @@ export class PostsController {
       generated_image_url: preview.generatedImageUrl,
       sources: preview.sources,
     };
+  }
+
+  @Post('social/generate-ideas')
+  @Throttle({ default: { limit: 10, ttl: 60_000 } })
+  @CheckAbilities({ action: Action.Create, subject: 'CONTENT' })
+  @ApiOperation({
+    summary: 'Generate 10 viral social media content ideas',
+    description:
+      'Generates 10 content ideas for social media platforms with virality, ROI, and EEAT scoring.\n\n' +
+      'Supports multiple AI providers (Gemini, Anthropic, OpenAI) based on configuration.\n\n' +
+      'Rate limited to 10 requests per 60 seconds.',
+  })
+  @ApiBody({
+    description: 'Content idea generation parameters',
+    examples: {
+      'Water restoration niche': {
+        value: {
+          niche: 'Restauración de agua',
+          audience: 'Propietarios de viviendas afectadas por inundaciones',
+          platforms: ['blog', 'linkedin', 'facebook'],
+          goal: 'leads',
+          voice: 'professional',
+          company: 'AquaShield Restoration',
+          provider: 'gemini',
+        },
+      },
+    },
+  })
+  @ApiOkResponse({ type: GenerateSocialIdeasResponse })
+  @ApiBadRequestResponse({ description: 'Validation failed' })
+  @ApiUnauthorizedResponse()
+  async generateSocialPostIdeas(
+    @Body(new ZodValidationPipe(GenerateSocialPostIdeasSchema))
+    dto: GenerateSocialPostIdeasDto,
+    @CurrentUser() user: AuthenticatedUser,
+  ): Promise<GenerateSocialIdeasResponse> {
+    const ideas = await this.commandBus.execute<
+      GenerateSocialIdeasCommand,
+      SocialIdeaSet
+    >(new GenerateSocialIdeasCommand(dto, user.id));
+    return toSocialIdeasResponse(ideas);
+  }
+
+  @Post('social/generate-post')
+  @Throttle({ default: { limit: 5, ttl: 60_000 } })
+  @CheckAbilities({ action: Action.Create, subject: 'CONTENT' })
+  @ApiOperation({
+    summary: 'Generate complete social media post with platform variations',
+    description:
+      'Generates a complete social media post with platform-specific variations, SEO metadata, and quality scores.\n\n' +
+      'Supports multiple AI providers (Gemini, Anthropic, OpenAI).\n\n' +
+      'Includes:\n' +
+      '- Platform variations (Blog, LinkedIn, Twitter/X, Newsletter, Facebook)\n' +
+      '- SEO metadata (meta tags, Open Graph, Twitter Cards, Schema.org JSON-LD)\n' +
+      '- Quality scores (Human Writing, EEAT, Virality, ROI, SEO)\n' +
+      '- Image generation prompts for Gemini Imagen\n\n' +
+      'Rate limited to 5 requests per 60 seconds.',
+  })
+  @ApiBody({
+    description: 'Post generation parameters',
+    examples: {
+      'Generate from selected idea': {
+        value: {
+          selectedIdea: {
+            id: 1,
+            title: '5 Signs Your Home Has Hidden Water Damage',
+            angle: 'Educational with urgency',
+            hook: 'Your home could be silently rotting right now',
+            platform: 'multi',
+            format: 'post',
+            key_trend: 'Home maintenance awareness',
+          },
+          audience: 'Homeowners',
+          goal: 'leads',
+          voice: 'professional',
+          company: 'AquaShield Restoration',
+          niche: 'Water damage restoration',
+          provider: 'gemini',
+        },
+      },
+    },
+  })
+  @ApiOkResponse({ type: GenerateSocialPostResponse })
+  @ApiBadRequestResponse({ description: 'Validation failed' })
+  @ApiUnauthorizedResponse()
+  async generateSocialPost(
+    @Body(new ZodValidationPipe(GenerateSocialPostSchema))
+    dto: GenerateSocialPostDto,
+    @CurrentUser() user: AuthenticatedUser,
+  ): Promise<GenerateSocialPostResponse> {
+    const result = await this.commandBus.execute<
+      GenerateSocialPostCommand,
+      SocialGenerationResult
+    >(new GenerateSocialPostCommand(dto, user.id));
+    return toSocialPostResponse(result);
+  }
+
+  @Post('social/:id/download-zip')
+  @Throttle({ default: { limit: 10, ttl: 60_000 } })
+  @CheckAbilities({ action: Action.Read, subject: 'CONTENT' })
+  @ApiOperation({
+    summary: 'Download a generated social-media package as a ZIP',
+    description:
+      'Streams a ZIP archive (content/, seo/, metadata/, images/, README) for a ' +
+      'previously generated social-media package. Owner-only.',
+  })
+  @ApiParam({ name: 'id', type: String, format: 'uuid' })
+  @ApiProduces('application/zip')
+  @ApiOkResponse({ description: 'Binary ZIP file' })
+  @ApiNotFoundResponse()
+  @ApiForbiddenResponse({ description: 'You do not own this generation' })
+  @SkipCache()
+  async downloadSocialZip(
+    @Param('id', ParseUUIDPipe) id: string,
+    @CurrentUser() user: AuthenticatedUser,
+    @Res({ passthrough: true }) res: Response,
+  ): Promise<StreamableFile> {
+    const result = await this.queryBus.execute<
+      DownloadSocialZipQuery,
+      SocialZipResult
+    >(new DownloadSocialZipQuery(id, user.id));
+
+    res.setHeader('Content-Type', result.contentType);
+    res.setHeader(
+      'Content-Disposition',
+      `attachment; filename="${result.filename}"`,
+    );
+    return new StreamableFile(result.buffer);
   }
 
   @Get()
@@ -244,6 +394,18 @@ export class PostsController {
     type: Boolean,
     description:
       'Return ONLY soft-deleted posts. Cannot be combined with `withTrashed`. Requires `Action.Restore`.',
+  })
+  @ApiQuery({
+    name: 'start_date',
+    required: false,
+    type: Date,
+    description: 'Filter by creation date (inclusive start).',
+  })
+  @ApiQuery({
+    name: 'end_date',
+    required: false,
+    type: Date,
+    description: 'Filter by creation date (inclusive end).',
   })
   @CacheTTL(TTL_SECONDS.SHORT)
   async findAll(
@@ -294,6 +456,18 @@ export class PostsController {
     type: Boolean,
     description:
       'Export ONLY soft-deleted posts. Cannot be combined with `withTrashed`. Requires `Action.Restore`.',
+  })
+  @ApiQuery({
+    name: 'start_date',
+    required: false,
+    type: Date,
+    description: 'Filter by creation date (inclusive start).',
+  })
+  @ApiQuery({
+    name: 'end_date',
+    required: false,
+    type: Date,
+    description: 'Filter by creation date (inclusive end).',
   })
   @SkipCache()
   async export(

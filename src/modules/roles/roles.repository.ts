@@ -104,7 +104,7 @@ export class RolesRepository {
     skip = 0,
     search?: string,
     trashed: TrashedMode = 'exclude',
-  ): Promise<Role[]> {
+  ): Promise<{ data: Role[]; total: number }> {
     const where: Prisma.RoleWhereInput = {
       ...buildTrashedWhere(trashed),
       ...(search
@@ -117,19 +117,25 @@ export class RolesRepository {
         : {}),
     };
 
-    const rows = await this.prisma.role.findMany({
-      where,
-      include: {
-        permissions: {
-          include: { permission: true },
+    const [total, rows] = await Promise.all([
+      this.prisma.role.count({ where }),
+      this.prisma.role.findMany({
+        where,
+        include: {
+          permissions: {
+            include: { permission: true },
+          },
         },
-      },
-      orderBy: { createdAt: 'desc' },
-      take: Math.min(limit, 100),
-      skip,
-    });
+        orderBy: { createdAt: 'desc' },
+        take: Math.min(limit, 100),
+        skip,
+      }),
+    ]);
 
-    return rows.map((row) => this.mapToEntity(row));
+    return {
+      data: rows.map((r) => this.mapToEntity(r)),
+      total,
+    };
   }
 
   async create(data: {

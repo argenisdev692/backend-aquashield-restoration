@@ -16,6 +16,7 @@ import {
   csvEscape,
   sheetEscape,
 } from '../../../../../shared/export/export.util';
+import { resolveDateRange } from '../../../../../shared/crud/date-range.util';
 
 const COLUMNS = [
   { header: 'id', key: 'id', width: 38 },
@@ -100,10 +101,14 @@ export class ExportCampaignExportsHandler implements IQueryHandler<
       status: dto.status,
     });
 
+    const dateRange = resolveDateRange({
+      start_date: dto.start_date,
+      end_date: dto.end_date,
+    });
+
     const rows = await this.campaignRepo.findForExport(actorId, {
       status: dto.status,
-      from: dto.from ? new Date(dto.from) : undefined,
-      to: dto.to ? new Date(dto.to) : undefined,
+      dateRange,
     });
 
     const result =
@@ -121,8 +126,8 @@ export class ExportCampaignExportsHandler implements IQueryHandler<
           format: dto.format,
           count: rows.length,
           status: dto.status ?? null,
-          from: dto.from ?? null,
-          to: dto.to ?? null,
+          start_date: dto.start_date ?? null,
+          end_date: dto.end_date ?? null,
         },
       },
       { strict: true },
@@ -145,9 +150,7 @@ export class ExportCampaignExportsHandler implements IQueryHandler<
     const body = rows
       .map((r) => {
         const row = toRow(r);
-        return COLUMNS.map((c) =>
-          csvEscape(row[c.key as keyof ExportRow]),
-        ).join(',');
+        return COLUMNS.map((c) => csvEscape(row[c.key])).join(',');
       })
       .join('\r\n');
 
@@ -186,7 +189,7 @@ export class ExportCampaignExportsHandler implements IQueryHandler<
       const row = toRow(r);
       const escaped: Record<string, string | number | boolean | null> = {};
       for (const c of COLUMNS) {
-        escaped[c.key] = sheetEscape(row[c.key as keyof ExportRow]);
+        escaped[c.key] = sheetEscape(row[c.key]);
       }
       sheet.addRow(escaped);
     }

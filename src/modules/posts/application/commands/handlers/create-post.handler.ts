@@ -97,7 +97,6 @@ export class CreatePostHandler implements ICommandHandler<CreatePostCommand> {
 
   private async persist(command: CreatePostCommand): Promise<string> {
     const { dto, actorId } = command;
-    const traceId = this.cls.get<string>('traceId');
 
     // Server-side sanitization (OWASP) for both manual and AI-generated content.
     // Rich Markdown/HTML is allowed only in postContent via a strict allowlist.

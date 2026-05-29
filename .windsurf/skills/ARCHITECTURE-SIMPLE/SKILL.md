@@ -271,11 +271,98 @@ If your module needs **any** of the following, stop and switch to `.windsurf/ski
 | Transactional writes (`runInTx`) | DEFAULT § "Canonical Mutation Pattern" |
 | R2 / storage compound writes | DEFAULT § "Canonical Mutation Pattern" |
 | Bulk delete / bulk restore | DEFAULT § "Bulk Delete / Bulk Restore (flat CRUD)" |
-| Soft-delete visibility (`withTrashed` / `onlyTrashed`) | DEFAULT § "Soft-delete visibility" |
+| Soft-delete visibility (`status=active\|suspended\|all`, `withTrashed`, `onlyTrashed`) | DEFAULT § "Soft-delete visibility" |
 | Users & Auth response shape (`roles[]` + `permissions[]`) | DEFAULT § "Users & Auth response shape" |
 | Export (XLSX / PDF / CSV) | DEFAULT § Examples (`GET /{module}/export`) |
 
 A SIMPLE module that adopts any of these features without migrating to DEFAULT is a documentation violation (mixed-tier).
+
+---
+
+## 📅 Date-range filter — `start_date` / `end_date` (SIMPLE)
+
+> **Allowed in SIMPLE.** A between-dates filter is a pure read-side `where` clause — no cache, no audit, no transaction. It does NOT trigger an upgrade to DEFAULT. Most SIMPLE modules (lookups, statuses, configs) will never need it; modules with a `createdAt` timeline worth slicing (e.g. a small event log, a "recently added tags" list) MAY adopt it.
+
+### Contract
+
+```http
+GET /{module}?start_date=2024-01-01&end_date=2024-01-31  → inclusive window
+GET /{module}?start_date=2024-02-01&end_date=2024-01-01  → 400 BadRequest
+```
+
+- Both bounds **optional** and **inclusive**. Empty strings normalise to absent.
+- Applies to the list route only. SIMPLE has no `/export`, no bulk, no `/trash` — nothing else to wire.
+- Identity lookups (`GET /{module}/:id`) IGNORE the filter.
+
+### DTO + Service + Repository
+
+```typescript
+// dto/{module}-list-query.dto.ts
+import {
+  dateRangeShape,
+  rejectInvertedDateRange,
+  INVERTED_DATE_RANGE_ERROR,
+} from '../../../shared/crud/date-range.util';
+
+export const CategoriesListQuerySchema = z
+  .object({
+    page: z.coerce.number().int().positive().default(1),
+    limit: z.coerce.number().int().min(1).max(100).default(20),
+    ...dateRangeShape,
+  })
+  .refine(rejectInvertedDateRange, INVERTED_DATE_RANGE_ERROR);
+
+export class CategoriesListQueryDto extends createZodDto(CategoriesListQuerySchema) {}
+```
+
+```typescript
+// {module}.service.ts
+import { resolveDateRange } from '../../shared/crud/date-range.util';
+
+findAll(query: CategoriesListQueryDto): Promise<Category[]> {
+  const range = resolveDateRange({
+    start_date: query.start_date,
+    end_date: query.end_date,
+  });
+  return this.repository.findAll({ page: query.page, limit: query.limit, range });
+}
+```
+
+```typescript
+// {module}.repository.ts
+import {
+  buildDateRangeWhere,
+  type DateRange,
+} from '../../shared/crud/date-range.util';
+
+async findAll(params: { page: number; limit: number; range: DateRange }): Promise<Category[]> {
+  const where: Prisma.CategoryWhereInput = {
+    ...buildDateRangeWhere(params.range),               // defaults to createdAt
+  };
+  const rows = await this.prisma.category.findMany({
+    where,
+    orderBy: { createdAt: 'desc' },
+    skip: (params.page - 1) * params.limit,
+    take: Math.min(params.limit, 100),
+  });
+  return rows.map((r) => this.toEntity(r));
+}
+```
+
+### Rules — date-range filter (SIMPLE)
+
+```
+✅ Use `dateRangeShape` + `rejectInvertedDateRange` — NEVER re-roll the schema per module
+✅ Pass the resolved `DateRange` into the repository; call `buildDateRangeWhere(range, column?)` ONCE
+✅ Repository default column is `createdAt`; override per module when the natural timeline differs
+
+❌ Adopting the filter on a SIMPLE module that doesn't have a meaningful timeline (e.g. role names, country codes) — drop it
+❌ `z.coerce.date()` directly — always use `dateQuery` / `dateRangeShape`
+❌ Date filtering in JS with `.filter(...)` — push into Prisma `where`
+❌ Wiring `start_date` / `end_date` into `GET /{module}/:id` — identity lookups ignore the filter
+```
+
+> If the module simultaneously needs date-range filtering AND cache/audit/exports/bulk — that's a DEFAULT module, not a SIMPLE one. Don't bolt cache on; upgrade.
 
 ---
 
@@ -351,7 +438,7 @@ Escalate to `.windsurf/skills/ARCHITECTURE-DEFAULT/SKILL.md` when ANY of the fol
 - Module needs `IAuditPort` (audit logging in mutations)
 - Module needs exports (Excel / CSV / PDF)
 - Module needs bulk delete / bulk restore (UI multi-select)
-- Module needs soft delete visibility (`withTrashed` / `onlyTrashed`)
+- Module needs soft delete visibility (`?status=active|suspended|all`, or the raw `withTrashed` / `onlyTrashed` aliases)
 - Module needs the Users & Auth response shape (`roles[]` + `permissions[]`)
 - Module needs storage compound writes (R2 upload + DB update)
 - Module has >5 fields

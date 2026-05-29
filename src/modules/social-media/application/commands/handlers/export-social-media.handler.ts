@@ -16,6 +16,7 @@ import {
   csvEscape,
   sheetEscape,
 } from '../../../../../shared/export/export.util';
+import { resolveDateRange } from '../../../../../shared/crud/date-range.util';
 import type { SocialMediaGeneration } from '../../../domain/entities/social-media-generation.entity';
 import ExcelJS from 'exceljs';
 import PDFDocument from 'pdfkit';
@@ -74,13 +75,17 @@ export class ExportSocialMediaHandler implements ICommandHandler<ExportSocialMed
       format: dto.format,
     });
 
+    const dateRange = resolveDateRange({
+      start_date: dto.start_date,
+      end_date: dto.end_date,
+    });
+
     const { data } = await this.repo.findAll(
       {
         niche: dto.niche,
         language: dto.language,
         network: dto.network,
-        from: dto.from ? new Date(dto.from) : undefined,
-        to: dto.to ? new Date(dto.to) : undefined,
+        dateRange,
       },
       1,
       5000,
@@ -121,7 +126,7 @@ export class ExportSocialMediaHandler implements ICommandHandler<ExportSocialMed
     const body = rows
       .map((r) => {
         const row = toRow(r);
-        return COLUMNS.map((c) => csvEscape(row[c.key as keyof Row])).join(',');
+        return COLUMNS.map((c) => csvEscape(row[c.key])).join(',');
       })
       .join('\r\n');
     const csv =

@@ -10,6 +10,7 @@ import {
   buildTrashedWhere,
   type TrashedMode,
 } from '../../../../../shared/crud/trashed.util';
+import { buildDateRangeWhere, type DateRange } from '../../../../../shared/crud/date-range.util';
 
 @Injectable()
 export class PrismaUserRepository implements IUserRepository {
@@ -40,9 +41,11 @@ export class PrismaUserRepository implements IUserRepository {
     take: number;
     search?: string;
     trashed?: TrashedMode;
+    range?: DateRange;
   }): Promise<{ users: User[]; total: number }> {
     const where: Prisma.UserWhereInput = {
       ...buildTrashedWhere(params.trashed ?? 'exclude'),
+      ...(params.range ? buildDateRangeWhere(params.range, 'createdAt') : {}),
     };
 
     if (params.search) {
@@ -197,6 +200,7 @@ export class PrismaUserRepository implements IUserRepository {
           select: {
             id: true,
             name: true,
+            description: true,
             permissions: {
               select: {
                 permission: { select: { action: true, subject: true } },
@@ -244,7 +248,11 @@ export class PrismaUserRepository implements IUserRepository {
       const bucket = access.get(row.userId);
       const perms = permIndex.get(row.userId);
       if (!bucket || !perms) continue;
-      bucket.roles.push({ id: row.role.id, name: row.role.name });
+      bucket.roles.push({
+        id: row.role.id,
+        name: row.role.name,
+        description: row.role.description,
+      });
       for (const rp of row.role.permissions) {
         const { action, subject } = rp.permission;
         perms.set(dedupeKey(action, subject), { action, subject });

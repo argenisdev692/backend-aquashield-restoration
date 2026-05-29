@@ -5,6 +5,11 @@ import {
   rejectBothTrashedFlags,
   BOTH_TRASHED_FLAGS_ERROR,
 } from '../../../../shared/crud/trashed.util';
+import {
+  dateRangeShape,
+  rejectInvertedDateRange,
+  INVERTED_DATE_RANGE_ERROR,
+} from '../../../../shared/crud/date-range.util';
 
 export const ExportPostsSchema = z
   .object({
@@ -14,8 +19,11 @@ export const ExportPostsSchema = z
     userId: z.string().uuid().optional(),
     search: z.string().optional(),
     ...trashedFlagsShape,
+    // Date range filter (inclusive, optional).
+    ...dateRangeShape,
   })
-  .refine(rejectBothTrashedFlags, BOTH_TRASHED_FLAGS_ERROR);
+  .refine(rejectBothTrashedFlags, BOTH_TRASHED_FLAGS_ERROR)
+  .refine(rejectInvertedDateRange, INVERTED_DATE_RANGE_ERROR);
 
 export class ExportPostsDto extends createZodDto(ExportPostsSchema) {}
 

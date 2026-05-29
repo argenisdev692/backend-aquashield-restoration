@@ -1,5 +1,6 @@
 import type { User } from '../entities/user.aggregate';
 import type { TrashedMode } from '../../../../shared/crud/trashed.util';
+import type { DateRange } from '../../../../shared/crud/date-range.util';
 import type { UserAccess } from '../projections/user-access.projection';
 
 export interface UserRow {
@@ -47,6 +48,7 @@ export interface IUserRepository {
     take: number;
     search?: string;
     trashed?: TrashedMode;
+    range?: DateRange;
   }): Promise<{ users: User[]; total: number }>;
   create(user: User): Promise<User>;
   save(user: User): Promise<void>;

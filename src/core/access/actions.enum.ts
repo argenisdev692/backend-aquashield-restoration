@@ -42,6 +42,18 @@ export interface AuthenticatedUser {
    * legacy tokens issued before the field was embedded.
    */
   roleNames: string[];
+  /**
+   * AuthSession id (auth_sessions row) from the JWT `sid` claim. Lets logout
+   * and session-revocation use-cases target the exact calling session
+   * without scanning the user's sessions. Optional for legacy tokens.
+   */
+  sessionId?: string;
+  /**
+   * `true` when the access token was issued after a 2FA challenge OR for an
+   * account that does not have 2FA enabled. Used by `TwoFactorRequiredGuard`
+   * to block sensitive routes while a user is mid-challenge.
+   */
+  twoFactorSatisfied?: boolean;
 }
 
 /** Raw permission row shape shared by both repository queries. */

@@ -21,6 +21,8 @@ import { BulkDeleteSocialMediaCommand } from './application/commands/bulk-delete
 import { BulkDeleteSocialMediaHandler } from './application/commands/handlers/bulk-delete-social-media.handler';
 import { ExportSocialMediaCommand } from './application/commands/export-social-media.command';
 import { ExportSocialMediaHandler } from './application/commands/handlers/export-social-media.handler';
+import { DownloadZipCommand } from './application/commands/download-zip.command';
+import { DownloadZipHandler } from './application/commands/handlers/download-zip.handler';
 
 // Application - Queries
 import { FindTopicsQuery } from './application/queries/find-topics.query';
@@ -63,6 +65,7 @@ const CommandHandlers = [
   DeleteSocialMediaHandler,
   BulkDeleteSocialMediaHandler,
   ExportSocialMediaHandler,
+  DownloadZipHandler,
 ];
 
 const QueryHandlers = [

@@ -20,7 +20,7 @@ describe('ExportCampaignExportsHandler', () => {
 
     handler = new ExportCampaignExportsHandler(
       campaignRepo as any,
-      audit as any,
+      audit,
       logger as any,
       cls as any,
     );
@@ -71,19 +71,24 @@ describe('ExportCampaignExportsHandler', () => {
     expect(result.filename).toMatch(/^campaign-exports-.*\.pdf$/);
   });
 
-  it('should pass filters to repository', async () => {
+  it('should pass status + resolved date range to repository', async () => {
     const dto = {
       format: 'csv' as const,
       status: 'completed' as const,
-      from: '2025-01-01T00:00:00Z',
-      to: '2025-06-01T00:00:00Z',
+      start_date: '2025-01-01',
+      end_date: '2025-06-01',
     };
     await handler.execute(new ExportCampaignExportsQuery(dto, 'user-1'));
 
-    expect(campaignRepo.findForExport).toHaveBeenCalledWith('user-1', {
-      status: 'completed',
-      from: new Date('2025-01-01T00:00:00Z'),
-      to: new Date('2025-06-01T00:00:00Z'),
-    });
+    expect(campaignRepo.findForExport).toHaveBeenCalledWith(
+      'user-1',
+      expect.objectContaining({
+        status: 'completed',
+        dateRange: expect.objectContaining({
+          startDate: expect.anything(),
+          endDate: expect.anything(),
+        }),
+      }),
+    );
   });
 });

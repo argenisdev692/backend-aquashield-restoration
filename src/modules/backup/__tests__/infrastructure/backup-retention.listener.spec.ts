@@ -44,7 +44,7 @@ describe('BackupRetentionListener', () => {
       findAllForExport: jest.fn(),
       findCompletedBeyond: jest.fn(),
       delete: jest.fn().mockResolvedValue(undefined),
-    } as jest.Mocked<IBackupRepository>;
+    };
 
     storage = {
       uploadFromFile: jest.fn(),

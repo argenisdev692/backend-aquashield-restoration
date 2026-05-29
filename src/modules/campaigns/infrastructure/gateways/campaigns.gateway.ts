@@ -69,8 +69,9 @@ export class CampaignsGateway
         } else {
           const userId = client.data.userId;
           if (userId) void client.join(`user:${userId}`);
-          // Admin room for monitoring (optional, can be gated later via roles)
-          void client.join('campaigns:admin');
+          // NOTE: no global "campaigns:admin" room — every authenticated socket
+          // must NOT receive other users' progress. Admin monitoring, if ever
+          // needed, must be gated behind a role check before joining.
           resolve();
         }
       });

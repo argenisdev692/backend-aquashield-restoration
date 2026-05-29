@@ -18,7 +18,7 @@ export class PostMapper {
       row.metaKeywords,
       row.categoryId,
       row.userId,
-      row.postStatus as 'draft' | 'published' | 'scheduled',
+      row.postStatus,
       row.scheduledAt,
     );
   }
@@ -38,8 +38,7 @@ export class PostMapper {
       categoryId: plain.categoryId,
       userId: plain.userId,
       postStatus:
-        $Enums.PostStatus[plain.postStatus as keyof typeof $Enums.PostStatus] ??
-        $Enums.PostStatus.draft,
+        $Enums.PostStatus[plain.postStatus] ?? $Enums.PostStatus.draft,
       scheduledAt: plain.scheduledAt,
     };
   }
@@ -62,7 +61,7 @@ export class PostMapper {
       metaKeywords: row.metaKeywords,
       categoryId: row.categoryId,
       userId: row.userId,
-      postStatus: row.postStatus as 'draft' | 'published' | 'scheduled',
+      postStatus: row.postStatus,
       scheduledAt: row.scheduledAt ? row.scheduledAt.toISOString() : null,
       createdAt: row.createdAt.toISOString(),
       updatedAt: row.updatedAt.toISOString(),

@@ -268,7 +268,7 @@ export class CampaignGeneration {
   }
 
   private addDomainEvent(event: unknown): void {
-    (this._domainEvents as unknown[]).push(event);
+    this._domainEvents.push(event);
   }
 
   clearDomainEvents(): void {

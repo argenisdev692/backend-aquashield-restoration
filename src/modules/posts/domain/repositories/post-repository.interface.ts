@@ -1,5 +1,6 @@
 import { Post } from '../entities/post.aggregate';
 import type { TrashedMode } from '../../../../shared/crud/trashed.util';
+import type { DateRange } from '../../../../shared/crud/date-range.util';
 
 export interface PostReadModel {
   id: string;
@@ -31,6 +32,8 @@ export interface PostFilters {
   limit?: number;
   /** Soft-delete visibility — Laravel-style. Defaults to `exclude`. */
   trashed?: TrashedMode;
+  /** Inclusive date range on `createdAt`. */
+  range?: DateRange;
 }
 
 export interface PaginatedResult<T> {

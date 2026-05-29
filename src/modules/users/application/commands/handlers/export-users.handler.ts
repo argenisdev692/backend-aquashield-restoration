@@ -10,6 +10,7 @@ import type { IAuditPort } from '../../../../../shared/activity-log/audit.port';
 import { AUDIT_PORT } from '../../../../../shared/activity-log/audit.port';
 import { formatPhonePretty } from '../../../../../shared/phone/phone.util';
 import { resolveTrashedMode } from '../../../../../shared/crud/trashed.util';
+import { resolveDateRange } from '../../../../../shared/crud/date-range.util';
 import { sheetEscape } from '../../../../../shared/export/export.util';
 import { ExportUsersCommand } from '../export-users.command';
 
@@ -31,13 +32,18 @@ export class ExportUsersHandler implements ICommandHandler<ExportUsersCommand> {
       withTrashed: query.withTrashed,
       onlyTrashed: query.onlyTrashed,
     });
-    this.logger.info('ExportUsersHandler start', { traceId, format, trashed });
+    const range = resolveDateRange({
+      start_date: query.start_date,
+      end_date: query.end_date,
+    });
+    this.logger.info('ExportUsersHandler start', { traceId, format, trashed, range });
 
     const { users } = await this.userRepo.findAll({
       skip: 0,
       take: 10_000,
       search: query.search,
       trashed,
+      range,
     });
 
     const rows = users.map((u) => ({

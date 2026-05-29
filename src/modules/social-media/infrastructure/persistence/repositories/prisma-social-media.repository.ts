@@ -12,6 +12,7 @@ import type {
 } from '../../../domain/entities/social-media-generation.entity';
 import type { SocialMediaGenerationAggregate } from '../../../domain/entities/social-media-generation.aggregate';
 import { SocialMediaMapper } from '../mappers/social-media.mapper';
+import { buildDateRangeWhere } from '../../../../../shared/crud/date-range.util';
 
 @Injectable()
 export class PrismaSocialMediaRepository implements ISocialMediaRepository {
@@ -50,19 +51,15 @@ export class PrismaSocialMediaRepository implements ISocialMediaRepository {
     page: number,
     limit: number,
   ): Promise<PaginatedSocialMediaGenerations> {
-    const where: Prisma.SocialMediaGenerationWhereInput = {};
+    const where: Prisma.SocialMediaGenerationWhereInput = {
+      ...buildDateRangeWhere(filters.dateRange ?? {}, 'createdAt'),
+    };
 
     if (filters.userId) where.userId = filters.userId;
     if (filters.niche) {
       where.niche = { contains: filters.niche, mode: 'insensitive' };
     }
     if (filters.language) where.language = filters.language;
-
-    if (filters.from || filters.to) {
-      where.createdAt = {};
-      if (filters.from) where.createdAt.gte = filters.from;
-      if (filters.to) where.createdAt.lte = filters.to;
-    }
 
     // Note: network filter is applied in memory after query (JSONB column)
     const skip = (page - 1) * limit;

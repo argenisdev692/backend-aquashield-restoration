@@ -6,6 +6,7 @@ import type { IUserRepository } from '../../../domain/repositories/user.reposito
 import { USER_REPOSITORY } from '../../../domain/repositories/user.repository.interface';
 import type { UserReadModel } from '../../../application/read-models/user.read-model';
 import { resolveTrashedMode } from '../../../../../shared/crud/trashed.util';
+import { resolveDateRange } from '../../../../../shared/crud/date-range.util';
 import { GetUsersListQuery } from '../get-users-list.query';
 
 export interface PaginatedUsers {
@@ -30,7 +31,11 @@ export class GetUsersListHandler implements IQueryHandler<GetUsersListQuery> {
       withTrashed: query.query.withTrashed,
       onlyTrashed: query.query.onlyTrashed,
     });
-    this.logger.info('GetUsersListHandler', { traceId, trashed });
+    const range = resolveDateRange({
+      start_date: query.query.start_date,
+      end_date: query.query.end_date,
+    });
+    this.logger.info('GetUsersListHandler', { traceId, trashed, range });
 
     const skip = (query.query.page - 1) * query.query.limit;
     const { users, total } = await this.userRepo.findAll({
@@ -38,6 +43,7 @@ export class GetUsersListHandler implements IQueryHandler<GetUsersListQuery> {
       take: query.query.limit,
       search: query.query.search,
       trashed,
+      range,
     });
 
     // Batched access fetch — 2 SQL total regardless of page size.

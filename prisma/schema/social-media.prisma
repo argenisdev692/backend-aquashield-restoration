@@ -11,6 +11,9 @@ model SocialMediaGeneration {
   viralityScore    Float?   @map("virality_score")
   roiScore         Float?   @map("roi_score")
   aiDetectionScore Json?    @map("ai_detection_score") @db.JsonB
+  qualityScores    Json?    @map("quality_scores") @db.JsonB
+  qualityWarning   Boolean  @default(false) @map("quality_warning")
+  iterationsRequired Int     @default(1) @map("iterations_required")
   analysisReportKey String?  @map("analysis_report_key") @db.VarChar(500)
   analysisReportUrl String?  @map("analysis_report_url") @db.VarChar(2048)
   createdAt        DateTime @default(now()) @map("created_at") @db.Timestamp(6)

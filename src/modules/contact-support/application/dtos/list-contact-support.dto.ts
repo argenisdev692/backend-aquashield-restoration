@@ -5,6 +5,11 @@ import {
   rejectBothTrashedFlags,
   BOTH_TRASHED_FLAGS_ERROR,
 } from '../../../../shared/crud/trashed.util';
+import {
+  dateRangeShape,
+  rejectInvertedDateRange,
+  INVERTED_DATE_RANGE_ERROR,
+} from '../../../../shared/crud/date-range.util';
 
 export const ListContactSupportSchema = z
   .object({
@@ -17,8 +22,11 @@ export const ListContactSupportSchema = z
       .transform((v) => (v === undefined ? undefined : v === 'true')),
     // Laravel-style soft-delete visibility (default: only active rows).
     ...trashedFlagsShape,
+    // Date range filter (inclusive, optional).
+    ...dateRangeShape,
   })
-  .refine(rejectBothTrashedFlags, BOTH_TRASHED_FLAGS_ERROR);
+  .refine(rejectBothTrashedFlags, BOTH_TRASHED_FLAGS_ERROR)
+  .refine(rejectInvertedDateRange, INVERTED_DATE_RANGE_ERROR);
 
 export class ListContactSupportDto extends createZodDto(
   ListContactSupportSchema,

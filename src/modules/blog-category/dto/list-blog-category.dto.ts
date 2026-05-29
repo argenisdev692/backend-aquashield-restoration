@@ -5,6 +5,11 @@ import {
   rejectBothTrashedFlags,
   BOTH_TRASHED_FLAGS_ERROR,
 } from '../../../shared/crud/trashed.util';
+import {
+  dateRangeShape,
+  rejectInvertedDateRange,
+  INVERTED_DATE_RANGE_ERROR,
+} from '../../../shared/crud/date-range.util';
 
 /**
  * `GET /blog-categories` list query.
@@ -20,8 +25,10 @@ export const ListBlogCategoryQuerySchema = z
     skip: z.coerce.number().int().min(0).optional(),
     withTrashed: stringBoolean.optional(),
     onlyTrashed: stringBoolean.optional(),
+    ...dateRangeShape,
   })
-  .refine(rejectBothTrashedFlags, BOTH_TRASHED_FLAGS_ERROR);
+  .refine(rejectBothTrashedFlags, BOTH_TRASHED_FLAGS_ERROR)
+  .refine(rejectInvertedDateRange, INVERTED_DATE_RANGE_ERROR);
 
 export class ListBlogCategoryQueryDto extends createZodDto(
   ListBlogCategoryQuerySchema,
@@ -42,8 +49,10 @@ export const ExportBlogCategoryQuerySchema = z
     format: z.enum(['csv', 'xlsx', 'pdf']),
     withTrashed: stringBoolean.optional(),
     onlyTrashed: stringBoolean.optional(),
+    ...dateRangeShape,
   })
-  .refine(rejectBothTrashedFlags, BOTH_TRASHED_FLAGS_ERROR);
+  .refine(rejectBothTrashedFlags, BOTH_TRASHED_FLAGS_ERROR)
+  .refine(rejectInvertedDateRange, INVERTED_DATE_RANGE_ERROR);
 
 export class ExportBlogCategoryQueryDto extends createZodDto(
   ExportBlogCategoryQuerySchema,

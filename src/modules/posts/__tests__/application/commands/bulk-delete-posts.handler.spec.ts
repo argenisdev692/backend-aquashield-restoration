@@ -18,7 +18,6 @@ import {
   AUDIT_PORT,
 } from '../../../../../shared/activity-log/audit.port';
 import { CACHE_PORT, ICachePort } from '../../../../../shared/cache/cache.port';
-import { PostsBulkDeletedEvent } from '../../../domain/events/posts-bulk-deleted.domain-event';
 import { LoggerService } from '../../../../../logger/logger.service';
 
 describe('BulkDeletePostsHandler', () => {

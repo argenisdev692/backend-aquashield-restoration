@@ -1,45 +1,26 @@
-import { Injectable, OnModuleInit } from '@nestjs/common';
-import { ConfigService } from '@nestjs/config';
+import { Inject, Injectable } from '@nestjs/common';
 import { ClsService } from 'nestjs-cls';
-import { Resend } from 'resend';
 import { LoggerService } from '../../../../logger/logger.service';
+import { escapeHtml } from '../../../../shared/external/email/email-html.util';
+import { MAILER } from '../../../../shared/external/email/mailer.port';
+import type { IMailer } from '../../../../shared/external/email/mailer.port';
 import type { ISupportEmailPort } from '../../domain/ports/support-email.port';
 
-/** Escape untrusted text before interpolation into an HTML email body (OWASP #3). */
-function escapeHtml(value: string): string {
-  return value
-    .replace(/&/g, '&amp;')
-    .replace(/</g, '&lt;')
-    .replace(/>/g, '&gt;')
-    .replace(/"/g, '&quot;')
-    .replace(/'/g, '&#39;');
-}
-
-/** `true` when the address is on the example.com domain — never e-mailed. */
-function isExampleDomain(email: string): boolean {
-  const domain = email.toLowerCase().split('@').at(1) ?? '';
-  return domain === 'example.com' || domain.endsWith('.example.com');
-}
-
+/**
+ * Contact-support email templates.
+ *
+ * Builds notification + acknowledgement HTML and delegates delivery to the
+ * shared {@link IMailer}. Per-template logs preserve the previous behavior
+ * (admin notifications throw on failure, confirmations are best-effort).
+ */
 @Injectable()
-export class ResendSupportEmailAdapter
-  implements ISupportEmailPort, OnModuleInit
-{
-  private resend!: Resend;
-  private from!: string;
-
+export class ResendSupportEmailAdapter implements ISupportEmailPort {
   constructor(
-    private readonly config: ConfigService,
+    @Inject(MAILER) private readonly mailer: IMailer,
     private readonly logger: LoggerService,
     private readonly cls: ClsService,
   ) {
     this.logger.setContext(ResendSupportEmailAdapter.name);
-  }
-
-  onModuleInit(): void {
-    const apiKey = this.config.getOrThrow<string>('RESEND_API_KEY');
-    this.from = this.config.getOrThrow<string>('RESEND_FROM_EMAIL');
-    this.resend = new Resend(apiKey);
   }
 
   async notifyAdminsNewRequest(params: {
@@ -52,15 +33,6 @@ export class ResendSupportEmailAdapter
     message: string;
   }): Promise<void> {
     const traceId = this.cls.get<string>('traceId');
-    const recipients = params.adminEmails.filter((e) => !isExampleDomain(e));
-
-    if (recipients.length === 0) {
-      this.logger.warn(
-        'No mailable admin recipients (all empty or example.com) — skipping',
-        { traceId, requestId: params.requestId },
-      );
-      return;
-    }
 
     const safe = {
       fromName: escapeHtml(params.fromName),
@@ -99,26 +71,23 @@ export class ResendSupportEmailAdapter
       </div>
     `;
 
-    const { error } = await this.resend.emails.send({
-      from: this.from,
-      to: recipients,
+    const result = await this.mailer.send({
+      to: params.adminEmails,
       subject: `New message – contact support: ${params.subject}`,
       html,
     });
 
-    if (error) {
-      this.logger.error('Failed to send admin contact notification', {
-        traceId,
-        requestId: params.requestId,
-        error: error.message,
-      });
-      throw new Error(`Email delivery failed: ${error.message}`);
+    if (result.skipped) {
+      this.logger.warn(
+        'No mailable admin recipients (all empty or example.com) — skipped',
+        { traceId, requestId: params.requestId },
+      );
+      return;
     }
 
     this.logger.info('Admin contact notification sent', {
       traceId,
       requestId: params.requestId,
-      recipients: recipients.length,
     });
   }
 
@@ -128,14 +97,6 @@ export class ResendSupportEmailAdapter
     subject: string;
   }): Promise<void> {
     const traceId = this.cls.get<string>('traceId');
-
-    if (isExampleDomain(params.toEmail)) {
-      this.logger.info(
-        'Skipping submission confirmation (example.com address)',
-        { traceId },
-      );
-      return;
-    }
 
     const safe = {
       toName: escapeHtml(params.toName),
@@ -153,22 +114,19 @@ export class ResendSupportEmailAdapter
       </div>
     `;
 
-    const { error } = await this.resend.emails.send({
-      from: this.from,
-      to: params.toEmail,
-      subject: 'Message sent successfully',
-      html,
-    });
-
-    if (error) {
-      // A failed confirmation must not break the request flow — log and move on.
+    // Best-effort: a failed confirmation must NEVER break the request flow.
+    try {
+      await this.mailer.send({
+        to: params.toEmail,
+        subject: 'Message sent successfully',
+        html,
+      });
+      this.logger.info('Submission confirmation sent', { traceId });
+    } catch (error) {
       this.logger.warn('Failed to send submission confirmation', {
         traceId,
-        error: error.message,
+        error: error instanceof Error ? error.message : String(error),
       });
-      return;
     }
-
-    this.logger.info('Submission confirmation sent', { traceId });
   }
 }

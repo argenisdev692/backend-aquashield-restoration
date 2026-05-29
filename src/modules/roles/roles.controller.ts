@@ -82,8 +82,12 @@ export class RolesController {
   @ApiOkResponse({ type: [RoleResponseDto] })
   @SkipCache()
   @CheckAbilities({ action: Action.Restore, subject: 'ROLE' })
-  async findTrash(): Promise<Role[]> {
-    return this.service.findAll(100, 0, undefined, 'only');
+  async findTrash(): Promise<{ data: Role[]; total: number }> {
+    const result = await this.service.findAll(100, 0, undefined, 'only');
+    return {
+      data: result.data,
+      total: result.total,
+    };
   }
 
   @Get()
@@ -110,14 +114,18 @@ export class RolesController {
     @CurrentUser() actor: AuthenticatedUser,
     @Query(new ZodValidationPipe(RolesListQuerySchema))
     query: RolesListQueryDto,
-  ): Promise<Role[]> {
+  ): Promise<{ data: Role[]; total: number }> {
     await this.assertCanViewTombstones(actor, query);
     const skip = (query.page - 1) * query.limit;
     const trashed = resolveTrashedMode({
       withTrashed: query.withTrashed,
       onlyTrashed: query.onlyTrashed,
     });
-    return this.service.findAll(query.limit, skip, query.search, trashed);
+    const result = await this.service.findAll(query.limit, skip, query.search, trashed);
+    return {
+      data: result.data,
+      total: result.total,
+    };
   }
 
   @Get('export')

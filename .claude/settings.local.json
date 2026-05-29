@@ -28,7 +28,10 @@
       "Bash(powershell *)",
       "Bash(bash *)",
       "Bash(rmdir \"src/modules/backup/application/read-models\")",
-      "mcp__sequential-thinking__sequentialthinking"
+      "mcp__sequential-thinking__sequentialthinking",
+      "Bash(find . -iname \"prompt-social-media-generator*\" -not -path \"*/node_modules/*\")",
+      "Bash(find . -iname \"social-media-creator*\" -not -path \"*/node_modules/*\")",
+      "Bash(findstr /i \"redis socket ioredis\")"
     ]
   }
 }

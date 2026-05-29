@@ -7,12 +7,12 @@ jest.mock('@nestjs-cls/transactional', () => ({
 import { Test, TestingModule } from '@nestjs/testing';
 import { EventEmitter2 } from '@nestjs/event-emitter';
 import { ClsService } from 'nestjs-cls';
-import { BulkDeleteSocialMediaHandler } from '../../../../../application/commands/handlers/bulk-delete-social-media.handler';
-import { BulkDeleteSocialMediaCommand } from '../../../../../application/commands/bulk-delete-social-media.command';
+import { BulkDeleteSocialMediaHandler } from '../../../application/commands/handlers/bulk-delete-social-media.handler';
+import { BulkDeleteSocialMediaCommand } from '../../../application/commands/bulk-delete-social-media.command';
 import {
   ISocialMediaRepository,
   SOCIAL_MEDIA_REPOSITORY,
-} from '../../../../../domain/ports/social-media-repository.port';
+} from '../../../domain/ports/social-media-repository.port';
 import {
   IAuditPort,
   AUDIT_PORT,
@@ -29,6 +29,7 @@ describe('BulkDeleteSocialMediaHandler', () => {
   beforeEach(async () => {
     mockRepo = {
       save: jest.fn(),
+      update: jest.fn(),
       findById: jest.fn(),
       findAll: jest.fn(),
       delete: jest.fn(),
@@ -87,7 +88,7 @@ describe('BulkDeleteSocialMediaHandler', () => {
       }),
       { strict: true },
     );
-    expect(mockCache.delByPattern).toHaveBeenCalledWith('social-media:*');
+    expect(mockCache.delByPattern).toHaveBeenCalledWith('http:*:/social-media*');
     expect(result.count).toBe(2);
   });
 });

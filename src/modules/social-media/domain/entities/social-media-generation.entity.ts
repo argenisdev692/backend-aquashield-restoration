@@ -1,4 +1,9 @@
-export type SocialNetwork = 'facebook' | 'instagram' | 'tiktok' | 'linkedin';
+export type SocialNetwork =
+  | 'facebook'
+  | 'instagram'
+  | 'tiktok'
+  | 'linkedin'
+  | 'twitter';
 
 export interface GeneratedPostImage {
   /** Public URL after R2 upload (CDN) */
@@ -40,6 +45,15 @@ export interface SocialMediaGeneration {
   analysisReportKey?: string | null;
   analysisReportUrl?: string | null;
   createdAt: Date;
+  qualityScores?: {
+    human_writing_index: number;
+    virality_score: number;
+    engagement_score: number;
+    roi_score: number;
+    trend_alignment: number;
+  } | null;
+  qualityWarning?: boolean;
+  iterationsRequired?: number;
 }
 
 export interface CreateSocialMediaGenerationInput {

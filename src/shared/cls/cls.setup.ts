@@ -77,8 +77,8 @@ export function buildClsOptions(): ClsModuleOptions {
 
         // Expose to pino-http customProps (automatic request logging).
         try {
-          (req as ContextRequest).traceId = traceId;
-          (req as ContextRequest).correlationId = correlationId;
+          req.traceId = traceId;
+          req.correlationId = correlationId;
         } catch {
           // Ignore if request is not extensible
         }

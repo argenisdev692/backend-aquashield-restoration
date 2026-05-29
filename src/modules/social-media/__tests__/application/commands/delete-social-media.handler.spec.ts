@@ -1,12 +1,18 @@
+jest.mock('@nestjs-cls/transactional', () => ({
+  Transactional:
+    () => (_target: unknown, _key: string, descriptor: PropertyDescriptor) =>
+      descriptor,
+}));
+
 import { Test, TestingModule } from '@nestjs/testing';
 import { EventEmitter2 } from '@nestjs/event-emitter';
 import { ClsService } from 'nestjs-cls';
-import { DeleteSocialMediaHandler } from '../../../../../application/commands/handlers/delete-social-media.handler';
-import { DeleteSocialMediaCommand } from '../../../../application/commands/delete-social-media.command';
+import { DeleteSocialMediaHandler } from '../../../application/commands/handlers/delete-social-media.handler';
+import { DeleteSocialMediaCommand } from '../../../application/commands/delete-social-media.command';
 import {
   ISocialMediaRepository,
   SOCIAL_MEDIA_REPOSITORY,
-} from '../../../../domain/ports/social-media-repository.port';
+} from '../../../domain/ports/social-media-repository.port';
 import {
   IAuditPort,
   AUDIT_PORT,
@@ -23,6 +29,7 @@ describe('DeleteSocialMediaHandler', () => {
   beforeEach(async () => {
     mockRepo = {
       save: jest.fn(),
+      update: jest.fn(),
       findById: jest.fn(),
       findAll: jest.fn(),
       delete: jest.fn(),
@@ -103,6 +110,6 @@ describe('DeleteSocialMediaHandler', () => {
       }),
       { strict: true },
     );
-    expect(mockCache.delByPattern).toHaveBeenCalledWith('social-media:*');
+    expect(mockCache.delByPattern).toHaveBeenCalledWith('http:*:/social-media*');
   });
 });

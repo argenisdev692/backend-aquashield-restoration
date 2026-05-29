@@ -75,7 +75,7 @@ const makeService = (repo: ReturnType<typeof makeRepo>) =>
     cache as never,
     logger as never,
     cls as never,
-    audit as never,
+    audit,
     tx as never,
   );
 

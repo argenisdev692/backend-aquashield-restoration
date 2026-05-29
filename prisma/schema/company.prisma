@@ -7,6 +7,7 @@ model CompanyData {
   id            String    @id @default(dbgenerated("uuid_generate_v7()")) @db.Uuid
   name          String?   @db.VarChar(255)
   companyName   String    @map("company_name") @db.VarChar(255)
+  taxId         String?   @map("tax_id") @db.VarChar(50)
   signaturePath String?   @map("signature_path") @db.VarChar(255)
   email         String?   @db.VarChar(255)
   phone         String?   @db.VarChar(20)

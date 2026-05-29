@@ -10,6 +10,7 @@ import {
 } from '../../../domain/repositories/appointment-repository.interface';
 import { Appointment } from '../../../domain/entities/appointment.aggregate';
 import { buildTrashedWhere } from '../../../../../shared/crud/trashed.util';
+import { buildDateRangeWhere } from '../../../../../shared/crud/date-range.util';
 
 @Injectable()
 export class PrismaAppointmentRepository implements IAppointmentRepository {
@@ -59,10 +60,12 @@ export class PrismaAppointmentRepository implements IAppointmentRepository {
       page = 1,
       limit = 20,
       trashed = 'exclude',
+      range,
     } = filters;
 
     const where: Prisma.AppointmentWhereInput = {
       ...buildTrashedWhere(trashed),
+      ...buildDateRangeWhere(range ?? {}, 'createdAt'),
     };
 
     if (statusLead) {

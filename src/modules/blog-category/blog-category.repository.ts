@@ -9,6 +9,10 @@ import {
   buildTrashedWhere,
   type TrashedMode,
 } from '../../shared/crud/trashed.util';
+import {
+  buildDateRangeWhere,
+  type DateRange,
+} from '../../shared/crud/date-range.util';
 
 @Injectable()
 export class BlogCategoryRepository {
@@ -32,37 +36,47 @@ export class BlogCategoryRepository {
     limit = 50,
     skip = 0,
     trashed: TrashedMode = 'exclude',
-  ): Promise<BlogCategory[]> {
+    range?: DateRange,
+  ): Promise<{ data: BlogCategory[]; total: number }> {
     const where: Prisma.BlogCategoryWhereInput = {
       ...buildTrashedWhere(trashed),
+      ...(range ? buildDateRangeWhere(range) : {}),
       userId,
     };
-    const rows = await this.prisma.blogCategory.findMany({
-      where,
-      orderBy: { createdAt: 'desc' },
-      take: Math.min(limit, 100),
-      skip,
-      select: {
-        id: true,
-        name: true,
-        description: true,
-        image: true,
-        userId: true,
-        createdAt: true,
-        updatedAt: true,
-        deletedAt: true,
-      },
-    });
-    return rows.map((r) => this.mapToEntity(r));
+    const [total, rows] = await Promise.all([
+      this.prisma.blogCategory.count({ where }),
+      this.prisma.blogCategory.findMany({
+        where,
+        orderBy: { createdAt: 'desc' },
+        take: Math.min(limit, 100),
+        skip,
+        select: {
+          id: true,
+          name: true,
+          description: true,
+          image: true,
+          userId: true,
+          createdAt: true,
+          updatedAt: true,
+          deletedAt: true,
+        },
+      }),
+    ]);
+    return {
+      data: rows.map((r) => this.mapToEntity(r)),
+      total,
+    };
   }
 
   /** Uncapped reader for `/export` — single tenant scope. */
   async findAllForExport(
     userId: string,
     trashed: TrashedMode = 'exclude',
+    range?: DateRange,
   ): Promise<BlogCategory[]> {
     const where: Prisma.BlogCategoryWhereInput = {
       ...buildTrashedWhere(trashed),
+      ...(range ? buildDateRangeWhere(range) : {}),
       userId,
     };
     const rows = await this.prisma.blogCategory.findMany({

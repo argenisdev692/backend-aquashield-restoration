@@ -8,6 +8,7 @@ import type {
 } from '../../../domain/ports/social-media-repository.port';
 import { LoggerService } from '../../../../../logger/logger.service';
 import { ClsService } from 'nestjs-cls';
+import { resolveDateRange } from '../../../../../shared/crud/date-range.util';
 
 @QueryHandler(ListSocialMediaQuery)
 @Injectable()
@@ -29,14 +30,18 @@ export class ListSocialMediaHandler implements IQueryHandler<ListSocialMediaQuer
 
     this.logger.info('ListSocialMediaHandler start', { traceId, actorId });
 
+    const dateRange = resolveDateRange({
+      start_date: dto.start_date,
+      end_date: dto.end_date,
+    });
+
     const result = await this.repo.findAll(
       {
         userId: actorId, // scope to current user for privacy
         niche: dto.niche,
         language: dto.language,
         network: dto.network,
-        from: dto.from ? new Date(dto.from) : undefined,
-        to: dto.to ? new Date(dto.to) : undefined,
+        dateRange,
       },
       dto.page,
       dto.limit,

@@ -12,6 +12,10 @@ import { QUEUE_NAMES } from '../../shared/messaging/queues.constants';
 
 // Command Handlers
 import { RequestCampaignExportHandler } from './application/commands/handlers/request-campaign-export.handler';
+import { DeleteCampaignHandler } from './application/commands/handlers/delete-campaign.handler';
+import { BulkDeleteCampaignsHandler } from './application/commands/handlers/bulk-delete-campaigns.handler';
+import { GenerateTopicsHandler } from './application/commands/handlers/generate-topics.handler';
+import { GenerateCampaignHandler } from './application/commands/handlers/generate-campaign.handler';
 
 // Query Handlers
 import { GetCampaignExportStatusHandler } from './application/queries/handlers/get-campaign-export-status.handler';
@@ -35,6 +39,8 @@ import { AI_DETECTION_PORT } from './domain/ports/ai-detection.port';
 import { StorageModule } from '../../shared/storage/storage.module';
 import { AUDIT_PORT } from '../../shared/activity-log/audit.port';
 import { ActivityLogService } from '../../shared/activity-log/activity-log.service';
+import { CACHE_PORT } from '../../shared/cache/cache.port';
+import { CacheService } from '../../shared/cache/cache.service';
 
 // Event listeners
 import { CampaignExportRequestedListener } from './infrastructure/event-listeners/campaign-export-requested.listener';
@@ -44,14 +50,16 @@ import { CampaignExportCompletedListener } from './infrastructure/event-listener
 // BullMQ Processor
 import { CampaignExportProcessor } from './infrastructure/jobs/campaign-export.processor';
 
-// Stub adapters (replace with real implementations)
-import { StubStageExportGeneratorAdapter } from './infrastructure/adapters/stub/stub-stage-export-generator.adapter';
-import { StubPdfBuilderAdapter } from './infrastructure/adapters/stub/stub-pdf-builder.adapter';
-import { StubZipPackerAdapter } from './infrastructure/adapters/stub/stub-zip-packer.adapter';
-import { StubAudioGeneratorAdapter } from './infrastructure/adapters/stub/stub-audio-generator.adapter';
-import { StubImageGeneratorAdapter } from './infrastructure/adapters/stub/stub-image-generator.adapter';
-import { StubViralityResearchAdapter } from './infrastructure/adapters/stub/stub-virality-research.adapter';
-import { StubAiDetectionAdapter } from './infrastructure/adapters/stub/stub-ai-detection.adapter';
+// Real adapters (external calls wrapped in the shared circuit breaker)
+import { AiModule } from '../../shared/external/ai/ai.module';
+import { CampaignRequestService } from './application/services/campaign-request.service';
+import { GeminiStageExportGeneratorAdapter } from './infrastructure/adapters/gemini-stage-export-generator.adapter';
+import { PdfKitPdfBuilderAdapter } from './infrastructure/adapters/pdfkit-pdf-builder.adapter';
+import { ArchiverZipPackerAdapter } from './infrastructure/adapters/archiver-zip-packer.adapter';
+import { ElevenLabsAudioGeneratorAdapter } from './infrastructure/adapters/elevenlabs-audio-generator.adapter';
+import { GeminiCampaignImageGeneratorAdapter } from './infrastructure/adapters/gemini-image-generator.adapter';
+import { TavilyViralityResearchAdapter } from './infrastructure/adapters/tavily-virality-research.adapter';
+import { HeuristicAiDetectionAdapter } from './infrastructure/adapters/heuristic-ai-detection.adapter';
 
 // Cross-context ACL for CompanyData (business name resolution)
 import { COMPANY_DATA_LOOKUP_PORT } from './domain/ports/outbound/company-data-lookup.port';
@@ -64,14 +72,22 @@ import { CompanyDataRepository } from '../companydata/companydata.repository';
     JwtModule.register({}),
     CacheModule,
     StorageModule,
+    AiModule,
     BullModule.registerQueue({
       name: QUEUE_NAMES.CAMPAIGN_EXPORT,
     }),
   ],
   controllers: [CampaignsController],
   providers: [
+    // Shared write path (used by both /export and /generate-campaign handlers)
+    CampaignRequestService,
+
     // Command Handlers
     RequestCampaignExportHandler,
+    DeleteCampaignHandler,
+    BulkDeleteCampaignsHandler,
+    GenerateTopicsHandler,
+    GenerateCampaignHandler,
 
     // Query Handlers
     GetCampaignExportStatusHandler,
@@ -92,6 +108,13 @@ import { CompanyDataRepository } from '../companydata/companydata.repository';
       useExisting: ActivityLogService,
     },
 
+    // Cache
+    CacheService,
+    {
+      provide: CACHE_PORT,
+      useExisting: CacheService,
+    },
+
     // WebSocket Gateway
     CampaignsGateway,
     WsJwtMiddleware,
@@ -104,34 +127,34 @@ import { CompanyDataRepository } from '../companydata/companydata.repository';
     // BullMQ Processor
     CampaignExportProcessor,
 
-    // ─── Port Bindings (Stubs for now — replace with real adapters) ─────────
+    // ─── Port Bindings (real adapters; external calls use cockatiel breaker) ──
     {
       provide: STAGE_EXPORT_GENERATOR_PORT,
-      useClass: StubStageExportGeneratorAdapter,
+      useClass: GeminiStageExportGeneratorAdapter,
     },
     {
       provide: PDF_BUILDER_PORT,
-      useClass: StubPdfBuilderAdapter,
+      useClass: PdfKitPdfBuilderAdapter,
     },
     {
       provide: ZIP_PACKER_PORT,
-      useClass: StubZipPackerAdapter,
+      useClass: ArchiverZipPackerAdapter,
     },
     {
       provide: AUDIO_GENERATOR_PORT,
-      useClass: StubAudioGeneratorAdapter,
+      useClass: ElevenLabsAudioGeneratorAdapter,
     },
     {
       provide: IMAGE_GENERATOR_PORT,
-      useClass: StubImageGeneratorAdapter,
+      useClass: GeminiCampaignImageGeneratorAdapter,
     },
     {
       provide: VIRALITY_RESEARCH_PORT,
-      useClass: StubViralityResearchAdapter,
+      useClass: TavilyViralityResearchAdapter,
     },
     {
       provide: AI_DETECTION_PORT,
-      useClass: StubAiDetectionAdapter,
+      useClass: HeuristicAiDetectionAdapter,
     },
 
     // Cross-context ACL: resolve real company name from CompanyData at request time

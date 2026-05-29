@@ -50,7 +50,7 @@ export class RolesService {
     skip = 0,
     search?: string,
     trashed: TrashedMode = 'exclude',
-  ): Promise<Role[]> {
+  ): Promise<{ data: Role[]; total: number }> {
     const traceId = this.cls.get<string>('traceId');
     this.logger.info('RolesService.findAll', {
       traceId,
@@ -284,7 +284,7 @@ export class RolesService {
       trashed,
     });
 
-    const roles = await this.repository.findAll(
+    const { data: roles } = await this.repository.findAll(
       10000,
       0,
       query.search,

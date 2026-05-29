@@ -78,6 +78,7 @@ import { CheckAbilities } from '../../../../../core/decorators/check-abilities.d
 import { Action } from '../../../../../core/access/actions.enum';
 import type { AuthenticatedUser } from '../../../../../core/access/actions.enum';
 import { CaslAbilityFactory } from '../../../../../core/access/casl-ability.factory';
+import { resolveDateRange } from '../../../../../shared/crud/date-range.util';
 
 @ApiTags('appointments')
 @ApiBearerAuth()
@@ -126,6 +127,18 @@ export class AppointmentsController {
   @ApiQuery({ name: 'page', required: false, type: Number })
   @ApiQuery({ name: 'limit', required: false, type: Number })
   @ApiQuery({
+    name: 'start_date',
+    required: false,
+    type: Date,
+    description: 'Filter appointments created on or after this date (inclusive).',
+  })
+  @ApiQuery({
+    name: 'end_date',
+    required: false,
+    type: Date,
+    description: 'Filter appointments created on or before this date (inclusive).',
+  })
+  @ApiQuery({
     name: 'withTrashed',
     required: false,
     type: Boolean,
@@ -145,7 +158,11 @@ export class AppointmentsController {
     @CurrentUser() user: AuthenticatedUser,
   ): Promise<PaginatedResult<AppointmentReadModel>> {
     await this.assertCanReadTrash(query.onlyTrashed, user);
-    return this.queryBus.execute(new GetAppointmentsListQuery(query));
+    const range = resolveDateRange({
+      start_date: query.start_date,
+      end_date: query.end_date,
+    });
+    return this.queryBus.execute(new GetAppointmentsListQuery(query, range));
   }
 
   // Registered BEFORE `:id` to avoid route shadowing. Bypasses cache, audited
@@ -187,6 +204,18 @@ export class AppointmentsController {
     description: 'Include soft-deleted appointments in the export.',
   })
   @ApiQuery({
+    name: 'start_date',
+    required: false,
+    type: Date,
+    description: 'Filter appointments created on or after this date (inclusive).',
+  })
+  @ApiQuery({
+    name: 'end_date',
+    required: false,
+    type: Date,
+    description: 'Filter appointments created on or before this date (inclusive).',
+  })
+  @ApiQuery({
     name: 'onlyTrashed',
     required: false,
     type: Boolean,
@@ -201,10 +230,14 @@ export class AppointmentsController {
     @Res({ passthrough: true }) res: Response,
   ): Promise<StreamableFile> {
     await this.assertCanReadTrash(query.onlyTrashed, user);
+    const range = resolveDateRange({
+      start_date: query.start_date,
+      end_date: query.end_date,
+    });
     const result = await this.queryBus.execute<
       ExportAppointmentsQuery,
       ExportAppointmentsResult
-    >(new ExportAppointmentsQuery(query, query.format, user.id));
+    >(new ExportAppointmentsQuery(query, query.format, user.id, range));
 
     res.setHeader('Content-Type', result.contentType);
     res.setHeader(

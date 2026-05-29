@@ -6,6 +6,7 @@
 export interface UserRoleProjection {
   id: string;
   name: string;
+  description: string | null;
 }
 
 /**

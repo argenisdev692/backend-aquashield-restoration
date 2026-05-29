@@ -1,17 +1,16 @@
 import { Module, Provider } from '@nestjs/common';
-import { CqrsModule } from '@nestjs/cqrs';
 import { JwtModule } from '@nestjs/jwt';
 import { ConfigModule, ConfigService } from '@nestjs/config';
 import { ContactSupportController } from './infrastructure/api/controllers/contact-support.controller';
-import { CreateContactSupportHandler } from './application/commands/handlers/create-contact-support.handler';
-import { MarkContactSupportReadHandler } from './application/commands/handlers/mark-contact-support-read.handler';
-import { DeleteContactSupportHandler } from './application/commands/handlers/delete-contact-support.handler';
-import { RestoreContactSupportHandler } from './application/commands/handlers/restore-contact-support.handler';
-import { BulkDeleteContactSupportHandler } from './application/commands/handlers/bulk-delete-contact-support.handler';
-import { BulkRestoreContactSupportHandler } from './application/commands/handlers/bulk-restore-contact-support.handler';
-import { GetContactSupportByIdHandler } from './application/queries/handlers/get-contact-support-by-id.handler';
-import { ListContactSupportHandler } from './application/queries/handlers/list-contact-support.handler';
-import { ExportContactSupportHandler } from './application/queries/handlers/export-contact-support.handler';
+import { CreateContactSupportUseCase } from './application/use-cases/create-contact-support.use-case';
+import { MarkContactSupportReadUseCase } from './application/use-cases/mark-contact-support-read.use-case';
+import { DeleteContactSupportUseCase } from './application/use-cases/delete-contact-support.use-case';
+import { RestoreContactSupportUseCase } from './application/use-cases/restore-contact-support.use-case';
+import { BulkDeleteContactSupportUseCase } from './application/use-cases/bulk-delete-contact-support.use-case';
+import { BulkRestoreContactSupportUseCase } from './application/use-cases/bulk-restore-contact-support.use-case';
+import { GetContactSupportByIdUseCase } from './application/use-cases/get-contact-support-by-id.use-case';
+import { ListContactSupportUseCase } from './application/use-cases/list-contact-support.use-case';
+import { ExportContactSupportUseCase } from './application/use-cases/export-contact-support.use-case';
 import { PrismaContactSupportRepository } from './infrastructure/persistence/repositories/prisma-contact-support.repository';
 import { ResendSupportEmailAdapter } from './infrastructure/adapters/resend-support-email.adapter';
 import { UsersAdminRecipientsAdapter } from './infrastructure/acl/users-admin-recipients.adapter';
@@ -23,24 +22,20 @@ import { CONTACT_SUPPORT_REPOSITORY } from './domain/ports/contact-support.repos
 import { SUPPORT_EMAIL_PORT } from './domain/ports/support-email.port';
 import { ADMIN_RECIPIENTS_PORT } from './domain/ports/admin-recipients.port';
 
-const CommandHandlers: Provider[] = [
-  CreateContactSupportHandler,
-  MarkContactSupportReadHandler,
-  DeleteContactSupportHandler,
-  RestoreContactSupportHandler,
-  BulkDeleteContactSupportHandler,
-  BulkRestoreContactSupportHandler,
-];
-
-const QueryHandlers: Provider[] = [
-  GetContactSupportByIdHandler,
-  ListContactSupportHandler,
-  ExportContactSupportHandler,
+const UseCases: Provider[] = [
+  CreateContactSupportUseCase,
+  MarkContactSupportReadUseCase,
+  DeleteContactSupportUseCase,
+  RestoreContactSupportUseCase,
+  BulkDeleteContactSupportUseCase,
+  BulkRestoreContactSupportUseCase,
+  GetContactSupportByIdUseCase,
+  ListContactSupportUseCase,
+  ExportContactSupportUseCase,
 ];
 
 @Module({
   imports: [
-    CqrsModule,
     JwtModule.registerAsync({
       imports: [ConfigModule],
       inject: [ConfigService],
@@ -53,8 +48,7 @@ const QueryHandlers: Provider[] = [
   ],
   controllers: [ContactSupportController],
   providers: [
-    ...CommandHandlers,
-    ...QueryHandlers,
+    ...UseCases,
     WsJwtMiddleware,
     ResendSupportEmailAdapter,
     UsersAdminRecipientsAdapter,

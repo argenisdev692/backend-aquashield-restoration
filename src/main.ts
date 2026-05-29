@@ -58,7 +58,7 @@ async function bootstrap(): Promise<void> {
 
   // Fan out Socket.IO rooms across pods via the shared Redis connection.
   const ioAdapter = new RedisIoAdapter(app);
-  await ioAdapter.connect();
+  await ioAdapter.connectToRedis();
   app.useWebSocketAdapter(ioAdapter);
 
   if (config.get<boolean>('SWAGGER_ENABLED')) {

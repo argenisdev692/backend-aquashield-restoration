@@ -12,6 +12,7 @@ import type {
 } from '../../../domain/read-models/contact-support.read-model';
 import { ContactSupportMapper } from '../mappers/contact-support.mapper';
 import { buildTrashedWhere } from '../../../../../shared/crud/trashed.util';
+import { buildDateRangeWhere } from '../../../../../shared/crud/date-range.util';
 import type { Prisma } from '../../../../../generated/prisma/client';
 
 @Injectable()
@@ -70,6 +71,7 @@ export class PrismaContactSupportRepository implements IContactSupportRepository
     const where: Prisma.ContactSupportWhereInput = {
       ...buildTrashedWhere(filters.trashed ?? 'exclude'),
       ...(filters.readed === undefined ? {} : { readed: filters.readed }),
+      ...(filters.range ? buildDateRangeWhere(filters.range, 'createdAt') : {}),
     };
     const skip = (filters.page - 1) * filters.limit;
 
@@ -97,6 +99,7 @@ export class PrismaContactSupportRepository implements IContactSupportRepository
     const where: Prisma.ContactSupportWhereInput = {
       ...buildTrashedWhere(filters.trashed ?? 'exclude'),
       ...(filters.readed === undefined ? {} : { readed: filters.readed }),
+      ...(filters.range ? buildDateRangeWhere(filters.range, 'createdAt') : {}),
     };
     const rows = await this.prisma.contactSupport.findMany({
       where,

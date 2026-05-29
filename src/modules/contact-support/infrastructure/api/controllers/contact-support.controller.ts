@@ -16,7 +16,6 @@ import {
 } from '@nestjs/common';
 import type { Response } from 'express';
 import { Throttle } from '@nestjs/throttler';
-import { CommandBus, QueryBus } from '@nestjs/cqrs';
 import { CacheTTL } from '@nestjs/cache-manager';
 import {
   ApiTags,
@@ -41,18 +40,17 @@ import { Action } from '../../../../../core/access/actions.enum';
 import type { AuthenticatedUser } from '../../../../../core/access/actions.enum';
 import { CaslAbilityFactory } from '../../../../../core/access/casl-ability.factory';
 import { stringBoolean } from '../../../../../shared/crud/trashed.util';
-import { CreateContactSupportCommand } from '../../../application/commands/create-contact-support.command';
-import { MarkContactSupportReadCommand } from '../../../application/commands/mark-contact-support-read.command';
-import { DeleteContactSupportCommand } from '../../../application/commands/delete-contact-support.command';
-import { RestoreContactSupportCommand } from '../../../application/commands/restore-contact-support.command';
-import { BulkDeleteContactSupportCommand } from '../../../application/commands/bulk-delete-contact-support.command';
-import { BulkRestoreContactSupportCommand } from '../../../application/commands/bulk-restore-contact-support.command';
-import { GetContactSupportByIdQuery } from '../../../application/queries/get-contact-support-by-id.query';
-import { ListContactSupportQuery } from '../../../application/queries/list-contact-support.query';
-import {
-  ExportContactSupportQuery,
-  type ExportContactSupportResult,
-} from '../../../application/queries/export-contact-support.query';
+import { resolveTrashedMode } from '../../../../../shared/crud/trashed.util';
+import { resolveDateRange } from '../../../../../shared/crud/date-range.util';
+import { CreateContactSupportUseCase } from '../../../application/use-cases/create-contact-support.use-case';
+import { MarkContactSupportReadUseCase } from '../../../application/use-cases/mark-contact-support-read.use-case';
+import { DeleteContactSupportUseCase } from '../../../application/use-cases/delete-contact-support.use-case';
+import { RestoreContactSupportUseCase } from '../../../application/use-cases/restore-contact-support.use-case';
+import { BulkDeleteContactSupportUseCase } from '../../../application/use-cases/bulk-delete-contact-support.use-case';
+import { BulkRestoreContactSupportUseCase } from '../../../application/use-cases/bulk-restore-contact-support.use-case';
+import { GetContactSupportByIdUseCase } from '../../../application/use-cases/get-contact-support-by-id.use-case';
+import { ListContactSupportUseCase } from '../../../application/use-cases/list-contact-support.use-case';
+import { ExportContactSupportUseCase } from '../../../application/use-cases/export-contact-support.use-case';
 import {
   CreateContactSupportDto,
   CreateContactSupportSchema,
@@ -81,8 +79,15 @@ import type { PaginatedContactSupport } from '../../../domain/read-models/contac
 @Controller('contact-support')
 export class ContactSupportController {
   constructor(
-    private readonly commandBus: CommandBus,
-    private readonly queryBus: QueryBus,
+    private readonly createUseCase: CreateContactSupportUseCase,
+    private readonly markAsReadUseCase: MarkContactSupportReadUseCase,
+    private readonly deleteUseCase: DeleteContactSupportUseCase,
+    private readonly restoreUseCase: RestoreContactSupportUseCase,
+    private readonly bulkDeleteUseCase: BulkDeleteContactSupportUseCase,
+    private readonly bulkRestoreUseCase: BulkRestoreContactSupportUseCase,
+    private readonly getUseCase: GetContactSupportByIdUseCase,
+    private readonly listUseCase: ListContactSupportUseCase,
+    private readonly exportUseCase: ExportContactSupportUseCase,
     private readonly abilityFactory: CaslAbilityFactory,
   ) {}
 
@@ -97,21 +102,7 @@ export class ContactSupportController {
     dto: CreateContactSupportDto,
     @CurrentUser() user: AuthenticatedUser | undefined,
   ): Promise<CreateContactSupportResponse> {
-    const id = await this.commandBus.execute<
-      CreateContactSupportCommand,
-      string
-    >(
-      new CreateContactSupportCommand(
-        dto.firstName,
-        dto.lastName,
-        dto.email,
-        dto.phone,
-        dto.subject,
-        dto.message,
-        dto.smsConsent,
-        user?.id,
-      ),
-    );
+    const id = await this.createUseCase.execute(dto, user?.id);
     return { id };
   }
 
@@ -140,6 +131,18 @@ export class ContactSupportController {
     description:
       'Return ONLY soft-deleted requests. Cannot be combined with `withTrashed`.',
   })
+  @ApiQuery({
+    name: 'start_date',
+    required: false,
+    type: Date,
+    description: 'Filter by creation date (inclusive start).',
+  })
+  @ApiQuery({
+    name: 'end_date',
+    required: false,
+    type: Date,
+    description: 'Filter by creation date (inclusive end).',
+  })
   async list(
     @Query(new ZodValidationPipe(ListContactSupportSchema))
     query: ListContactSupportDto,
@@ -152,22 +155,22 @@ export class ContactSupportController {
         throw new ForbiddenException('Insufficient permissions');
       }
     }
-    const trashed: 'exclude' | 'include' | 'only' = query.onlyTrashed
-      ? 'only'
-      : query.withTrashed
-        ? 'include'
-        : 'exclude';
-    return this.queryBus.execute<
-      ListContactSupportQuery,
-      PaginatedContactSupport
-    >(
-      new ListContactSupportQuery(
-        query.page,
-        query.limit,
-        query.readed,
-        trashed,
-      ),
-    );
+    const trashed = resolveTrashedMode({
+      status: undefined,
+      withTrashed: query.withTrashed,
+      onlyTrashed: query.onlyTrashed,
+    });
+    const range = resolveDateRange({
+      start_date: query.start_date,
+      end_date: query.end_date,
+    });
+    return this.listUseCase.execute({
+      page: query.page,
+      limit: query.limit,
+      readed: query.readed,
+      trashed,
+      range,
+    });
   }
 
   // ── Export — must be registered BEFORE `:id` to avoid route shadowing.
@@ -202,6 +205,18 @@ export class ContactSupportController {
     description:
       'Export ONLY soft-deleted requests. Cannot be combined with `withTrashed`. Requires `Action.Restore`.',
   })
+  @ApiQuery({
+    name: 'start_date',
+    required: false,
+    type: Date,
+    description: 'Filter by creation date (inclusive start).',
+  })
+  @ApiQuery({
+    name: 'end_date',
+    required: false,
+    type: Date,
+    description: 'Filter by creation date (inclusive end).',
+  })
   async export(
     @Query(new ZodValidationPipe(ExportContactSupportSchema))
     query: ExportContactSupportDto,
@@ -214,22 +229,22 @@ export class ContactSupportController {
         throw new ForbiddenException('Insufficient permissions');
       }
     }
-    const trashed: 'exclude' | 'include' | 'only' = query.onlyTrashed
-      ? 'only'
-      : query.withTrashed
-        ? 'include'
-        : 'exclude';
-    const result = await this.queryBus.execute<
-      ExportContactSupportQuery,
-      ExportContactSupportResult
-    >(
-      new ExportContactSupportQuery(
-        query.format,
-        user.id,
-        query.readed,
-        trashed,
-      ),
-    );
+    const trashed = resolveTrashedMode({
+      status: undefined,
+      withTrashed: query.withTrashed,
+      onlyTrashed: query.onlyTrashed,
+    });
+    const range = resolveDateRange({
+      start_date: query.start_date,
+      end_date: query.end_date,
+    });
+    const result = await this.exportUseCase.execute({
+      format: query.format,
+      actorId: user.id,
+      readed: query.readed,
+      trashed,
+      range,
+    });
 
     res.setHeader('Content-Type', result.contentType);
     res.setHeader(
@@ -259,10 +274,7 @@ export class ContactSupportController {
     @Query('withTrashed', new ZodValidationPipe(stringBoolean.optional()))
     withTrashed?: boolean,
   ): Promise<ContactSupportReadModel> {
-    return this.queryBus.execute<
-      GetContactSupportByIdQuery,
-      ContactSupportReadModel
-    >(new GetContactSupportByIdQuery(id, withTrashed ?? false));
+    return this.getUseCase.execute(id, withTrashed ?? false);
   }
 
   @Patch(':id/read')
@@ -277,9 +289,7 @@ export class ContactSupportController {
     @Param('id', ParseUUIDPipe) id: string,
     @CurrentUser() user: AuthenticatedUser,
   ): Promise<{ success: true }> {
-    await this.commandBus.execute<MarkContactSupportReadCommand, void>(
-      new MarkContactSupportReadCommand(id, user.id),
-    );
+    await this.markAsReadUseCase.execute(id, user.id);
     return { success: true };
   }
 
@@ -295,9 +305,7 @@ export class ContactSupportController {
     @Param('id', ParseUUIDPipe) id: string,
     @CurrentUser() user: AuthenticatedUser,
   ): Promise<{ success: true }> {
-    await this.commandBus.execute<RestoreContactSupportCommand, void>(
-      new RestoreContactSupportCommand(id, user.id),
-    );
+    await this.restoreUseCase.execute(id, user.id);
     return { success: true };
   }
 
@@ -312,10 +320,7 @@ export class ContactSupportController {
     @Body(new ZodValidationPipe(BulkIdsSchema)) dto: BulkIdsDto,
     @CurrentUser() user: AuthenticatedUser,
   ): Promise<{ count: number }> {
-    return this.commandBus.execute<
-      BulkDeleteContactSupportCommand,
-      { count: number }
-    >(new BulkDeleteContactSupportCommand(dto.ids, user.id));
+    return this.bulkDeleteUseCase.execute(dto.ids, user.id);
   }
 
   @Post('bulk-restore')
@@ -329,10 +334,7 @@ export class ContactSupportController {
     @Body(new ZodValidationPipe(BulkIdsSchema)) dto: BulkIdsDto,
     @CurrentUser() user: AuthenticatedUser,
   ): Promise<{ count: number }> {
-    return this.commandBus.execute<
-      BulkRestoreContactSupportCommand,
-      { count: number }
-    >(new BulkRestoreContactSupportCommand(dto.ids, user.id));
+    return this.bulkRestoreUseCase.execute(dto.ids, user.id);
   }
 
   @Delete(':id')
@@ -347,8 +349,6 @@ export class ContactSupportController {
     @Param('id', ParseUUIDPipe) id: string,
     @CurrentUser() user: AuthenticatedUser,
   ): Promise<void> {
-    await this.commandBus.execute<DeleteContactSupportCommand, void>(
-      new DeleteContactSupportCommand(id, user.id),
-    );
+    await this.deleteUseCase.execute(id, user.id);
   }
 }

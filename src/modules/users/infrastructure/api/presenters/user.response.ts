@@ -3,7 +3,7 @@ import { createZodDto } from 'nestjs-zod';
 import {
   MeRoleSchema,
   MePermissionSchema,
-} from '../../../../auth/presenters/auth.response';
+} from '../../../../auth/application/presenters/auth.response';
 
 export const UserResponseSchema = z.object({
   id: z.string().uuid(),

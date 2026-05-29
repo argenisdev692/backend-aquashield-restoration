@@ -131,19 +131,22 @@ export class CampaignGenerationMapper {
       phone: aggregate.phone,
       website: aggregate.website,
       stages: [...aggregate.stages] as FunnelStage[],
-      format: aggregate.format as VideoFormat,
+      format: aggregate.format,
       durationSeconds: aggregate.durationSeconds,
       language: aggregate.language,
       generateImages: aggregate.generateImages,
       aiObservations: aggregate.aiObservations,
       viralityScore: aggregate.viralityScore,
       roiScore: aggregate.roiScore,
+      // Cast required for Prisma InputJsonValue: AiDetectionScore is a domain type
+      // that needs to be stored as JSON in the database. This is safe because the
+      // aggregate validates the structure before persistence.
       aiDetectionScore:
         (aggregate.aiDetectionScore as unknown as Prisma.InputJsonValue) ??
         Prisma.JsonNull,
       analysisReportKey: aggregate.analysisReportKey,
       analysisReportUrl: aggregate.analysisReportUrl,
-      status: aggregate.status as CampaignGenerationStatus,
+      status: aggregate.status,
       errorMessage: aggregate.errorMessage,
     };
   }

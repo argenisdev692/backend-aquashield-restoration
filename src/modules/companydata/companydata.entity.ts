@@ -8,6 +8,7 @@ export interface CompanyData {
   id: string;
   name: string | null;
   companyName: string;
+  taxId: string | null;
   signaturePath: string | null;
   email: string | null;
   phone: string | null;

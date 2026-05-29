@@ -28,13 +28,22 @@ export class SocialMediaMapper {
         Record<SocialNetwork, GeneratedPost>
       >,
       r2Key: row.r2Key,
-      viralityScore: (row as any).viralityScore as number | null,
-      roiScore: (row as any).roiScore as number | null,
-      aiDetectionScore: (row as any)
-        .aiDetectionScore as AiDetectionScore | null,
-      analysisReportKey: (row as any).analysisReportKey as string | null,
-      analysisReportUrl: (row as any).analysisReportUrl as string | null,
+      viralityScore: row.viralityScore,
+      roiScore: row.roiScore,
+      // Prisma stores JSON as InputJsonValue; cast to domain type for read model
+      aiDetectionScore: row.aiDetectionScore as AiDetectionScore | null,
+      analysisReportKey: row.analysisReportKey,
+      analysisReportUrl: row.analysisReportUrl,
       createdAt: row.createdAt,
+      qualityScores: row.qualityScores as {
+        human_writing_index: number;
+        virality_score: number;
+        engagement_score: number;
+        roi_score: number;
+        trend_alignment: number;
+      } | null,
+      qualityWarning: row.qualityWarning,
+      iterationsRequired: row.iterationsRequired,
     };
   }
 
@@ -48,16 +57,25 @@ export class SocialMediaMapper {
       topicTitle: snapshot.topicTitle,
       topicDescription: snapshot.topicDescription ?? null,
       language: snapshot.language ?? null,
-      networks: snapshot.networks as Prisma.InputJsonValue,
+      networks: snapshot.networks,
+      // Prisma requires InputJsonValue for JSON columns; domain object must be serialized
       generatedPosts: snapshot.generatedPosts as Prisma.InputJsonValue,
       r2Key: snapshot.r2Key ?? null,
       viralityScore: snapshot.viralityScore ?? null,
       roiScore: snapshot.roiScore ?? null,
+      // Prisma requires InputJsonValue for JSON columns; serialize domain object for storage
       aiDetectionScore: snapshot.aiDetectionScore
         ? (JSON.parse(
             JSON.stringify(snapshot.aiDetectionScore),
           ) as Prisma.InputJsonValue)
         : null,
+      qualityScores: snapshot.qualityScores
+        ? (JSON.parse(
+            JSON.stringify(snapshot.qualityScores),
+          ) as Prisma.InputJsonValue)
+        : null,
+      qualityWarning: snapshot.qualityWarning ?? false,
+      iterationsRequired: snapshot.iterationsRequired ?? 1,
       analysisReportKey: snapshot.analysisReportKey ?? null,
       analysisReportUrl: snapshot.analysisReportUrl ?? null,
       createdAt: snapshot.createdAt,
@@ -70,6 +88,7 @@ export class SocialMediaMapper {
     return {
       viralityScore: snapshot.viralityScore ?? null,
       roiScore: snapshot.roiScore ?? null,
+      // Prisma requires InputJsonValue for JSON columns; serialize domain object for storage
       aiDetectionScore: snapshot.aiDetectionScore
         ? (JSON.parse(
             JSON.stringify(snapshot.aiDetectionScore),

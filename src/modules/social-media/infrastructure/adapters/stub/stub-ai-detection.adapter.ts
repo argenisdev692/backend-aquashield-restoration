@@ -1,4 +1,6 @@
-import { Injectable } from '@nestjs/common';
+import { Injectable, OnModuleInit } from '@nestjs/common';
+import { type IPolicy } from 'cockatiel';
+import { createExternalServicePolicy } from '../../../../../shared/external/resilience';
 import {
   IAiDetectionPort,
   AiDetectionInput,
@@ -10,7 +12,14 @@ import {
  * Replace with real adapter that uses GPTZero, Originality.ai, or similar services.
  */
 @Injectable()
-export class StubAiDetectionAdapter implements IAiDetectionPort {
+export class StubAiDetectionAdapter
+  implements IAiDetectionPort, OnModuleInit
+{
+  private resilience!: IPolicy;
+
+  onModuleInit(): void {
+    this.resilience = createExternalServicePolicy('ai-detection', 'ai');
+  }
   async analyze(input: AiDetectionInput): Promise<AiDetectionScore> {
     // Placeholder: In real implementation, this would call an AI detection API
     // For now, return a realistic score based on text characteristics

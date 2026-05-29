@@ -1,15 +1,14 @@
-import { Injectable, Inject } from '@nestjs/common';
+import { Injectable, Inject, OnModuleInit } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { StorageService } from '../../../../../shared/storage/storage.service';
 import { LoggerService } from '../../../../../logger/logger.service';
 import { ClsService } from 'nestjs-cls';
+import { type IPolicy } from 'cockatiel';
+import { createExternalServicePolicy } from '../../../../../shared/external/resilience';
 import type { AiPostGenerationPort } from '../../../domain/ports/ai-post-generation.port';
 import { RESEARCH_PORT } from '../../../domain/ports/research.port';
 import type { ResearchPort } from '../../../domain/ports/research.port';
-import {
-  GeneratedPostPreview,
-  type Source,
-} from '../../../domain/value-objects/generated-post-preview.vo';
+import { GeneratedPostPreview } from '../../../domain/value-objects/generated-post-preview.vo';
 import { ResearchResult } from '../../../domain/value-objects/research-result.vo';
 import {
   AI_CLIENT,
@@ -17,10 +16,13 @@ import {
 } from '../../../../../shared/external/ai/ai-client.port';
 
 @Injectable()
-export class GeminiPostGenerationAdapter implements AiPostGenerationPort {
+export class GeminiPostGenerationAdapter
+  implements AiPostGenerationPort, OnModuleInit
+{
   private readonly textModel: string;
   private readonly imageModel: string;
   private readonly imageDirectory = 'ai/posts';
+  private resilience!: IPolicy;
 
   constructor(
     private readonly config: ConfigService,
@@ -41,6 +43,10 @@ export class GeminiPostGenerationAdapter implements AiPostGenerationPort {
       'GEMINI_IMAGE_MODEL',
       'gemini-2.0-flash-exp-image-generation',
     );
+  }
+
+  onModuleInit(): void {
+    this.resilience = createExternalServicePolicy('gemini', 'ai');
   }
 
   async generatePreview(
@@ -144,12 +150,14 @@ ${sourcesContext}
 
 Use these real data points to give depth to the article. Cite sources organically.`;
 
-    const response = await this.aiClient.complete({
-      model: this.textModel,
-      messages: [{ role: 'user', content: user }],
-      systemInstruction: system,
-      maxTokens: 8192,
-      temperature: 0.7,
+    const response = await this.resilience.execute(async () => {
+      return await this.aiClient.complete({
+        model: this.textModel,
+        messages: [{ role: 'user', content: user }],
+        systemInstruction: system,
+        maxTokens: 8192,
+        temperature: 0.7,
+      });
     });
 
     const text = response.text ?? '';
@@ -191,13 +199,15 @@ Return ONLY a JSON object with exactly these keys:
   "meta_keywords": "keyword1, keyword2, keyword3, keyword4, keyword5"
 }`;
 
-    const response = await this.aiClient.complete({
-      model: this.textModel,
-      messages: [{ role: 'user', content: user }],
-      systemInstruction: system,
-      maxTokens: 1024,
-      temperature: 0.3,
-      responseMimeType: 'application/json',
+    const response = await this.resilience.execute(async () => {
+      return await this.aiClient.complete({
+        model: this.textModel,
+        messages: [{ role: 'user', content: user }],
+        systemInstruction: system,
+        maxTokens: 1024,
+        temperature: 0.3,
+        responseMimeType: 'application/json',
+      });
     });
 
     const raw = response.text ?? '';
@@ -255,9 +265,11 @@ Return ONLY a JSON object with exactly these keys:
         return null;
       }
 
-      const imageResult = await this.aiClient.generateImage({
-        model: this.imageModel,
-        prompt,
+      const imageResult = await this.resilience.execute(async () => {
+        return await this.aiClient.generateImage!({
+          model: this.imageModel,
+          prompt,
+        });
       });
 
       this.logUsage('image', this.imageModel, undefined);

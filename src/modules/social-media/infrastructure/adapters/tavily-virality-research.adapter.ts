@@ -1,4 +1,6 @@
-import { Injectable } from '@nestjs/common';
+import { Injectable, OnModuleInit } from '@nestjs/common';
+import { type IPolicy } from 'cockatiel';
+import { createExternalServicePolicy } from '../../../../shared/external/resilience';
 import {
   IViralityResearchPort,
   ViralityResearchInput,
@@ -10,7 +12,14 @@ import {
  * Searches for trending topics, similar posts, and engagement metrics.
  */
 @Injectable()
-export class TavilyViralityResearchAdapter implements IViralityResearchPort {
+export class TavilyViralityResearchAdapter
+  implements IViralityResearchPort, OnModuleInit
+{
+  private resilience!: IPolicy;
+
+  onModuleInit(): void {
+    this.resilience = createExternalServicePolicy('tavily', 'research');
+  }
   async research(
     input: ViralityResearchInput,
   ): Promise<ViralityResearchResult> {

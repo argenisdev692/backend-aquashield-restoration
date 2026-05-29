@@ -22,6 +22,8 @@ export class CampaignExportRequestedEvent {
       language: string;
       generateImages: boolean;
       aiObservations?: string;
+      /** Selected topic id from Step 1 (generate-topics), threaded to the worker. */
+      topicId?: string;
     },
     public readonly occurredAt: Date = new Date(),
   ) {}

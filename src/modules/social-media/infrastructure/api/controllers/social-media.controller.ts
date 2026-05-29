@@ -15,6 +15,7 @@ import {
 import type { Response } from 'express';
 import { CommandBus, QueryBus } from '@nestjs/cqrs';
 import { CacheTTL } from '@nestjs/cache-manager';
+import { Throttle } from '@nestjs/throttler';
 import {
   ApiTags,
   ApiBearerAuth,
@@ -46,6 +47,10 @@ import {
   ExportSocialMediaCommand,
   type ExportSocialMediaResult,
 } from '../../../application/commands/export-social-media.command';
+import {
+  DownloadZipCommand,
+  type DownloadZipResult,
+} from '../../../application/commands/download-zip.command';
 import {
   FindTopicsDto,
   FindTopicsSchema,
@@ -88,8 +93,9 @@ export class SocialMediaController {
     private readonly queryBus: QueryBus,
   ) {}
 
-  // ── POST /social-media/topics ─────────────────────────────────────────────
-  @Post('topics')
+  // ── POST /social-media/generate-topics ────────────────────────────────────
+  @Post('generate-topics')
+  @Throttle({ socialMediaGenerate: { limit: 5, ttl: 60_000 } })
   @CheckAbilities({ action: Action.Create, subject: 'SOCIAL_MEDIA' })
   @ApiCreatedResponse({ type: [SocialMediaTopicResponse] })
   @ApiBadRequestResponse({ description: 'Validation failed' })
@@ -100,8 +106,9 @@ export class SocialMediaController {
     return this.queryBus.execute(new FindTopicsQuery(dto));
   }
 
-  // ── POST /social-media/generate ───────────────────────────────────────────
-  @Post('generate')
+  // ── POST /social-media/generate-content ───────────────────────────────────
+  @Post('generate-content')
+  @Throttle({ socialMediaGenerate: { limit: 5, ttl: 60_000 } })
   @CheckAbilities({ action: Action.Create, subject: 'SOCIAL_MEDIA' })
   @ApiCreatedResponse({ type: GeneratePostJobResultDto })
   @ApiBadRequestResponse({ description: 'Validation failed' })
@@ -195,6 +202,31 @@ export class SocialMediaController {
   ): Promise<StreamableFile> {
     const result: ExportSocialMediaResult = await this.commandBus.execute(
       new ExportSocialMediaCommand(dto, user.id),
+    );
+
+    res.set({
+      'Content-Type': result.contentType,
+      'Content-Disposition': `attachment; filename="${result.filename}"`,
+    });
+
+    return new StreamableFile(result.buffer);
+  }
+
+  // ── POST /social-media/:id/download-zip ───────────────────────────────────────
+  @Post(':id/download-zip')
+  @SkipCache()
+  @CheckAbilities({ action: Action.Read, subject: 'SOCIAL_MEDIA' })
+  @ApiProduces('application/zip')
+  @ApiOkResponse({ description: 'ZIP file download' })
+  @ApiNotFoundResponse()
+  @ApiParam({ name: 'id', description: 'Social media generation UUID' })
+  async downloadZip(
+    @Param('id', ParseUUIDPipe) id: string,
+    @CurrentUser() user: AuthenticatedUser,
+    @Res({ passthrough: true }) res: Response,
+  ): Promise<StreamableFile> {
+    const result: DownloadZipResult = await this.commandBus.execute(
+      new DownloadZipCommand(id, user.id),
     );
 
     res.set({

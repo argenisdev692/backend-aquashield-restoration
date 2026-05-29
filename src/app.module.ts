@@ -24,6 +24,8 @@ import { DatabaseModule } from './shared/database/database.module';
 import { PrismaService } from './shared/database/prisma.service';
 import { QueueModule } from './shared/messaging/queue.module';
 import { AiModule } from './shared/external/ai/ai.module';
+import { EmailModule } from './shared/external/email/email.module';
+import { ExportModule } from './shared/export/export.module';
 import { AuthModule } from './modules/auth/auth.module';
 import { CompanyDataModule } from './modules/companydata/companydata.module';
 import { BlogCategoryModule } from './modules/blog-category/blog-category.module';
@@ -67,6 +69,8 @@ import { CampaignsModule } from './modules/campaigns/campaigns.module';
     EventEmitterModule.forRoot(),
     ScheduleModule.forRoot(),
     AiModule,
+    EmailModule,
+    ExportModule,
     ThrottlerModule.forRootAsync({
       inject: [ConfigService],
       useFactory: (config: ConfigService) => ({
@@ -95,6 +99,11 @@ import { CampaignsModule } from './modules/campaigns/campaigns.module';
             name: 'campaignExport',
             ttl: 60_000,
             limit: 3,
+          },
+          {
+            name: 'socialMediaGenerate',
+            ttl: 60_000,
+            limit: 5,
           },
         ],
       }),

@@ -4,6 +4,7 @@ import {
   PaginatedContactSupport,
 } from '../read-models/contact-support.read-model';
 import type { TrashedMode } from '../../../../shared/crud/trashed.util';
+import type { DateRange } from '../../../../shared/crud/date-range.util';
 
 export interface ListContactSupportFilters {
   page: number;
@@ -12,6 +13,8 @@ export interface ListContactSupportFilters {
   readed?: boolean;
   /** Soft-delete visibility — Laravel-style. Defaults to `exclude`. */
   trashed?: TrashedMode;
+  /** Inclusive date range on `createdAt`. */
+  range?: DateRange;
 }
 
 export interface ExportContactSupportFilters {
@@ -19,6 +22,8 @@ export interface ExportContactSupportFilters {
   readed?: boolean;
   /** Soft-delete visibility — Laravel-style. Defaults to `exclude`. */
   trashed?: TrashedMode;
+  /** Inclusive date range on `createdAt`. */
+  range?: DateRange;
 }
 
 export interface IContactSupportRepository {

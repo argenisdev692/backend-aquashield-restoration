@@ -27,6 +27,10 @@ import {
   resolveTrashedMode,
   type TrashedMode,
 } from '../../shared/crud/trashed.util';
+import {
+  resolveDateRange,
+  type DateRange,
+} from '../../shared/crud/date-range.util';
 import { csvEscape, sheetEscape } from '../../shared/export/export.util';
 
 @Injectable()
@@ -52,7 +56,8 @@ export class BlogCategoryService {
     limit = 50,
     skip = 0,
     trashed: TrashedMode = 'exclude',
-  ): Promise<BlogCategory[]> {
+    range?: DateRange,
+  ): Promise<{ data: BlogCategory[]; total: number }> {
     const traceId = this.cls.get<string>('traceId');
     this.logger.info('BlogCategoryService.findAll', {
       traceId,
@@ -60,8 +65,9 @@ export class BlogCategoryService {
       limit,
       skip,
       trashed,
+      range,
     });
-    return this.repository.findAll(userId, limit, skip, trashed);
+    return this.repository.findAll(userId, limit, skip, trashed, range);
   }
 
   async findById(
@@ -362,7 +368,12 @@ export class BlogCategoryService {
 
   async exportBlogCategories(
     userId: string,
-    query: { withTrashed?: boolean; onlyTrashed?: boolean },
+    query: {
+      withTrashed?: boolean;
+      onlyTrashed?: boolean;
+      start_date?: Date;
+      end_date?: Date;
+    },
     format: 'csv' | 'xlsx' | 'pdf',
   ): Promise<{ buffer: Buffer; filename: string; contentType: string }> {
     const traceId = this.cls.get<string>('traceId');
@@ -370,15 +381,20 @@ export class BlogCategoryService {
       withTrashed: query.withTrashed,
       onlyTrashed: query.onlyTrashed,
     });
+    const range = resolveDateRange({
+      start_date: query.start_date,
+      end_date: query.end_date,
+    });
 
     this.logger.info('BlogCategoryService.exportBlogCategories start', {
       traceId,
       userId,
       format,
       trashed,
+      range,
     });
 
-    const rows = await this.repository.findAllForExport(userId, trashed);
+    const rows = await this.repository.findAllForExport(userId, trashed, range);
     const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
 
     let result: { buffer: Buffer; filename: string; contentType: string };

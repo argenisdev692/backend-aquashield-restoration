@@ -369,57 +369,85 @@ export class BulkIdsDto extends createZodDto(BulkIdsSchema) {}
 
 ---
 
-## 🗃️ Soft-delete visibility — `withTrashed` / `onlyTrashed` (flat CRUD)
+## 🗃️ Soft-delete visibility — `status` / `withTrashed` / `onlyTrashed` (flat CRUD)
 
 > **Authority.** SINGLE SOURCE OF TRUTH for exposing soft-deleted rows on list / single-get / export endpoints. Any module with `deletedAt: DateTime?` and a public read path MUST follow this contract verbatim. Hard-delete modules do not apply.
 >
-> **Pattern source.** Laravel Eloquent's `Model::query()` / `Model::withTrashed()` / `Model::onlyTrashed()` semantics, ported to a shared NestJS util.
+> **Pattern source.** Two surfaces, one internal mode:
+> - `?status=active|suspended|all` — the **canonical, frontend-friendly** API used by the CRM UI (dropdowns, tabs).
+> - `?withTrashed=true` / `?onlyTrashed=true` — Laravel Eloquent-style aliases kept for backward parity.
+>
+> Both surfaces resolve to the same internal `TrashedMode` via `resolveTrashedMode(...)`. Repositories never see `status` — they consume `TrashedMode`.
 
 ### The shared util (already wired)
 
 ```typescript
 // src/shared/crud/trashed.util.ts — DO NOT duplicate per module
-export type TrashedMode = 'exclude' | 'include' | 'only';
+export type TrashedMode  = 'exclude' | 'include' | 'only';   // internal
+export type EntityStatus = 'active'  | 'suspended' | 'all';  // public (HTTP)
 
-resolveTrashedMode({ withTrashed?, onlyTrashed? }): TrashedMode
+resolveTrashedMode({ status?, withTrashed?, onlyTrashed? }): TrashedMode
 buildTrashedWhere(mode): { deletedAt?: null | { not: null } }
+entityStatus(deletedAt): 'active' | 'suspended'              // response-shape helper
 
 export const trashedFlagsShape = {
   withTrashed: stringBoolean.optional(),
   onlyTrashed: stringBoolean.optional(),
 } as const;
 
-rejectBothTrashedFlags(data): boolean
-BOTH_TRASHED_FLAGS_ERROR: { message, path }
+export const statusFlagShape = {
+  status: statusQuery,                       // z.enum(['active','suspended','all']).optional()
+} as const;
+
+rejectBothTrashedFlags(data): boolean                        // raw flags can't both be true
+rejectMixedStatusAndTrashedFlags(data): boolean              // status XOR raw flags
+BOTH_TRASHED_FLAGS_ERROR  : { message, path }
+MIXED_STATUS_FLAGS_ERROR  : { message, path }
 ```
 
-> ⚠️ `z.coerce.boolean()` is **forbidden** — `Boolean('false')` is truthy. Use the exported `stringBoolean` (already inside `trashedFlagsShape`).
+> ⚠️ `z.coerce.boolean()` is **forbidden** — `Boolean('false')` is truthy. Use the exported `stringBoolean` (already inside `trashedFlagsShape`). Empty strings (`status=`, `withTrashed=`) normalise to `undefined`.
+
+### Mapping table
+
+| Public (`?status=`) | Raw alias                | Internal `TrashedMode` | Prisma `where` fragment        |
+|---------------------|--------------------------|------------------------|--------------------------------|
+| `active` (default)  | _absent_                 | `exclude`              | `{ deletedAt: null }`          |
+| `suspended`         | `onlyTrashed=true`       | `only`                 | `{ deletedAt: { not: null } }` |
+| `all`               | `withTrashed=true`       | `include`              | `{}`                           |
 
 ### Contract
 
 ```http
-GET /{module}                              → mode=exclude → deletedAt: null
-GET /{module}?withTrashed=true             → mode=include → all rows
-GET /{module}?onlyTrashed=true             → mode=only    → deletedAt != null
-GET /{module}?withTrashed=true&onlyTrashed=true → 400 BadRequest
+GET /{module}                                       → default → active rows
+GET /{module}?status=active                         → active rows only
+GET /{module}?status=suspended                      → soft-deleted rows only
+GET /{module}?status=all                            → both
 
-GET /{module}/:id                          → only if NOT soft-deleted (404 otherwise)
-GET /{module}/:id?withTrashed=true         → return even if soft-deleted (for restore screen)
+GET /{module}?withTrashed=true                      → alias of status=all
+GET /{module}?onlyTrashed=true                      → alias of status=suspended
+GET /{module}?withTrashed=true&onlyTrashed=true     → 400 BadRequest
+GET /{module}?status=active&withTrashed=true        → 400 BadRequest (aliases, mixing is ambiguous)
 
-GET /{module}/export?withTrashed=true      → export includes soft-deleted rows
-GET /{module}/export?onlyTrashed=true      → trash bin export
+GET /{module}/:id                                   → only if NOT soft-deleted (404 otherwise)
+GET /{module}/:id?withTrashed=true                  → return even if soft-deleted (for restore screen)
+
+GET /{module}/export?status=suspended               → trash bin export
 ```
 
-- `mode=exclude` is the **default** on every read path.
-- `withTrashed` / `onlyTrashed` apply only to **read** routes. They do NOT apply to writes / bulks / restore (those operate on identity, not visibility).
+- `active` is the **default** on every read path.
+- `status` / `withTrashed` / `onlyTrashed` apply only to **read** routes. They do NOT apply to writes / bulks / restore (those operate on identity, not visibility).
+- Native `status` collision: modules that already own a domain `status` enum (`Post.status: 'draft' | 'published'`, `Order.status: 'pending' | 'paid' | …`) MUST rename it to `postStatus` / `orderStatus` / `lifecycleStatus` before adopting the soft-delete `status` filter. If renaming is infeasible, that module skips `statusFlagShape` and uses only the raw `withTrashed` / `onlyTrashed` flags.
 
 ### DTO — Query
 
 ```typescript
 import {
+  statusFlagShape,
   trashedFlagsShape,
   rejectBothTrashedFlags,
+  rejectMixedStatusAndTrashedFlags,
   BOTH_TRASHED_FLAGS_ERROR,
+  MIXED_STATUS_FLAGS_ERROR,
 } from '../../../shared/crud/trashed.util';
 
 export const WidgetsListQuerySchema = z
@@ -427,9 +455,13 @@ export const WidgetsListQuerySchema = z
     page: z.coerce.number().int().positive().default(1),
     limit: z.coerce.number().int().min(1).max(100).default(20),
     search: z.string().max(255).optional(),
+    ...statusFlagShape,
     ...trashedFlagsShape,
+    ...dateRangeShape,
   })
-  .refine(rejectBothTrashedFlags, BOTH_TRASHED_FLAGS_ERROR);
+  .refine(rejectBothTrashedFlags, BOTH_TRASHED_FLAGS_ERROR)
+  .refine(rejectMixedStatusAndTrashedFlags, MIXED_STATUS_FLAGS_ERROR)
+  .refine(rejectInvertedDateRange, INVERTED_DATE_RANGE_ERROR);
 
 export class WidgetsListQueryDto extends createZodDto(WidgetsListQuerySchema) {}
 ```
@@ -458,30 +490,42 @@ async findById(id: string, trashed: boolean = false): Promise<Widget | null> {
 
 ### Response shape
 
-The entity (and its `Response` DTO) MUST expose `deletedAt: string | null` so the frontend can render a "Suspended" / "Trashed" badge. Without it, `?withTrashed=true` is useless on the client.
+The entity (and its `Response` DTO) MUST expose `deletedAt: string | null` so the frontend can render a "Suspended" / "Trashed" badge. SHOULD also expose a derived `status: 'active' | 'suspended'` field (computed in the mapper via `entityStatus(deletedAt)`) so clients render the badge without null-checking.
 
 ```typescript
+import { entityStatus } from '../../../shared/crud/trashed.util';
+
 export const WidgetResponseSchema = z.object({
   id: z.string().uuid(),
   // …
+  status: z.enum(['active', 'suspended']),
   createdAt: z.string().datetime(),
   updatedAt: z.string().datetime(),
   deletedAt: z.string().datetime().nullable(),
 });
+
+// In the mapper:
+function toResponse(row: WidgetRow): WidgetResponse {
+  return {
+    ...row,
+    status: entityStatus(row.deletedAt),
+    deletedAt: row.deletedAt?.toISOString() ?? null,
+  };
+}
 ```
 
 ### Authorization
 
 | Endpoint | CASL | Why |
 |---|---|---|
-| `GET /{module}` (default) | `Action.Read` | Standard read |
-| `GET /{module}?withTrashed=true` | `Action.Read` | Still a read |
-| `GET /{module}?onlyTrashed=true` | `Action.Restore` | Trash bin == prelude to restore. Prevents enumerating recently-deleted rows via `Read`. (OWASP API #1 BOLA / #3 BOPLA) |
+| `GET /{module}` (default = `status=active`) | `Action.Read` | Standard read |
+| `GET /{module}?status=all` / `?withTrashed=true` | `Action.Read` | Still a read |
+| `GET /{module}?status=suspended` / `?onlyTrashed=true` | `Action.Restore` | Trash bin == prelude to restore. Prevents enumerating recently-deleted rows via `Read`. (OWASP API #1 BOLA / #3 BOPLA) |
 | `GET /{module}/:id?withTrashed=true` | `Action.Read` | Same as above |
 | `POST /{module}/:id/restore` | `Action.Restore` | — |
 | `POST /{module}/bulk-restore` | `Action.Restore` | — |
 
-> Prefer **two routes** — `GET /{module}` (Action.Read) and `GET /{module}/trash` (Action.Restore) — over dynamic ability resolution. Keeps Swagger + CASL trivially auditable.
+> Prefer **two routes** — `GET /{module}` (Action.Read) and `GET /{module}/trash` (Action.Restore, equivalent to `?status=suspended`) — over dynamic ability resolution. Keeps Swagger + CASL trivially auditable.
 
 ### Cache
 
@@ -491,18 +535,182 @@ export const WidgetResponseSchema = z.object({
 ### Rules — soft-delete visibility
 
 ```
-✅ Use `trashedFlagsShape` + `rejectBothTrashedFlags` in EVERY list/export DTO
+✅ Use `statusFlagShape` + `trashedFlagsShape` + BOTH refines (`rejectBothTrashedFlags`, `rejectMixedStatusAndTrashedFlags`)
+✅ Prefer `?status=active|suspended|all` in new frontend code; keep raw flags as backward-compatible aliases
 ✅ Repository accepts `TrashedMode` and calls `buildTrashedWhere(mode)` ONCE per query
-✅ Single-get variant takes a boolean `withTrashed` (no `onlyTrashed`)
-✅ Response DTO exposes `deletedAt: string | null`
-✅ `?onlyTrashed=true` (or `/trash` route) gated by `Action.Restore`
-✅ `mode=exclude` is the default
+✅ Resolution happens in the service via `resolveTrashedMode({ status, withTrashed, onlyTrashed })`
+✅ Single-get variant takes a boolean `withTrashed` (no status / onlyTrashed there)
+✅ Response DTO exposes `deletedAt: string | null` AND derived `status: 'active' | 'suspended'` via `entityStatus(deletedAt)`
+✅ `?status=suspended` / `?onlyTrashed=true` (or `/trash` route) gated by `Action.Restore`
+✅ Default = `status=active` (= `TrashedMode.exclude`)
 
 ❌ `z.coerce.boolean()` on `withTrashed` / `onlyTrashed` — use `stringBoolean`
+❌ `z.coerce.string()` / inline `z.enum` for `status` — always import `statusFlagShape`
+❌ Mixing `?status=` with raw flags on the same request — 400 (handled by the refine)
+❌ Repurposing `status` for a native domain enum on the same module without renaming it first
 ❌ Filtering soft-deleted rows in JS with `.filter(r => !r.deletedAt)` — push into Prisma `where`
 ❌ Repository exposing `findAllIncludingTrashed()` / `findAllOnlyTrashed()` as separate methods
 ❌ Single-get returning soft-deleted by default
-❌ A list endpoint that supports `withTrashed` but the matching `/export` does not
+❌ A list endpoint that supports the filter but the matching `/export` does not
+```
+
+---
+
+## 📅 Date-range filter — `start_date` / `end_date` (flat CRUD)
+
+> **Authority.** SINGLE SOURCE OF TRUTH for the between-dates filter on list / single-get-by-criteria / export endpoints. Any module that exposes a timestamp-orderable resource (orders, appointments, posts, invoices, audit rows, …) MUST follow this contract verbatim.
+>
+> **Pattern source.** Snake-case query params (`start_date`, `end_date`) mirror the CRM frontend's date-picker convention; the internal `DateRange` value object stays in camelCase.
+
+### The shared util (already wired)
+
+```typescript
+// src/shared/crud/date-range.util.ts — DO NOT duplicate per module
+export interface DateRange {
+  startDate?: Date;
+  endDate?: Date;
+}
+
+export interface DateRangeFlags {
+  start_date?: Date;
+  end_date?: Date;
+}
+
+resolveDateRange({ start_date?, end_date? }): DateRange
+buildDateRangeWhere(range, column = 'createdAt'): Record<string, { gte?: Date; lte?: Date }>
+
+export const dateRangeShape = {
+  start_date: dateQuery,
+  end_date: dateQuery,
+} as const;
+
+rejectInvertedDateRange(data): boolean
+INVERTED_DATE_RANGE_ERROR: { message, path }
+```
+
+> ⚠️ Never use bare `z.coerce.date()` on a query field — `''` (empty input from the frontend) crashes it. Use the exported `dateQuery` (already inside `dateRangeShape`); it preprocesses empty strings to `undefined`.
+
+### Contract
+
+```http
+GET /{module}                                       → no filter → all rows in default order
+GET /{module}?start_date=2024-01-01                 → createdAt >= 2024-01-01 (since X)
+GET /{module}?end_date=2024-01-31                   → createdAt <= 2024-01-31 (up to Y)
+GET /{module}?start_date=2024-01-01&end_date=2024-01-31  → inclusive window
+GET /{module}?start_date=2024-02-01&end_date=2024-01-01  → 400 BadRequest
+
+GET /{module}/export?start_date=…&end_date=…        → export honours the same window
+
+GET /{module}/:id                                   → identity lookup — IGNORES the filter
+```
+
+- Both bounds are **optional** and **inclusive**.
+- Empty strings (`start_date=`) are treated as **absent** — the frontend can bind inputs without conditional URL building.
+- The filter applies to **read** paths only. Writes / bulks / `:id` lookups operate on identity, never on the date window.
+
+### DTO — Query
+
+```typescript
+import {
+  dateRangeShape,
+  rejectInvertedDateRange,
+  INVERTED_DATE_RANGE_ERROR,
+} from '../../../shared/crud/date-range.util';
+
+export const WidgetsListQuerySchema = z
+  .object({
+    page: z.coerce.number().int().positive().default(1),
+    limit: z.coerce.number().int().min(1).max(100).default(20),
+    search: z.string().max(255).optional(),
+    ...trashedFlagsShape,
+    ...dateRangeShape,
+  })
+  .refine(rejectBothTrashedFlags, BOTH_TRASHED_FLAGS_ERROR)
+  .refine(rejectInvertedDateRange, INVERTED_DATE_RANGE_ERROR);
+
+export class WidgetsListQueryDto extends createZodDto(WidgetsListQuerySchema) {}
+```
+
+> Reuse the same DTO for `/export` — never duplicate the shape.
+
+### Service
+
+```typescript
+import { resolveDateRange } from '../../shared/crud/date-range.util';
+
+async findAll(query: WidgetsListQueryDto): Promise<PaginatedWidgets> {
+  const range = resolveDateRange({
+    start_date: query.start_date,
+    end_date: query.end_date,
+  });
+  const trashed = resolveTrashedMode(query);
+  return this.repository.findAll({
+    page: query.page,
+    limit: query.limit,
+    search: query.search,
+    trashed,
+    range,
+  });
+}
+```
+
+### Repository
+
+```typescript
+import {
+  buildDateRangeWhere,
+  type DateRange,
+} from '../../shared/crud/date-range.util';
+
+async findAll(params: {
+  page: number; limit: number; search?: string;
+  trashed: TrashedMode; range: DateRange;
+}): Promise<PaginatedWidgets> {
+  const where: Prisma.WidgetWhereInput = {
+    ...buildTrashedWhere(params.trashed),
+    ...buildDateRangeWhere(params.range),               // defaults to createdAt
+    // …search clauses
+  };
+  const [rows, total] = await this.prisma.$transaction([
+    this.prisma.widget.findMany({
+      where,
+      orderBy: { createdAt: 'desc' },
+      skip: (params.page - 1) * params.limit,
+      take: Math.min(params.limit, 100),
+    }),
+    this.prisma.widget.count({ where }),
+  ]);
+  return { items: rows.map((r) => this.toEntity(r)), total };
+}
+```
+
+> When the module's natural timeline is NOT creation time, pass the column explicitly: `buildDateRangeWhere(params.range, 'scheduledAt')`. Document the chosen column in the route's Swagger description so consumers know what they're filtering on.
+
+### Authorization
+
+The date-range filter does not change CASL — it's a refinement of an existing read. The route already gates with `Action.Read` (or `Action.Restore` for the trash view); `start_date` / `end_date` ride on the same ability.
+
+### Cache
+
+- The default `@CacheTTL(...)` on `GET /{module}` keys by `originalUrl` — every distinct `?start_date=…&end_date=…` combination gets its own Redis entry automatically.
+- `invalidateCache()` after mutations already uses `http:*:/{module}*`, which wildcards all query-string variants in one SCAN — no extra invalidation is required.
+
+### Rules — date-range filter
+
+```
+✅ Use `dateRangeShape` + `rejectInvertedDateRange` in EVERY list/export DTO of a timeline-able module
+✅ Repository accepts `DateRange` and calls `buildDateRangeWhere(range, column?)` ONCE per query
+✅ Snake_case at the HTTP boundary (`start_date`, `end_date`); camelCase internally (`startDate`, `endDate`)
+✅ Empty strings normalise to `undefined` (handled by `dateQuery`)
+✅ Both bounds optional, inclusive on both ends
+✅ Default filter column is `createdAt`; override per module with a documented reason
+
+❌ `z.coerce.date()` directly on a query field — use `dateQuery` / `dateRangeShape`
+❌ Filtering by date in JS with `.filter(r => r.createdAt >= start)` — push into Prisma `where`
+❌ Applying `start_date` / `end_date` to `GET /{module}/:id` — identity lookups ignore the window
+❌ Mixing the filter into bulk-delete / bulk-restore — those operate on `ids[]`, not time
+❌ Re-defining `dateRangeShape` per module — always import from the shared util
+❌ Exposing only one bound (`since=…` / `until=…`) — the canonical names are `start_date` / `end_date`
 ```
 
 ---

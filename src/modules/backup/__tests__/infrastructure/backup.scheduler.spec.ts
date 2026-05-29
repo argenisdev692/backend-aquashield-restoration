@@ -49,7 +49,7 @@ describe('BackupScheduler', () => {
     expect(commandBus.execute).toHaveBeenCalledWith(
       expect.any(RunBackupCommand),
     );
-    const cmd = commandBus.execute.mock.calls[0]![0] as RunBackupCommand;
+    const cmd = commandBus.execute.mock.calls[0][0] as RunBackupCommand;
     expect(cmd.triggeredBy).toBe(BackupTrigger.Scheduler);
     expect(cmd.actorId).toBeNull();
   });

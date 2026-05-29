@@ -66,6 +66,7 @@ import { CheckUsernameExistsQuery } from '../../../application/queries/check-use
 import type { UserReadModel } from '../../../application/read-models/user.read-model';
 import type { PaginatedUsers } from '../../../application/queries/handlers/get-users-list.handler';
 import { formatPhonePretty } from '../../../../../shared/phone/phone.util';
+import { resolveDateRange } from '../../../../../shared/crud/date-range.util';
 
 import {
   CreateUserDto,
@@ -317,6 +318,18 @@ export class UsersController {
     type: Boolean,
     description:
       'Return ONLY suspended users — useful for audit reports. Laravel-style `onlyTrashed()`. Cannot be combined with `withTrashed`. Requires the `Restore USER` ability.',
+  })
+  @ApiQuery({
+    name: 'start_date',
+    required: false,
+    type: Date,
+    description: 'Filter by creation date (inclusive start).',
+  })
+  @ApiQuery({
+    name: 'end_date',
+    required: false,
+    type: Date,
+    description: 'Filter by creation date (inclusive end).',
   })
   async findAll(
     @Query(new ZodValidationPipe(UsersListQuerySchema))

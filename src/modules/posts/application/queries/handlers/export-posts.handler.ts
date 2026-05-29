@@ -17,6 +17,7 @@ import type { IAuditPort } from '../../../../../shared/activity-log/audit.port';
 import { LoggerService } from '../../../../../logger/logger.service';
 import { ClsService } from 'nestjs-cls';
 import { resolveTrashedMode } from '../../../../../shared/crud/trashed.util';
+import { resolveDateRange } from '../../../../../shared/crud/date-range.util';
 import {
   csvEscape,
   sheetEscape,
@@ -98,6 +99,10 @@ export class ExportPostsHandler implements IQueryHandler<ExportPostsQuery> {
       trashed: resolveTrashedMode({
         withTrashed: dto.withTrashed,
         onlyTrashed: dto.onlyTrashed,
+      }),
+      range: resolveDateRange({
+        start_date: dto.start_date,
+        end_date: dto.end_date,
       }),
     };
 

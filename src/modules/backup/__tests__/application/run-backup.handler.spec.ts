@@ -5,7 +5,7 @@ jest.mock('@nestjs-cls/transactional', () => ({
 }));
 
 jest.mock('node:fs', () => {
-  const actual = jest.requireActual('node:fs') as Record<string, unknown>;
+  const actual = jest.requireActual('node:fs');
   return {
     ...actual,
     promises: {
@@ -83,7 +83,7 @@ describe('RunBackupHandler', () => {
       findAllForExport: jest.fn(),
       findCompletedBeyond: jest.fn(),
       delete: jest.fn(),
-    } as jest.Mocked<IBackupRepository>;
+    };
 
     dumper = {
       dump: jest.fn().mockResolvedValue({
@@ -103,7 +103,7 @@ describe('RunBackupHandler', () => {
 
     audit = {
       log: jest.fn().mockResolvedValue(undefined),
-    } as jest.Mocked<IAuditPort>;
+    };
 
     cache = {
       get: jest.fn(),
@@ -195,7 +195,7 @@ describe('RunBackupHandler', () => {
 
   it('passes triggeredBy=SCHEDULER + actorId=null through to the PENDING row', async () => {
     await handler.execute(new RunBackupCommand(BackupTrigger.Scheduler, null));
-    const persisted = repo.create.mock.calls[0]![0];
+    const persisted = repo.create.mock.calls[0][0];
     expect(persisted.triggeredBy).toBe(BackupTrigger.Scheduler);
     expect(persisted.actorId).toBeNull();
   });

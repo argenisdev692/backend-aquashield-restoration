@@ -1,4 +1,4 @@
-import { Injectable, Inject, OnModuleInit } from '@nestjs/common';
+import { Injectable, OnModuleInit } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { LoggerService } from '../../../../../logger/logger.service';
 import { ClsService } from 'nestjs-cls';
@@ -94,10 +94,10 @@ export class TavilyResearchAdapter implements ResearchPort, OnModuleInit {
           throw new Error(`Tavily HTTP ${resp.status}`);
         }
 
-        return resp.json();
+        return (await resp.json()) as TavilySearchResponse;
       });
 
-      const tavilyResponse = result as TavilySearchResponse;
+      const tavilyResponse = result;
 
       const sources: Source[] = (tavilyResponse.results || [])
         .map((r) => ({

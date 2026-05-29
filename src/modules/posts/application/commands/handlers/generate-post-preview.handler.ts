@@ -86,7 +86,9 @@ export class GeneratePostPreviewHandler
     // 3. Wait for the worker to complete the heavy AI work (Gemini + Tavily + image)
     // This keeps the HTTP request synchronous for the preview UX while the actual
     // expensive calls happen in the BullMQ processor (with retries, cache, etc.).
-    const result = await job.waitUntilFinished(this.queueEvents);
+    const result = (await job.waitUntilFinished(
+      this.queueEvents,
+    )) as GeneratedPostPreview;
 
     this.logger.info('GeneratePostPreviewHandler job completed', {
       traceId,

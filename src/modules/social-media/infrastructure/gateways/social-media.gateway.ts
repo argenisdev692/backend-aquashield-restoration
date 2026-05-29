@@ -114,6 +114,30 @@ export class SocialMediaGateway
       });
   }
 
+  broadcastGenerationProgress(data: {
+    userId: string;
+    jobId: string;
+    topicTitle: string;
+    iteration: number;
+    maxIterations: number;
+    scores: {
+      human_writing_index: number;
+      virality_score: number;
+      engagement_score: number;
+      roi_score: number;
+      trend_alignment: number;
+    };
+    overallScore: number;
+    allPassed: boolean;
+  }) {
+    this.server
+      .to(`user:${data.userId}`)
+      .emit('social-media:generation:progress', {
+        ...data,
+        timestamp: new Date().toISOString(),
+      });
+  }
+
   broadcastGenerationFailed(data: {
     userId: string;
     jobId: string;

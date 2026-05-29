@@ -43,6 +43,7 @@ import type { AuthenticatedUser } from '../../core/access/actions.enum';
 import { SkipCache } from '../../core/decorators/skip-cache.decorator';
 import { TTL_SECONDS } from '../../shared/cache/cache-ttl.constants';
 import { resolveTrashedMode } from '../../shared/crud/trashed.util';
+import { resolveDateRange } from '../../shared/crud/date-range.util';
 import { BlogCategoryService } from './blog-category.service';
 import { CreateBlogCategorySchema } from './dto/create-blog-category.dto';
 import type { CreateBlogCategoryDto } from './dto/create-blog-category.dto';
@@ -94,8 +95,21 @@ export class BlogCategoryController {
     @CurrentUser() user: AuthenticatedUser,
     @Query(new ZodValidationPipe(ListBlogCategoryQuerySchema))
     query: ListBlogCategoryQueryDto,
-  ): Promise<BlogCategoryResponse[]> {
-    return this.service.findAll(user.id, query.limit, query.skip, 'only');
+  ): Promise<{ data: BlogCategoryResponse[]; total: number }> {
+    const result = await this.service.findAll(user.id, query.limit, query.skip, 'only');
+    return {
+      data: result.data.map((cat) => ({
+        id: cat.id,
+        name: cat.name,
+        description: cat.description,
+        image: cat.image,
+        userId: cat.userId,
+        createdAt: cat.createdAt,
+        updatedAt: cat.updatedAt,
+        deletedAt: cat.deletedAt,
+      })),
+      total: result.total,
+    };
   }
 
   @Get()
@@ -117,20 +131,49 @@ export class BlogCategoryController {
     description:
       'Return ONLY soft-deleted categories. Cannot be combined with `withTrashed`. Requires Action.Restore (use GET /blog-categories/trash).',
   })
+  @ApiQuery({
+    name: 'start_date',
+    required: false,
+    type: Date,
+    description: 'Filter by createdAt >= start_date (inclusive).',
+  })
+  @ApiQuery({
+    name: 'end_date',
+    required: false,
+    type: Date,
+    description: 'Filter by createdAt <= end_date (inclusive).',
+  })
   @CacheTTL(TTL_SECONDS.MEDIUM)
   @CheckAbilities({ action: Action.Read, subject: 'BLOG_CATEGORY' })
   async findAll(
     @CurrentUser() user: AuthenticatedUser,
     @Query(new ZodValidationPipe(ListBlogCategoryQuerySchema))
     query: ListBlogCategoryQueryDto,
-  ): Promise<BlogCategoryResponse[]> {
+  ): Promise<{ data: BlogCategoryResponse[]; total: number }> {
     if (query.onlyTrashed) {
       throw new BadRequestException(
         'Use GET /blog-categories/trash to list soft-deleted categories.',
       );
     }
     const trashed = resolveTrashedMode({ withTrashed: query.withTrashed });
-    return this.service.findAll(user.id, query.limit, query.skip, trashed);
+    const range = resolveDateRange({
+      start_date: query.start_date,
+      end_date: query.end_date,
+    });
+    const result = await this.service.findAll(user.id, query.limit, query.skip, trashed, range);
+    return {
+      data: result.data.map((cat) => ({
+        id: cat.id,
+        name: cat.name,
+        description: cat.description,
+        image: cat.image,
+        userId: cat.userId,
+        createdAt: cat.createdAt,
+        updatedAt: cat.updatedAt,
+        deletedAt: cat.deletedAt,
+      })),
+      total: result.total,
+    };
   }
 
   @Get('export')
@@ -144,6 +187,18 @@ export class BlogCategoryController {
   @ApiQuery({ name: 'format', required: true, enum: ['csv', 'xlsx', 'pdf'] })
   @ApiQuery({ name: 'withTrashed', required: false, type: Boolean })
   @ApiQuery({ name: 'onlyTrashed', required: false, type: Boolean })
+  @ApiQuery({
+    name: 'start_date',
+    required: false,
+    type: Date,
+    description: 'Filter by createdAt >= start_date (inclusive).',
+  })
+  @ApiQuery({
+    name: 'end_date',
+    required: false,
+    type: Date,
+    description: 'Filter by createdAt <= end_date (inclusive).',
+  })
   @CheckAbilities({ action: Action.Read, subject: 'BLOG_CATEGORY' })
   async export(
     @CurrentUser() user: AuthenticatedUser,
@@ -154,7 +209,12 @@ export class BlogCategoryController {
     const { buffer, filename, contentType } =
       await this.service.exportBlogCategories(
         user.id,
-        { withTrashed: query.withTrashed, onlyTrashed: query.onlyTrashed },
+        {
+          withTrashed: query.withTrashed,
+          onlyTrashed: query.onlyTrashed,
+          start_date: query.start_date,
+          end_date: query.end_date,
+        },
         query.format,
       );
 

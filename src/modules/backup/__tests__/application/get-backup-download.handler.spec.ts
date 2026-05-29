@@ -70,7 +70,7 @@ describe('GetBackupDownloadHandler', () => {
       findAllForExport: jest.fn(),
       findCompletedBeyond: jest.fn(),
       delete: jest.fn(),
-    } as jest.Mocked<IBackupRepository>;
+    };
 
     storage = {
       uploadFromFile: jest.fn(),

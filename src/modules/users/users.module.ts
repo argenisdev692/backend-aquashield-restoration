@@ -30,7 +30,7 @@ import { CheckUsernameExistsHandler } from './application/queries/handlers/check
 import { PrismaUserRepository } from './infrastructure/persistence/repositories/prisma-user.repository';
 import { PrismaPasswordSetupRepository } from './infrastructure/persistence/repositories/prisma-password-setup.repository';
 import { ResendEmailAdapter } from './infrastructure/adapters/resend-email.adapter';
-import { BcryptPasswordHasherAdapter } from './infrastructure/adapters/bcrypt-password-hasher.adapter';
+import { BcryptPasswordHasherAdapter } from '../../shared/security/bcrypt-password-hasher.adapter';
 import { UserEventListener } from './infrastructure/event-listeners/user-event.listener';
 
 import { USER_REPOSITORY } from './domain/repositories/user.repository.interface';
@@ -61,7 +61,6 @@ import { ActivityLogService } from '../../shared/activity-log/activity-log.servi
     PrismaUserRepository,
     PrismaPasswordSetupRepository,
     ResendEmailAdapter,
-    BcryptPasswordHasherAdapter,
     UserEventListener,
     ActivityLogService,
 
