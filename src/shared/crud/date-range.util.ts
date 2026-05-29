@@ -54,13 +54,24 @@ export function buildDateRangeWhere(
 }
 
 /**
- * Zod-friendly coercion of a date query string to a `Date`. Treats `''`
- * (empty query value) as absent and rejects strings that JS cannot parse
- * as a real date (`Invalid Date` fails `z.coerce.date()`).
+ * Zod-friendly parsing of a `YYYY-MM-DD` query string into a `Date`.
+ *
+ * We validate an ISO date *string* (`z.iso.date()`) and then transform it
+ * into a `Date`, instead of `z.coerce.date()`. The output stays a `Date`
+ * (so repositories and {@link resolveDateRange} are unchanged), but the
+ * JSON-Schema-facing *input* is a plain string — `z.coerce.date()` emits a
+ * `Date` node that `nestjs-zod`'s OpenAPI generator cannot represent
+ * (`Error: Date cannot be represented in JSON Schema`).
+ *
+ * Treats `''` (empty query value) as absent so the frontend can wire the
+ * inputs without conditional URL building.
  */
 export const dateQuery = z.preprocess(
   (v) => (v === '' ? undefined : v),
-  z.coerce.date().optional(),
+  z.iso
+    .date()
+    .transform((s) => new Date(s))
+    .optional(),
 );
 
 /**
