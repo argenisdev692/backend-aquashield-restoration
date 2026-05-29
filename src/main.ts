@@ -66,7 +66,14 @@ async function bootstrap(): Promise<void> {
       .setTitle('Aquashield Restoration LLC API')
       .setDescription('REST API — OpenAPI 3.0')
       .setVersion('1.0')
-      .addBearerAuth()
+      .addBearerAuth({
+        type: 'http',
+        scheme: 'bearer',
+        bearerFormat: 'JWT',
+        name: 'Authorization',
+        description: 'Enter JWT token (without "Bearer " prefix)',
+        in: 'header',
+      })
       .build();
     const document = SwaggerModule.createDocument(app, swaggerConfig);
     // nestjs-zod v5: patchNestjsSwagger was replaced by cleanupOpenApiDoc,
