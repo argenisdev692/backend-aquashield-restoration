@@ -18,7 +18,9 @@ export class DeleteCampaignHandler
   constructor(
     @Inject(CAMPAIGN_GENERATION_REPOSITORY)
     private readonly campaignRepo: ICampaignGenerationRepository,
+    @Inject(AUDIT_PORT)
     private readonly audit: IAuditPort,
+    @Inject(CACHE_PORT)
     private readonly cache: ICachePort,
     private readonly logger: LoggerService,
   ) {
