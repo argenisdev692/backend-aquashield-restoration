@@ -98,6 +98,7 @@ const PERMISSIONS: readonly PermissionSeed[] = [
   // campaigns (super-admin only — expensive AI video ad export pipeline: Gemini + optional ElevenLabs + ZIP + PDF)
   { name: "campaigns:export", module: "campaigns", subject: "CAMPAIGN", action: "export", description: "Request and generate full campaign video exports (TOFU/MOFU/BOFU/LOYALTY) with AI assets" },
   { name: "campaigns:read",   module: "campaigns", subject: "CAMPAIGN", action: "read",   description: "View campaign export status and download links" },
+  { name: "campaigns:delete", module: "campaigns", subject: "CAMPAIGN", action: "delete", description: "Hard-delete campaign generations (individual + bulk)" },
 ];
 
 const ROLE_GRANTS: Readonly<Record<string, readonly string[] | "ALL">> = {
