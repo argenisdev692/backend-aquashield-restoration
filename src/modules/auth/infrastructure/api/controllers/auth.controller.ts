@@ -28,6 +28,7 @@ import { ZodValidationPipe } from 'nestjs-zod';
 import type { Request, Response } from 'express';
 
 import { JwtAuthGuard } from '../../../../../core/guards/jwt-auth.guard';
+import { JwtLogoutGuard } from '../../../../../core/guards/jwt-logout.guard';
 import { CurrentUser } from '../../../../../core/decorators/current-user.decorator';
 import { SkipCache } from '../../../../../core/decorators/skip-cache.decorator';
 import type { AuthenticatedUser } from '../../../../../core/access/actions.enum';
@@ -218,7 +219,7 @@ export class AuthController {
 
   @Post('logout')
   @HttpCode(HttpStatus.NO_CONTENT)
-  @UseGuards(JwtAuthGuard)
+  @UseGuards(JwtLogoutGuard)
   @ApiBearerAuth()
   @Throttle({ default: { limit: 20, ttl: 60_000 } })
   @ApiOperation({ summary: 'Revoke the calling session' })

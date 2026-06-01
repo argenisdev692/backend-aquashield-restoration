@@ -27,7 +27,7 @@
     "db:seed": "prisma db seed",
     "db:setup": "npm run db:bootstrap && npm run db:push && npm run db:post && npm run db:seed",
     "db:studio": "prisma studio",
-    "api:export": "node scripts/export-openapi.mjs",
+    "api:export": "tsx scripts/export-openapi.ts",
     "api:generate": "orval",
     "api:sync": "npm run api:export && npm run api:generate"
   },

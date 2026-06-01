@@ -10,7 +10,9 @@ import {
 import { GlobalExceptionFilter } from './filters/global-exception.filter';
 import { CaslGuard } from './guards/casl.guard';
 import { JwtAuthGuard } from './guards/jwt-auth.guard';
+import { JwtLogoutGuard } from './guards/jwt-logout.guard';
 import { JwtStrategy } from './guards/jwt.strategy';
+import { JwtLogoutStrategy } from './guards/jwt-logout.strategy';
 import { SpamFilterGuard } from './guards/spam-filter.guard';
 import { AuditInterceptor } from './interceptors/audit.interceptor';
 import { CacheTtlInterceptor } from './interceptors/cache-ttl.interceptor';
@@ -33,7 +35,9 @@ import { LoggingInterceptor } from './interceptors/logging.interceptor';
     { provide: PERMISSION_REPOSITORY, useExisting: PrismaPermissionRepository },
     CaslAbilityFactory,
     JwtStrategy,
+    JwtLogoutStrategy,
     JwtAuthGuard,
+    JwtLogoutGuard,
     CaslGuard,
     SpamFilterGuard,
     { provide: APP_FILTER, useClass: GlobalExceptionFilter },
@@ -45,6 +49,7 @@ import { LoggingInterceptor } from './interceptors/logging.interceptor';
   exports: [
     CaslAbilityFactory,
     JwtAuthGuard,
+    JwtLogoutGuard,
     CaslGuard,
     SpamFilterGuard,
     PassportModule,

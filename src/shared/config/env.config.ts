@@ -135,7 +135,17 @@ export type EnvVars = z.infer<typeof EnvSchema>;
  * every invalid/missing variable so the failure is actionable at first boot.
  */
 export function validateEnv(config: Record<string, unknown>): EnvVars {
-  const parsed = EnvSchema.safeParse(config);
+  // Transform empty strings to undefined for optional fields
+  // This allows .env files to have empty values for optional fields without failing validation
+  const cleanedConfig = { ...config };
+  if (cleanedConfig.GOOGLE_CLIENT_ID === '') delete cleanedConfig.GOOGLE_CLIENT_ID;
+  if (cleanedConfig.GOOGLE_CLIENT_SECRET === '') delete cleanedConfig.GOOGLE_CLIENT_SECRET;
+  if (cleanedConfig.GOOGLE_REDIRECT_URL === '') delete cleanedConfig.GOOGLE_REDIRECT_URL;
+  if (cleanedConfig.ANTHROPIC_API_KEY === '') delete cleanedConfig.ANTHROPIC_API_KEY;
+  if (cleanedConfig.OPENAI_API_KEY === '') delete cleanedConfig.OPENAI_API_KEY;
+  if (cleanedConfig.ELEVENLABS_API_KEY === '') delete cleanedConfig.ELEVENLABS_API_KEY;
+
+  const parsed = EnvSchema.safeParse(cleanedConfig);
 
   if (!parsed.success) {
     const issues = parsed.error.issues
