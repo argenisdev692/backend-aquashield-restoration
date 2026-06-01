@@ -82,6 +82,11 @@ async function bootstrap(): Promise<void> {
       'api/docs',
       app,
       cleanupOpenApiDoc(document, { version: '3.0' }),
+      {
+        // Keep the entered Bearer token across page reloads so testers don't
+        // have to re-Authorize after every refresh of /api/docs.
+        swaggerOptions: { persistAuthorization: true },
+      },
     );
   }
 
