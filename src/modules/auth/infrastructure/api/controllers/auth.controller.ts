@@ -223,7 +223,9 @@ export class AuthController {
   @ApiBearerAuth()
   @Throttle({ default: { limit: 20, ttl: 60_000 } })
   @ApiOperation({ summary: 'Revoke the calling session' })
-  logout(@CurrentUser() user: AuthenticatedUser) {
+  logout(@CurrentUser() user?: AuthenticatedUser) {
+    // Idempotent: no valid token → nothing to revoke server-side, still 204.
+    if (!user) return;
     return this.logoutUc.execute(user.id, user.sessionId);
   }
 
