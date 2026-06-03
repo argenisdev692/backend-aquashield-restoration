@@ -10,7 +10,7 @@ import { RolesService } from './roles.service';
 import { PermissionResponseDto } from './dto/role-response.dto';
 import type { Permission } from './roles.entity';
 
-@ApiTags('permissions')
+@ApiTags('Permissions')
 @ApiBearerAuth()
 @Controller('permissions')
 @UseGuards(JwtAuthGuard, CaslGuard)

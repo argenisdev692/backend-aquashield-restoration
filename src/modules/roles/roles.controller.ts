@@ -56,7 +56,7 @@ import {
 import type { Response } from 'express';
 import type { Role } from './roles.entity';
 
-@ApiTags('roles')
+@ApiTags('Roles')
 @ApiBearerAuth()
 @Controller('roles')
 @UseGuards(JwtAuthGuard, CaslGuard)

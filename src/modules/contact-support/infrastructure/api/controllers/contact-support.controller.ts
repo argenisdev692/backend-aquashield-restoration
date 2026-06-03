@@ -75,7 +75,7 @@ import {
 import type { ContactSupportReadModel } from '../../../domain/read-models/contact-support.read-model';
 import type { PaginatedContactSupport } from '../../../domain/read-models/contact-support.read-model';
 
-@ApiTags('contact-support')
+@ApiTags('Contact Support')
 @Controller('contact-support')
 export class ContactSupportController {
   constructor(

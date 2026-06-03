@@ -72,7 +72,7 @@ import {
   BackupTriggeredResponse,
 } from '../presenters/backup.response';
 
-@ApiTags('backups')
+@ApiTags('Backups')
 @ApiBearerAuth()
 @Controller('backups')
 @UseGuards(JwtAuthGuard, CaslGuard)

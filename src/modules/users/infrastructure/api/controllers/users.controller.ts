@@ -124,7 +124,7 @@ const USER_RESPONSE_FIELDS = [
   'permissions',
 ] as const;
 
-@ApiTags('users')
+@ApiTags('Users')
 @Controller('users')
 export class UsersController {
   constructor(

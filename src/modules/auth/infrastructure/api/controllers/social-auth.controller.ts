@@ -39,7 +39,7 @@ const OAUTH_STATE_TTL_MS = 5 * 60 * 1000;
  * HttpOnly cookie, send it in the redirect URL, then require the callback
  * to echo the same value. Any mismatch → 400.
  */
-@ApiTags('auth:social')
+@ApiTags('Auth: Social')
 @Controller('auth/google')
 export class SocialAuthController {
   constructor(

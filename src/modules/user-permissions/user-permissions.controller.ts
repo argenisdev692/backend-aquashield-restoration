@@ -43,7 +43,7 @@ import { UserPermissionResponseDto } from './dto/user-permission.response';
  * the user, even though it lives in a dedicated Flat CRUD module (the
  * primary `users` module is Hex/DDD and keeps its CQRS shape untouched).
  */
-@ApiTags('user-permissions')
+@ApiTags('User Permissions')
 @ApiBearerAuth()
 @Controller('users/:userId/permissions')
 @UseGuards(JwtAuthGuard, CaslGuard)

@@ -80,7 +80,7 @@ import type { AuthenticatedUser } from '../../../../../core/access/actions.enum'
 import { CaslAbilityFactory } from '../../../../../core/access/casl-ability.factory';
 import { resolveDateRange } from '../../../../../shared/crud/date-range.util';
 
-@ApiTags('appointments')
+@ApiTags('Appointments')
 @ApiBearerAuth()
 @Controller('appointments')
 @UseGuards(JwtAuthGuard, CaslGuard)

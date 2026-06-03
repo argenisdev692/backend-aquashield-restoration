@@ -83,7 +83,7 @@ import {
 import type { SocialMediaTopic } from '../../../domain/entities/social-media-topic.entity';
 import type { SocialMediaGeneration } from '../../../domain/entities/social-media-generation.entity';
 
-@ApiTags('social-media')
+@ApiTags('Social Media')
 @ApiBearerAuth()
 @Controller('social-media')
 @UseGuards(JwtAuthGuard, CaslGuard)

@@ -74,7 +74,7 @@ const TRUSTED_DEVICE_COOKIE = 'td';
  * in route-level `@Throttle(...)` to add a hard IP cap on top of the
  * per-account counters in Redis.
  */
-@ApiTags('auth')
+@ApiTags('Auth')
 @Controller('auth')
 export class AuthController {
   constructor(

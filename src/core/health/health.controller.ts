@@ -16,7 +16,7 @@ import { SkipCache } from '../decorators/skip-cache.decorator';
  * `GET /health` — liveness/readiness. Public, never cached (must reflect
  * live state). Checks the database and Redis connections.
  */
-@ApiTags('health')
+@ApiTags('Health')
 @Controller('health')
 export class HealthController {
   constructor(

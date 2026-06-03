@@ -25,7 +25,7 @@ import { CreateAppointmentResponse } from '../presenters/create-appointment.resp
  *   2. @Throttle override  — tightens the limit to 3 requests per minute per IP.
  *   3. SpamFilterGuard     — rejects messages containing spam keywords or >1 URL.
  */
-@ApiTags('public')
+@ApiTags('Public')
 @Controller('public/appointments')
 export class PublicAppointmentsController {
   constructor(private readonly commandBus: CommandBus) {}

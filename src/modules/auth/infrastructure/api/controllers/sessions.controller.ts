@@ -32,7 +32,7 @@ import { RevokeTrustedDeviceUseCase } from '../../../application/use-cases/revok
  * trust-this-device action — caching even briefly would show stale info
  * after the user revoked a session from another tab.
  */
-@ApiTags('auth:sessions')
+@ApiTags('Auth: Sessions')
 @ApiBearerAuth()
 @UseGuards(JwtAuthGuard, TwoFactorRequiredGuard)
 @Throttle({ default: { limit: 30, ttl: 60_000 } })

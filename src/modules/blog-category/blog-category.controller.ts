@@ -63,7 +63,7 @@ import type {
   ExportBlogCategoryQueryDto,
 } from './dto/list-blog-category.dto';
 
-@ApiTags('blog-categories')
+@ApiTags('Blog Categories')
 @ApiBearerAuth()
 @Controller('blog-categories')
 @UseGuards(JwtAuthGuard, CaslGuard)

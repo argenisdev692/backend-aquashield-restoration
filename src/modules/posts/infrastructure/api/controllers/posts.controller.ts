@@ -111,7 +111,7 @@ import { Action } from '../../../../../core/access/actions.enum';
 import type { AuthenticatedUser } from '../../../../../core/access/actions.enum';
 import { CaslAbilityFactory } from '../../../../../core/access/casl-ability.factory';
 
-@ApiTags('posts')
+@ApiTags('Posts')
 @ApiBearerAuth()
 @Controller('posts')
 @UseGuards(JwtAuthGuard, CaslGuard)

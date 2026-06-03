@@ -41,7 +41,7 @@ import { CompanyDataResponse } from './dto/companydata.response';
 const SIGNATURE_MIME_REGEX = /^(image\/png|image\/jpeg|image\/webp)$/;
 const SIGNATURE_MAX_BYTES = 2 * 1024 * 1024;
 
-@ApiTags('company-data')
+@ApiTags('Company Data')
 @ApiBearerAuth()
 @Controller('company-data')
 export class CompanyDataController {

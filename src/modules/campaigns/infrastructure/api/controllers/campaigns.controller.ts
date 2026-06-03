@@ -93,7 +93,7 @@ import { ExportCampaignExportsQuery } from '../../../application/queries/export-
 import { CampaignExportStatusResponse as CampaignExportStatusPresenter } from '../presenters/campaign-export-status.response';
 import { CampaignExportListItemResponse } from '../presenters/campaign-export-list-item.response';
 
-@ApiTags('campaigns')
+@ApiTags('Campaigns')
 @ApiBearerAuth()
 @Controller('campaigns')
 @UseGuards(JwtAuthGuard, CaslGuard)

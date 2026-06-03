@@ -36,7 +36,7 @@ import { EnableTotpDto } from '../../../application/dto/enable-totp.dto';
  * user can preview the QR code without re-entering the password each
  * time. Enabling, disabling, and regenerating ARE gated.
  */
-@ApiTags('auth:2fa')
+@ApiTags('Auth: 2FA')
 @ApiBearerAuth()
 @UseGuards(JwtAuthGuard, TwoFactorRequiredGuard)
 // Hard cap on every 2FA management endpoint — they all mutate the security
