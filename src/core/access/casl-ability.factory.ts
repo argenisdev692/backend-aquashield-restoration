@@ -39,16 +39,20 @@ export class CaslAbilityFactory {
   }
 
   async createForUser(user: AuthenticatedUser): Promise<AppAbility> {
-    // super-admin bypass — single `manage all` rule, no DB hit, no cache
-    // round-trip. JWT carries lowercase role names (`super-admin` is the
-    // canonical seeded system role). Absent for legacy tokens, in which
-    // case we fall through to the regular DB-backed path.
-    //
-    // `'all'` (lowercase) is the CASL subject wildcard — matches every
-    // subject. `'ALL'` would be a literal subject named ALL and would NOT
-    // grant access to other subjects. Cast through `unknown` because the
-    // `Subjects` union is the typed catalog, while `'all'` is CASL-internal.
-    if (user.roleNames?.includes('super-admin')) {
+    let roleIds = user.roleIds ?? [];
+    let roleNames = user.roleNames ?? [];
+
+    // Fallback: tokens issued before role embedding (or stripped by an
+    // upstream bug) arrive with empty arrays. One DB round-trip restores
+    // them; the result is still cached below so the hit is amortised.
+    if (roleIds.length === 0 || roleNames.length === 0) {
+      const roles = await this.repo.getRolesForUser(user.id);
+      roleIds = roles.map((r) => r.id);
+      roleNames = roles.map((r) => r.name);
+    }
+
+    // super-admin bypass — single `manage all` rule, no further DB hit.
+    if (roleNames.includes('super-admin')) {
       return createMongoAbility<AppAbility>([
         {
           action: Action.Manage,
@@ -65,7 +69,7 @@ export class CaslAbilityFactory {
 
     const rules: AppRule[] = [];
 
-    const rolePerms = await this.repo.getPermissionsForRoles(user.roleIds);
+    const rolePerms = await this.repo.getPermissionsForRoles(roleIds);
     for (const p of rolePerms) {
       rules.push(this.toRule(p, user, false));
     }

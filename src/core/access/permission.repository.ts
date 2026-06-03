@@ -5,6 +5,7 @@ import type { PermissionRow, UserPermissionRow } from './actions.enum';
 export interface IPermissionRepository {
   getPermissionsForRoles(roleIds: string[]): Promise<PermissionRow[]>;
   getDirectPermissionsForUser(userId: string): Promise<UserPermissionRow[]>;
+  getRolesForUser(userId: string): Promise<{ id: string; name: string }[]>;
 }
 
 export const PERMISSION_REPOSITORY = Symbol('IPermissionRepository');
@@ -65,5 +66,20 @@ export class PrismaPermissionRepository implements IPermissionRepository {
       fields: r.fields.length > 0 ? r.fields : null,
       isGranted: r.isGranted,
     }));
+  }
+
+  async getRolesForUser(userId: string): Promise<{ id: string; name: string }[]> {
+    const now = new Date();
+    const rows = await this.prisma.userRole.findMany({
+      where: {
+        userId,
+        OR: [{ expiresAt: null }, { expiresAt: { gt: now } }],
+        role: { deletedAt: null },
+      },
+      select: {
+        role: { select: { id: true, name: true } },
+      },
+    });
+    return rows.map((r) => ({ id: r.role.id, name: r.role.name }));
   }
 }

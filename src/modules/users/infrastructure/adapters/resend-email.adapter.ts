@@ -49,6 +49,8 @@ export class ResendEmailAdapter implements IEmailPort {
           This link expires in <strong>72 hours</strong>.
           If you did not request this, please ignore this email.
         </p>
+        <hr style="margin: 20px 0; border: none; border-top: 1px solid #e2e8f0;" />
+        <p style="color: #6b7280; font-size: 12px;">Aquashield Restoration LLC</p>
       </div>
     `;
 

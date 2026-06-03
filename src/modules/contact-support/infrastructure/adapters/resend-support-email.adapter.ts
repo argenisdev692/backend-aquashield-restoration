@@ -68,6 +68,8 @@ export class ResendSupportEmailAdapter implements ISupportEmailPort {
         <div style="background: #f1f5f9; padding: 16px; border-radius: 6px; white-space: pre-wrap; color: #334155;">
           ${safe.message}
         </div>
+        <hr style="margin: 20px 0; border: none; border-top: 1px solid #e2e8f0;" />
+        <p style="color: #6b7280; font-size: 12px;">Aquashield Restoration LLC</p>
       </div>
     `;
 
@@ -111,6 +113,8 @@ export class ResendSupportEmailAdapter implements ISupportEmailPort {
           "<strong>${safe.subject}</strong>" and our team will get back to
           you shortly. Thank you for reaching out.
         </p>
+        <hr style="margin: 20px 0; border: none; border-top: 1px solid #e2e8f0;" />
+        <p style="color: #6b7280; font-size: 12px;">Aquashield Restoration LLC</p>
       </div>
     `;
 

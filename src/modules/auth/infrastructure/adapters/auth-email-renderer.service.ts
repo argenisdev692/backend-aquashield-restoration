@@ -17,8 +17,8 @@ export class AuthEmailRenderer {
   private readonly appUrl: string;
 
   constructor(config: ConfigService) {
-    this.appName = 'AquaShield CRM';
-    this.appUrl = config.get<string>('APP_URL', 'http://localhost:3000');
+    this.appName = 'Aquashield Restoration LLC';
+    this.appUrl = config.get<string>('APP_URL', 'http://localhost:4200');
   }
 
   render(job: AuthEmailJob): { to: string; subject: string; html: string } {
