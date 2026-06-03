@@ -9,6 +9,7 @@ import {
   Query,
   HttpCode,
   UseGuards,
+  Inject,
   NotFoundException,
   ParseUUIDPipe,
   StreamableFile,
@@ -47,6 +48,10 @@ import type {
   AuthenticatedUser,
 } from '../../../../../core/access/actions.enum';
 import { TTL_SECONDS } from '../../../../../shared/cache/cache-ttl.constants';
+import {
+  STORAGE_PORT,
+  type IStoragePort,
+} from '../../../../../shared/storage/storage.port';
 
 import { CommandBus, QueryBus } from '@nestjs/cqrs';
 
@@ -113,6 +118,7 @@ const USER_RESPONSE_FIELDS = [
   'id',
   'name',
   'lastName',
+  'username',
   'email',
   'phone',
   'emailVerifiedAt',
@@ -122,6 +128,17 @@ const USER_RESPONSE_FIELDS = [
   'deletedAt',
   'roles',
   'permissions',
+  'dateOfBirth',
+  'address',
+  'address2',
+  'zipCode',
+  'city',
+  'state',
+  'country',
+  'gender',
+  'profilePhotoUrl',
+  'totpEnabled',
+  'mustChangePassword',
 ] as const;
 
 @ApiTags('Users')
@@ -131,6 +148,8 @@ export class UsersController {
     private readonly commandBus: CommandBus,
     private readonly queryBus: QueryBus,
     private readonly abilityFactory: CaslAbilityFactory,
+    @Inject(STORAGE_PORT)
+    private readonly storage: IStoragePort,
   ) {}
 
   /**
@@ -174,6 +193,7 @@ export class UsersController {
       id: u.id,
       name: u.name,
       lastName: u.lastName,
+      username: u.username,
       email: u.email,
       phone: formatPhonePretty(u.phone),
       emailVerifiedAt: u.emailVerifiedAt?.toISOString() ?? null,
@@ -183,6 +203,21 @@ export class UsersController {
       deletedAt: u.deletedAt?.toISOString() ?? null,
       roles: u.roles,
       permissions: u.permissions,
+      dateOfBirth: u.dateOfBirth
+        ? u.dateOfBirth.toISOString().slice(0, 10)
+        : null,
+      address: u.address,
+      address2: u.address2,
+      zipCode: u.zipCode,
+      city: u.city,
+      state: u.state,
+      country: u.country,
+      gender: u.gender,
+      profilePhotoUrl: u.profilePhotoPath
+        ? this.storage.publicUrl(u.profilePhotoPath)
+        : null,
+      totpEnabled: u.totpEnabled,
+      mustChangePassword: u.mustChangePassword,
     };
   }
 

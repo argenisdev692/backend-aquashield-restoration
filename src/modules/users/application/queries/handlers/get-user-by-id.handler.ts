@@ -33,6 +33,7 @@ export class GetUserByIdHandler implements IQueryHandler<GetUserByIdQuery> {
       id: user.id.value,
       name: user.name,
       lastName: user.lastName,
+      username: user.username,
       email: user.email.value,
       phone: user.phone,
       emailVerifiedAt: user.emailVerifiedAt,
@@ -42,6 +43,17 @@ export class GetUserByIdHandler implements IQueryHandler<GetUserByIdQuery> {
       deletedAt: user.deletedAt,
       roles: access.roles,
       permissions: access.permissions,
+      dateOfBirth: user.dateOfBirth,
+      address: user.address,
+      address2: user.address2,
+      zipCode: user.zipCode,
+      city: user.city,
+      state: user.state,
+      country: user.country,
+      gender: user.gender,
+      profilePhotoPath: user.profilePhotoPath,
+      totpEnabled: user.totpEnabled,
+      mustChangePassword: user.mustChangePassword,
     };
   }
 }

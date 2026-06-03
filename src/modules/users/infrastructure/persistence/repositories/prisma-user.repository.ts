@@ -74,10 +74,27 @@ export class PrismaUserRepository implements IUserRepository {
 
   async create(user: User): Promise<User> {
     // `id` is intentionally omitted so the DB default (uuid_generate_v7()) applies.
-    const { name, lastName, email, phone, password } =
-      UserMapper.toPersistence(user);
+    const data = UserMapper.toPersistence(user);
     const row = await this.prisma.user.create({
-      data: { name, lastName, email, phone, password },
+      data: {
+        name: data.name,
+        lastName: data.lastName,
+        username: data.username,
+        email: data.email,
+        phone: data.phone,
+        dateOfBirth: data.dateOfBirth,
+        address: data.address,
+        address2: data.address2,
+        zipCode: data.zipCode,
+        city: data.city,
+        state: data.state,
+        country: data.country,
+        gender: data.gender,
+        profilePhotoPath: data.profilePhotoPath,
+        totpEnabled: data.totpEnabled,
+        mustChangePassword: data.mustChangePassword,
+        password: data.password,
+      },
     });
     return UserMapper.toDomain(row);
   }
@@ -89,8 +106,20 @@ export class PrismaUserRepository implements IUserRepository {
       data: {
         name: data.name,
         lastName: data.lastName,
+        username: data.username,
         email: data.email,
         phone: data.phone,
+        dateOfBirth: data.dateOfBirth,
+        address: data.address,
+        address2: data.address2,
+        zipCode: data.zipCode,
+        city: data.city,
+        state: data.state,
+        country: data.country,
+        gender: data.gender,
+        profilePhotoPath: data.profilePhotoPath,
+        totpEnabled: data.totpEnabled,
+        mustChangePassword: data.mustChangePassword,
         password: data.password,
       },
     });

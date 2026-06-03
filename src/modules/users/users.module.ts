@@ -10,6 +10,7 @@
 import { Module } from '@nestjs/common';
 import { CqrsModule } from '@nestjs/cqrs';
 import { EventEmitterModule } from '@nestjs/event-emitter';
+import { StorageModule } from '../../shared/storage/storage.module';
 
 import { UsersController } from './infrastructure/api/controllers/users.controller';
 
@@ -41,7 +42,7 @@ import { AUDIT_PORT } from '../../shared/activity-log/audit.port';
 import { ActivityLogService } from '../../shared/activity-log/activity-log.service';
 
 @Module({
-  imports: [CqrsModule, EventEmitterModule],
+  imports: [CqrsModule, EventEmitterModule, StorageModule],
   controllers: [UsersController],
   providers: [
     CreateUserHandler,

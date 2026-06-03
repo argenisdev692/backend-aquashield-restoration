@@ -19,6 +19,18 @@ const suspendedUser = User.reconstitute({
   name: 'Suspended',
   lastName: null,
   phone: null,
+  username: null,
+  dateOfBirth: null,
+  address: null,
+  address2: null,
+  zipCode: null,
+  city: null,
+  state: null,
+  country: null,
+  gender: null,
+  profilePhotoPath: null,
+  totpEnabled: false,
+  mustChangePassword: false,
   password: null,
   emailVerifiedAt: null,
   passwordConfirmedAt: null,
@@ -97,7 +109,7 @@ describe('GetUserByIdHandler — withTrashed semantics', () => {
     const roleId = '22222222-2222-2222-2222-222222222222';
     mockUserRepo.findById.mockResolvedValueOnce(suspendedUser);
     mockUserRepo.findAccessByUserId.mockResolvedValueOnce({
-      roles: [{ id: roleId, name: 'admin' }],
+      roles: [{ id: roleId, name: 'admin', description: null }],
       permissions: [
         { action: 'read', subject: 'USER' },
         { action: 'update', subject: 'USER' },
@@ -107,7 +119,7 @@ describe('GetUserByIdHandler — withTrashed semantics', () => {
     const result = await handler.execute(new GetUserByIdQuery(userId, true));
 
     expect(mockUserRepo.findAccessByUserId).toHaveBeenCalledWith(userId);
-    expect(result?.roles).toEqual([{ id: roleId, name: 'admin' }]);
+    expect(result?.roles).toEqual([{ id: roleId, name: 'admin', description: null }]);
     expect(result?.permissions).toEqual([
       { action: 'read', subject: 'USER' },
       { action: 'update', subject: 'USER' },

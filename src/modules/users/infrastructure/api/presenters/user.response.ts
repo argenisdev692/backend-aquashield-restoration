@@ -9,6 +9,7 @@ export const UserResponseSchema = z.object({
   id: z.string().uuid(),
   name: z.string(),
   lastName: z.string().nullable(),
+  username: z.string().nullable(),
   email: z.string().email(),
   /**
    * Phone in international pretty format, e.g. `+351 912 345 678`,
@@ -34,6 +35,17 @@ export const UserResponseSchema = z.object({
    * list — never walk `role.permissions[]` client-side.
    */
   permissions: z.array(MePermissionSchema),
+  dateOfBirth: z.string().nullable(),
+  address: z.string().nullable(),
+  address2: z.string().nullable(),
+  zipCode: z.string().nullable(),
+  city: z.string().nullable(),
+  state: z.string().nullable(),
+  country: z.string().nullable(),
+  gender: z.string().nullable(),
+  profilePhotoUrl: z.string().nullable(),
+  totpEnabled: z.boolean(),
+  mustChangePassword: z.boolean(),
 });
 
 export class UserResponse extends createZodDto(UserResponseSchema) {}

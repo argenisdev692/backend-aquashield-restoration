@@ -7,7 +7,19 @@ export class User {
     public readonly email: Email,
     public readonly name: string,
     public readonly lastName: string | null,
+    public readonly username: string | null,
     public readonly phone: string | null,
+    public readonly dateOfBirth: Date | null,
+    public readonly address: string | null,
+    public readonly address2: string | null,
+    public readonly zipCode: string | null,
+    public readonly city: string | null,
+    public readonly state: string | null,
+    public readonly country: string | null,
+    public readonly gender: string | null,
+    public readonly profilePhotoPath: string | null,
+    public readonly totpEnabled: boolean,
+    public readonly mustChangePassword: boolean,
     private _password: string | null,
     private _emailVerifiedAt: Date | null,
     private _passwordConfirmedAt: Date | null,
@@ -28,7 +40,19 @@ export class User {
       params.email,
       params.name,
       params.lastName,
+      null,
       params.phone,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      false,
+      false,
       null,
       null,
       null,
@@ -43,7 +67,19 @@ export class User {
     email: Email;
     name: string;
     lastName: string | null;
+    username: string | null;
     phone: string | null;
+    dateOfBirth: Date | null;
+    address: string | null;
+    address2: string | null;
+    zipCode: string | null;
+    city: string | null;
+    state: string | null;
+    country: string | null;
+    gender: string | null;
+    profilePhotoPath: string | null;
+    totpEnabled: boolean;
+    mustChangePassword: boolean;
     password: string | null;
     emailVerifiedAt: Date | null;
     passwordConfirmedAt: Date | null;
@@ -56,7 +92,19 @@ export class User {
       params.email,
       params.name,
       params.lastName,
+      params.username,
       params.phone,
+      params.dateOfBirth,
+      params.address,
+      params.address2,
+      params.zipCode,
+      params.city,
+      params.state,
+      params.country,
+      params.gender,
+      params.profilePhotoPath,
+      params.totpEnabled,
+      params.mustChangePassword,
       params.password,
       params.emailVerifiedAt,
       params.passwordConfirmedAt,

@@ -13,6 +13,7 @@ export interface UserReadModel {
   id: string;
   name: string;
   lastName: string | null;
+  username: string | null;
   email: string;
   /** E.164 — present as stored, e.g. `+351912345678`. Presenters format pretty. */
   phone: string | null;
@@ -34,4 +35,15 @@ export interface UserReadModel {
    * permissions. Frontend builds its CASL `Ability` directly from this list.
    */
   permissions: UserPermissionProjection[];
+  dateOfBirth: Date | null;
+  address: string | null;
+  address2: string | null;
+  zipCode: string | null;
+  city: string | null;
+  state: string | null;
+  country: string | null;
+  gender: string | null;
+  profilePhotoPath: string | null;
+  totpEnabled: boolean;
+  mustChangePassword: boolean;
 }
