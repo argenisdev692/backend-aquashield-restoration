@@ -38,6 +38,7 @@ import { BackupModule } from './modules/backup/backup.module';
 import { PostsModule } from './modules/posts/posts.module';
 import { SocialMediaModule } from './modules/social-media/social-media.module';
 import { CampaignsModule } from './modules/campaigns/campaigns.module';
+import { ActivityLogsModule } from './modules/activitylog/activitylog.module';
 
 @Module({
   imports: [
@@ -122,6 +123,7 @@ import { CampaignsModule } from './modules/campaigns/campaigns.module';
     PostsModule,
     SocialMediaModule,
     CampaignsModule,
+    ActivityLogsModule,
   ],
   controllers: [AppController],
   providers: [AppService, { provide: APP_GUARD, useClass: ThrottlerGuard }],
