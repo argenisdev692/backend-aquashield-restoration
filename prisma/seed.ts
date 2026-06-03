@@ -119,11 +119,11 @@ const PERMISSIONS: readonly PermissionSeed[] = [
   { name: "appointments:delete",  module: "appointments", subject: "APPOINTMENT", action: "delete",  description: "Soft-delete appointments" },
   { name: "appointments:restore", module: "appointments", subject: "APPOINTMENT", action: "restore", description: "Restore soft-deleted appointments" },
   // contacts
-  { name: "contacts:create",  module: "contacts", subject: "CONTACT_SUPPORT", action: "create",  description: "Create contact support entries" },
-  { name: "contacts:read",    module: "contacts", subject: "CONTACT_SUPPORT", action: "read",    description: "View contact support entries" },
-  { name: "contacts:update",  module: "contacts", subject: "CONTACT_SUPPORT", action: "update",  description: "Edit contact support entries" },
-  { name: "contacts:delete",  module: "contacts", subject: "CONTACT_SUPPORT", action: "delete",  description: "Soft-delete contact support entries" },
-  { name: "contacts:restore", module: "contacts", subject: "CONTACT_SUPPORT", action: "restore", description: "Restore soft-deleted contact support entries" },
+  { name: "contacts:create",  module: "contacts", subject: "CONTACT", action: "create",  description: "Create contact support entries" },
+  { name: "contacts:read",    module: "contacts", subject: "CONTACT", action: "read",    description: "View contact support entries" },
+  { name: "contacts:update",  module: "contacts", subject: "CONTACT", action: "update",  description: "Edit contact support entries" },
+  { name: "contacts:delete",  module: "contacts", subject: "CONTACT", action: "delete",  description: "Soft-delete contact support entries" },
+  { name: "contacts:restore", module: "contacts", subject: "CONTACT", action: "restore", description: "Restore soft-deleted contact support entries" },
   // company (singleton — seeded once; only read/update endpoints exist)
   { name: "company:read",    module: "company", subject: "COMPANY", action: "read",    description: "View company data" },
   { name: "company:update",  module: "company", subject: "COMPANY", action: "update",  description: "Edit company data" },
@@ -133,6 +133,8 @@ const PERMISSIONS: readonly PermissionSeed[] = [
   { name: "blog-categories:update",  module: "blog-categories", subject: "BLOG_CATEGORY", action: "update",  description: "Edit blog categories" },
   { name: "blog-categories:delete",  module: "blog-categories", subject: "BLOG_CATEGORY", action: "delete",  description: "Soft-delete blog categories" },
   { name: "blog-categories:restore", module: "blog-categories", subject: "BLOG_CATEGORY", action: "restore", description: "Restore soft-deleted blog categories" },
+  // activity-logs
+  { name: "activity-logs:manage", module: "activity-logs", subject: "ACTIVITY_LOG", action: "manage", description: "Manage activity logs (read and delete)" },
   // posts
   { name: "posts:create",  module: "posts", subject: "POST", action: "create",  description: "Create posts" },
   { name: "posts:read",    module: "posts", subject: "POST", action: "read",    description: "View posts" },
@@ -417,6 +419,7 @@ const ROLE_GRANTS: Readonly<Record<string, readonly string[] | "ALL">> = {
     "appointments:create", "appointments:read", "appointments:update", "appointments:delete",
     "contacts:create", "contacts:read", "contacts:update", "contacts:delete",
     "blog-categories:create", "blog-categories:read", "blog-categories:update", "blog-categories:delete", "blog-categories:restore",
+    "activity-logs:manage",
     "call-records:create", "call-records:read", "call-records:update", "call-records:delete",
     // company:* is intentionally excluded — super-admin only
   ],

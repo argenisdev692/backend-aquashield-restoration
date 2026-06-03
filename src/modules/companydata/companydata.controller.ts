@@ -66,6 +66,7 @@ export class CompanyDataController {
   }
 
   @Get('me')
+  @UseGuards(JwtAuthGuard, CaslGuard)
   @ApiOkResponse({ type: CompanyDataResponse })
   @ApiNotFoundResponse({ description: 'Company data not found' })
   @CacheTTL(TTL_SECONDS.LONG)
@@ -77,6 +78,7 @@ export class CompanyDataController {
   }
 
   @Get(':id')
+  @UseGuards(JwtAuthGuard, CaslGuard)
   @ApiOkResponse({ type: CompanyDataResponse })
   @ApiNotFoundResponse()
   @ApiParam({ name: 'id', type: String, format: 'uuid' })
@@ -89,6 +91,7 @@ export class CompanyDataController {
   }
 
   @Patch(':id')
+  @UseGuards(JwtAuthGuard, CaslGuard)
   @ApiOkResponse({ type: CompanyDataResponse })
   @ApiNotFoundResponse()
   @ApiBadRequestResponse({ description: 'Validation failed' })
@@ -103,6 +106,7 @@ export class CompanyDataController {
   }
 
   @Post(':id/signature')
+  @UseGuards(JwtAuthGuard, CaslGuard)
   @ApiOkResponse({ type: CompanyDataResponse })
   @ApiNotFoundResponse()
   @ApiBadRequestResponse({ description: 'Invalid file' })
@@ -134,6 +138,7 @@ export class CompanyDataController {
   }
 
   @Delete(':id/signature')
+  @UseGuards(JwtAuthGuard, CaslGuard)
   @ApiOkResponse({ type: CompanyDataResponse })
   @ApiNotFoundResponse()
   @ApiParam({ name: 'id', type: String, format: 'uuid' })
