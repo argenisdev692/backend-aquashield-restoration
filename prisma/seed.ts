@@ -692,7 +692,7 @@ async function main(): Promise<void> {
       where:  { userId: superAdminUser.id },
       update: { 
         name: "Victor Lara", 
-        companyName: "Aquashield Restoration USA",
+        companyName: "Aquashield Restoration LLC",
         email: "info@aquashieldrestorationusa.com",
         phone: "+17135876423",
         address: "3733 Westheimer Rd. Ste 1-4583, Houston, TX 77027",
@@ -706,7 +706,7 @@ async function main(): Promise<void> {
       },
       create: { 
         name: "Victor Lara", 
-        companyName: "Aquashield Restoration USA",
+        companyName: "Aquashield Restoration LLC",
         email: "info@aquashieldrestorationusa.com",
         phone: "+17135876423",
         address: "3733 Westheimer Rd. Ste 1-4583, Houston, TX 77027",
