@@ -27,6 +27,18 @@ import { CacheTTL } from '@nestjs/cache-manager';
 import { ZodValidationPipe } from 'nestjs-zod';
 import type { Request, Response } from 'express';
 
+interface MulterFile {
+  fieldname: string;
+  originalname: string;
+  encoding: string;
+  mimetype: string;
+  size: number;
+  destination: string;
+  filename: string;
+  path: string;
+  buffer: Buffer;
+}
+
 import { JwtAuthGuard } from '../../../../../core/guards/jwt-auth.guard';
 import { JwtLogoutGuard } from '../../../../../core/guards/jwt-logout.guard';
 import { CurrentUser } from '../../../../../core/decorators/current-user.decorator';
@@ -285,7 +297,7 @@ export class AuthController {
   @ApiOperation({ summary: 'Upload / replace own profile photo (R2 via circuit breaker)' })
   uploadPhoto(
     @CurrentUser() user: AuthenticatedUser,
-    @UploadedFile() file: Express.Multer.File | undefined,
+    @UploadedFile() file: MulterFile | undefined,
   ): Promise<UploadResult> {
     if (!file || !file.buffer) {
       throw new BadRequestException('File field "file" is required');

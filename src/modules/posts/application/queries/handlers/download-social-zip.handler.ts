@@ -5,8 +5,10 @@ import {
   ForbiddenException,
 } from '@nestjs/common';
 import { QueryHandler, IQueryHandler } from '@nestjs/cqrs';
-import archiver from 'archiver';
 import { ClsService } from 'nestjs-cls';
+
+// eslint-disable-next-line @typescript-eslint/no-var-requires
+const archiver = require('archiver');
 import {
   DownloadSocialZipQuery,
   type SocialZipResult,
@@ -91,7 +93,7 @@ export class DownloadSocialZipHandler implements IQueryHandler<DownloadSocialZip
       const chunks: Buffer[] = [];
 
       archive.on('data', (chunk: Buffer) => chunks.push(chunk));
-      archive.on('warning', (err) =>
+      archive.on('warning', (err: Error) =>
         this.logger.warn('DownloadSocialZipHandler archive warning', {
           error: err.message,
         }),

@@ -14,6 +14,18 @@ import {
   UploadedFile,
 } from '@nestjs/common';
 import { FileInterceptor } from '@nestjs/platform-express';
+
+interface MulterFile {
+  fieldname: string;
+  originalname: string;
+  encoding: string;
+  mimetype: string;
+  size: number;
+  destination: string;
+  filename: string;
+  path: string;
+  buffer: Buffer;
+}
 import { ZodValidationPipe } from 'nestjs-zod';
 import { CacheTTL } from '@nestjs/cache-manager';
 import { TTL_SECONDS } from '../../shared/cache/cache-ttl.constants';
@@ -125,7 +137,7 @@ export class CompanyDataController {
         .addMaxSizeValidator({ maxSize: SIGNATURE_MAX_BYTES })
         .build({ errorHttpStatusCode: HttpStatus.UNPROCESSABLE_ENTITY }),
     )
-    file: Express.Multer.File,
+    file: MulterFile,
   ): Promise<CompanyDataResponse> {
     return this.service.uploadSignature(id, {
       buffer: file.buffer,

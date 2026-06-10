@@ -1,7 +1,9 @@
 import { Injectable, Inject, NotFoundException } from '@nestjs/common';
 import { CommandHandler, ICommandHandler } from '@nestjs/cqrs';
 import { ClsService } from 'nestjs-cls';
-import archiver from 'archiver';
+
+// eslint-disable-next-line @typescript-eslint/no-var-requires
+const archiver = require('archiver');
 import {
   DownloadZipCommand,
   type DownloadZipResult,

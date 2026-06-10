@@ -17,6 +17,18 @@ import {
   StreamableFile,
 } from '@nestjs/common';
 import type { Response } from 'express';
+
+interface MulterFile {
+  fieldname: string;
+  originalname: string;
+  encoding: string;
+  mimetype: string;
+  size: number;
+  destination: string;
+  filename: string;
+  path: string;
+  buffer: Buffer;
+}
 import { FileInterceptor } from '@nestjs/platform-express';
 import { ZodValidationPipe } from 'nestjs-zod';
 import { CacheTTL } from '@nestjs/cache-manager';
@@ -342,7 +354,7 @@ export class BlogCategoryController {
   @UseInterceptors(
     FileInterceptor('file', {
       limits: { fileSize: 2 * 1024 * 1024 },
-      fileFilter: (_req, file: Express.Multer.File, cb) => {
+      fileFilter: (_req, file: MulterFile, cb) => {
         const allowed = ['image/png', 'image/jpeg', 'image/webp'];
         cb(null, allowed.includes(file.mimetype));
       },
@@ -352,7 +364,7 @@ export class BlogCategoryController {
   async uploadImage(
     @CurrentUser() user: AuthenticatedUser,
     @Param('id', ParseUUIDPipe) id: string,
-    @UploadedFile() file: Express.Multer.File,
+    @UploadedFile() file: MulterFile,
   ): Promise<BlogCategoryResponse> {
     if (!file) {
       throw new BadRequestException(

@@ -1,10 +1,12 @@
 import { Injectable } from '@nestjs/common';
-import archiver from 'archiver';
 import {
   IZipPackerPort,
   BuildStageZipInput,
   ZipPackageResult,
 } from '../../domain/ports/zip-packer.port';
+
+// eslint-disable-next-line @typescript-eslint/no-var-requires
+const archiver = require('archiver');
 
 /**
  * Real in-memory ZIP packer (archiver, level 9). Never touches disk — the
