@@ -115,8 +115,8 @@ export class ContactSupportController {
   @CacheTTL(TTL_SECONDS.SHORT)
   @CheckAbilities({ action: Action.Read, subject: 'CONTACT' })
   @ApiOkResponse({ type: ContactSupportListResponse })
-  @ApiQuery({ name: 'page', required: false, type: Number })
-  @ApiQuery({ name: 'limit', required: false, type: Number })
+  @ApiQuery({ name: 'page', required: false, type: Number, example: 1 })
+  @ApiQuery({ name: 'limit', required: false, type: Number, example: 20 })
   @ApiQuery({ name: 'readed', required: false, enum: ['true', 'false'] })
   @ApiQuery({
     name: 'withTrashed',
@@ -134,14 +134,16 @@ export class ContactSupportController {
   @ApiQuery({
     name: 'start_date',
     required: false,
-    type: Date,
-    description: 'Filter by creation date (inclusive start).',
+    type: String,
+    example: '2024-06-01',
+    description: 'Filter by creation date (inclusive start). Format: YYYY-MM-DD.',
   })
   @ApiQuery({
     name: 'end_date',
     required: false,
-    type: Date,
-    description: 'Filter by creation date (inclusive end).',
+    type: String,
+    example: '2024-06-01',
+    description: 'Filter by creation date (inclusive end). Format: YYYY-MM-DD.',
   })
   async list(
     @Query(new ZodValidationPipe(ListContactSupportSchema))
@@ -208,14 +210,16 @@ export class ContactSupportController {
   @ApiQuery({
     name: 'start_date',
     required: false,
-    type: Date,
-    description: 'Filter by creation date (inclusive start).',
+    type: String,
+    example: '2024-06-01',
+    description: 'Filter by creation date (inclusive start). Format: YYYY-MM-DD.',
   })
   @ApiQuery({
     name: 'end_date',
     required: false,
-    type: Date,
-    description: 'Filter by creation date (inclusive end).',
+    type: String,
+    example: '2024-06-01',
+    description: 'Filter by creation date (inclusive end). Format: YYYY-MM-DD.',
   })
   async export(
     @Query(new ZodValidationPipe(ExportContactSupportSchema))

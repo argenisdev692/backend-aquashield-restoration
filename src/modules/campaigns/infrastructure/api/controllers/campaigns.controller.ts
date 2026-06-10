@@ -240,8 +240,8 @@ export class CampaignsController {
   @CacheTTL(TTL_SECONDS.SHORT)
   @CheckAbilities({ action: Action.Read, subject: 'CAMPAIGN' })
   @ApiOperation({ summary: 'List my campaign exports' })
-  @ApiQuery({ name: 'limit', required: false, type: Number })
-  @ApiQuery({ name: 'offset', required: false, type: Number })
+  @ApiQuery({ name: 'limit', required: false, type: Number, example: 20 })
+  @ApiQuery({ name: 'offset', required: false, type: Number, example: 0 })
   @ApiOkResponse({ type: [CampaignExportListItemResponse] })
   @ApiResponse({
     status: 403,
@@ -312,8 +312,8 @@ export class CampaignsController {
   @CacheTTL(TTL_SECONDS.SHORT)
   @CheckAbilities({ action: Action.Read, subject: 'CAMPAIGN' })
   @ApiOperation({ summary: 'List campaign generations' })
-  @ApiQuery({ name: 'limit', required: false, type: Number })
-  @ApiQuery({ name: 'offset', required: false, type: Number })
+  @ApiQuery({ name: 'limit', required: false, type: Number, example: 20 })
+  @ApiQuery({ name: 'offset', required: false, type: Number, example: 0 })
   @ApiQuery({ name: 'status', required: false, enum: ['pending', 'processing', 'completed', 'failed', 'partial'] })
   @ApiQuery({ name: 'withTrashed', required: false, type: Boolean })
   @ApiQuery({ name: 'onlyTrashed', required: false, type: Boolean })

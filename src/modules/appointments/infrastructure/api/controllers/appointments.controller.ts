@@ -124,19 +124,21 @@ export class AppointmentsController {
   @ApiQuery({ name: 'state', required: false, type: String })
   @ApiQuery({ name: 'country', required: false, type: String })
   @ApiQuery({ name: 'owner', required: false, type: String })
-  @ApiQuery({ name: 'page', required: false, type: Number })
-  @ApiQuery({ name: 'limit', required: false, type: Number })
+  @ApiQuery({ name: 'page', required: false, type: Number, example: 1 })
+  @ApiQuery({ name: 'limit', required: false, type: Number, example: 20 })
   @ApiQuery({
     name: 'start_date',
     required: false,
-    type: Date,
-    description: 'Filter appointments created on or after this date (inclusive).',
+    type: String,
+    example: '2024-06-01',
+    description: 'Filter appointments created on or after this date (inclusive). Format: YYYY-MM-DD.',
   })
   @ApiQuery({
     name: 'end_date',
     required: false,
-    type: Date,
-    description: 'Filter appointments created on or before this date (inclusive).',
+    type: String,
+    example: '2024-06-01',
+    description: 'Filter appointments created on or before this date (inclusive). Format: YYYY-MM-DD.',
   })
   @ApiQuery({
     name: 'withTrashed',
@@ -206,14 +208,16 @@ export class AppointmentsController {
   @ApiQuery({
     name: 'start_date',
     required: false,
-    type: Date,
-    description: 'Filter appointments created on or after this date (inclusive).',
+    type: String,
+    example: '2024-06-01',
+    description: 'Filter appointments created on or after this date (inclusive). Format: YYYY-MM-DD.',
   })
   @ApiQuery({
     name: 'end_date',
     required: false,
-    type: Date,
-    description: 'Filter appointments created on or before this date (inclusive).',
+    type: String,
+    example: '2024-06-01',
+    description: 'Filter appointments created on or before this date (inclusive). Format: YYYY-MM-DD.',
   })
   @ApiQuery({
     name: 'onlyTrashed',

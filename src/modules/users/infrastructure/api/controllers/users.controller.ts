@@ -357,14 +357,16 @@ export class UsersController {
   @ApiQuery({
     name: 'start_date',
     required: false,
-    type: Date,
-    description: 'Filter by creation date (inclusive start).',
+    type: String,
+    example: '2024-06-01',
+    description: 'Filter by creation date (inclusive start). Format: YYYY-MM-DD.',
   })
   @ApiQuery({
     name: 'end_date',
     required: false,
-    type: Date,
-    description: 'Filter by creation date (inclusive end).',
+    type: String,
+    example: '2024-06-01',
+    description: 'Filter by creation date (inclusive end). Format: YYYY-MM-DD.',
   })
   async findAll(
     @Query(new ZodValidationPipe(UsersListQuerySchema))

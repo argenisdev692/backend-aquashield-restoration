@@ -380,8 +380,8 @@ export class PostsController {
   })
   @ApiQuery({ name: 'userId', required: false, type: String, format: 'uuid' })
   @ApiQuery({ name: 'search', required: false, type: String })
-  @ApiQuery({ name: 'page', required: false, type: Number })
-  @ApiQuery({ name: 'limit', required: false, type: Number })
+  @ApiQuery({ name: 'page', required: false, type: Number, example: 1 })
+  @ApiQuery({ name: 'limit', required: false, type: Number, example: 20 })
   @ApiQuery({
     name: 'withTrashed',
     required: false,
@@ -398,14 +398,16 @@ export class PostsController {
   @ApiQuery({
     name: 'start_date',
     required: false,
-    type: Date,
-    description: 'Filter by creation date (inclusive start).',
+    type: String,
+    example: '2024-06-01',
+    description: 'Filter by creation date (inclusive start). Format: YYYY-MM-DD.',
   })
   @ApiQuery({
     name: 'end_date',
     required: false,
-    type: Date,
-    description: 'Filter by creation date (inclusive end).',
+    type: String,
+    example: '2024-06-01',
+    description: 'Filter by creation date (inclusive end). Format: YYYY-MM-DD.',
   })
   @CacheTTL(TTL_SECONDS.SHORT)
   async findAll(
@@ -460,14 +462,16 @@ export class PostsController {
   @ApiQuery({
     name: 'start_date',
     required: false,
-    type: Date,
-    description: 'Filter by creation date (inclusive start).',
+    type: String,
+    example: '2024-06-01',
+    description: 'Filter by creation date (inclusive start). Format: YYYY-MM-DD.',
   })
   @ApiQuery({
     name: 'end_date',
     required: false,
-    type: Date,
-    description: 'Filter by creation date (inclusive end).',
+    type: String,
+    example: '2024-06-01',
+    description: 'Filter by creation date (inclusive end). Format: YYYY-MM-DD.',
   })
   @SkipCache()
   async export(

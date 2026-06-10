@@ -87,8 +87,8 @@ export class BlogCategoryController {
   @SkipThrottle()
   @ApiOkResponse({ type: [BlogCategoryResponse] })
   @ApiBadRequestResponse({ description: 'Validation failed' })
-  @ApiQuery({ name: 'limit', required: false, type: Number })
-  @ApiQuery({ name: 'skip', required: false, type: Number })
+  @ApiQuery({ name: 'limit', required: false, type: Number, example: 20 })
+  @ApiQuery({ name: 'skip', required: false, type: Number, example: 0 })
   @SkipCache()
   @CheckAbilities({ action: Action.Restore, subject: 'BLOG_CATEGORY' })
   async findTrash(
@@ -116,8 +116,8 @@ export class BlogCategoryController {
   @SkipThrottle()
   @ApiOkResponse({ type: [BlogCategoryResponse] })
   @ApiBadRequestResponse({ description: 'Validation failed' })
-  @ApiQuery({ name: 'limit', required: false, type: Number })
-  @ApiQuery({ name: 'skip', required: false, type: Number })
+  @ApiQuery({ name: 'limit', required: false, type: Number, example: 20 })
+  @ApiQuery({ name: 'skip', required: false, type: Number, example: 0 })
   @ApiQuery({
     name: 'withTrashed',
     required: false,
@@ -134,14 +134,16 @@ export class BlogCategoryController {
   @ApiQuery({
     name: 'start_date',
     required: false,
-    type: Date,
-    description: 'Filter by createdAt >= start_date (inclusive).',
+    type: String,
+    example: '2024-06-01',
+    description: 'Filter by createdAt >= start_date (inclusive). Format: YYYY-MM-DD.',
   })
   @ApiQuery({
     name: 'end_date',
     required: false,
-    type: Date,
-    description: 'Filter by createdAt <= end_date (inclusive).',
+    type: String,
+    example: '2024-06-01',
+    description: 'Filter by createdAt <= end_date (inclusive). Format: YYYY-MM-DD.',
   })
   @CacheTTL(TTL_SECONDS.MEDIUM)
   @CheckAbilities({ action: Action.Read, subject: 'BLOG_CATEGORY' })
@@ -190,14 +192,16 @@ export class BlogCategoryController {
   @ApiQuery({
     name: 'start_date',
     required: false,
-    type: Date,
-    description: 'Filter by createdAt >= start_date (inclusive).',
+    type: String,
+    example: '2024-06-01',
+    description: 'Filter by createdAt >= start_date (inclusive). Format: YYYY-MM-DD.',
   })
   @ApiQuery({
     name: 'end_date',
     required: false,
-    type: Date,
-    description: 'Filter by createdAt <= end_date (inclusive).',
+    type: String,
+    example: '2024-06-01',
+    description: 'Filter by createdAt <= end_date (inclusive). Format: YYYY-MM-DD.',
   })
   @CheckAbilities({ action: Action.Read, subject: 'BLOG_CATEGORY' })
   async export(

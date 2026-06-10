@@ -93,8 +93,8 @@ export class RolesController {
   @Get()
   @SkipThrottle()
   @ApiOkResponse({ type: [RoleResponseDto] })
-  @ApiQuery({ name: 'limit', required: false, type: Number })
-  @ApiQuery({ name: 'page', required: false, type: Number })
+  @ApiQuery({ name: 'limit', required: false, type: Number, example: 20 })
+  @ApiQuery({ name: 'page', required: false, type: Number, example: 1 })
   @ApiQuery({ name: 'search', required: false, type: String })
   @ApiQuery({
     name: 'withTrashed',

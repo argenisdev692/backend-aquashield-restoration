@@ -36,13 +36,13 @@ export class ActivityLogController {
 
   @Get()
   @ApiOkResponse({ type: [ActivityLogResponse] })
-  @ApiQuery({ name: 'page', required: false, type: Number })
-  @ApiQuery({ name: 'limit', required: false, type: Number })
+  @ApiQuery({ name: 'page', required: false, type: Number, example: 1 })
+  @ApiQuery({ name: 'limit', required: false, type: Number, example: 20 })
   @ApiQuery({ name: 'actorId', required: false, type: String, format: 'uuid' })
   @ApiQuery({ name: 'action', required: false, type: String })
   @ApiQuery({ name: 'resourceId', required: false, type: String })
-  @ApiQuery({ name: 'start_date', required: false, type: Date })
-  @ApiQuery({ name: 'end_date', required: false, type: Date })
+  @ApiQuery({ name: 'start_date', required: false, type: String, example: '2024-06-01', description: 'Filter by date (inclusive start). Format: YYYY-MM-DD.' })
+  @ApiQuery({ name: 'end_date', required: false, type: String, example: '2024-06-01', description: 'Filter by date (inclusive end). Format: YYYY-MM-DD.' })
   @CheckAbilities({ action: Action.Manage, subject: 'ACTIVITY_LOG' })
   async findAll(
     @Query(new ZodValidationPipe(ActivityLogFilterSchema))
