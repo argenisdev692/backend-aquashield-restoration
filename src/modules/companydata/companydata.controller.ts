@@ -30,9 +30,7 @@ import {
 import { JwtAuthGuard } from '../../core/guards/jwt-auth.guard';
 import { CaslGuard } from '../../core/guards/casl.guard';
 import { CheckAbilities } from '../../core/decorators/check-abilities.decorator';
-import { CurrentUser } from '../../core/decorators/current-user.decorator';
 import { Action } from '../../core/access/actions.enum';
-import type { AuthenticatedUser } from '../../core/access/actions.enum';
 import { CompanyDataService } from './companydata.service';
 import { UpdateCompanyDataSchema } from './dto/update-companydata.dto';
 import type { UpdateCompanyDataDto } from './dto/update-companydata.dto';
@@ -71,10 +69,8 @@ export class CompanyDataController {
   @ApiNotFoundResponse({ description: 'Company data not found' })
   @CacheTTL(TTL_SECONDS.LONG)
   @CheckAbilities({ action: Action.Read, subject: 'COMPANY' })
-  async getMyCompanyData(
-    @CurrentUser() user: AuthenticatedUser,
-  ): Promise<CompanyDataResponse> {
-    return this.service.findByUserIdOrFail(user.id);
+  async getMyCompanyData(): Promise<CompanyDataResponse> {
+    return this.service.findSingletonOrFail();
   }
 
   @Get(':id')
