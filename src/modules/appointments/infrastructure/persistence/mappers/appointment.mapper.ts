@@ -25,13 +25,21 @@ export class AppointmentMapper {
       row.state,
       row.zipcode,
       row.country,
+      row.insuranceProperty,
       row.message,
       row.smsConsent,
       row.registrationDate,
+      row.inspectionDate,
+      row.inspectionTime,
+      row.inspectionStatus,
       statusLead,
+      row.leadSource,
       row.followUpCalls,
       row.notes,
       row.owner,
+      row.damageDetail,
+      row.intentToClaim,
+      row.followUpDate,
       row.additionalNote,
       row.latitude,
       row.longitude,
@@ -54,12 +62,25 @@ export class AppointmentMapper {
       state: plain.state,
       zipcode: plain.zipcode,
       country: plain.country,
+      insuranceProperty: plain.insuranceProperty,
       message: plain.message,
       smsConsent: plain.smsConsent,
       registrationDate: plain.registrationDate,
+      inspectionDate: plain.inspectionDate,
+      inspectionTime: plain.inspectionTime,
+      inspectionStatus: plain.inspectionStatus
+        ? ($Enums.InspectionStatus[
+            plain.inspectionStatus as keyof typeof $Enums.InspectionStatus
+          ] ?? null)
+        : null,
       statusLead: plain.statusLead
         ? ($Enums.StatusLead[
             plain.statusLead as keyof typeof $Enums.StatusLead
+          ] ?? null)
+        : null,
+      leadSource: plain.leadSource
+        ? ($Enums.LeadSource[
+            plain.leadSource as keyof typeof $Enums.LeadSource
           ] ?? null)
         : null,
       // followUpCalls is an arbitrary JSONB blob (domain type `unknown`,
@@ -70,6 +91,9 @@ export class AppointmentMapper {
           : plain.followUpCalls,
       notes: plain.notes,
       owner: plain.owner,
+      damageDetail: plain.damageDetail,
+      intentToClaim: plain.intentToClaim,
+      followUpDate: plain.followUpDate,
       additionalNote: plain.additionalNote,
       latitude: plain.latitude,
       longitude: plain.longitude,
@@ -89,13 +113,21 @@ export class AppointmentMapper {
       state: row.state,
       zipcode: row.zipcode,
       country: row.country,
+      insuranceProperty: row.insuranceProperty,
       message: row.message,
       smsConsent: row.smsConsent,
       registrationDate: row.registrationDate?.toISOString() ?? null,
+      inspectionDate: row.inspectionDate?.toISOString() ?? null,
+      inspectionTime: row.inspectionTime?.toISOString() ?? null,
+      inspectionStatus: row.inspectionStatus,
       statusLead: row.statusLead,
+      leadSource: row.leadSource,
       followUpCalls: row.followUpCalls,
       notes: row.notes,
       owner: row.owner,
+      damageDetail: row.damageDetail,
+      intentToClaim: row.intentToClaim,
+      followUpDate: row.followUpDate?.toISOString() ?? null,
       additionalNote: row.additionalNote,
       latitude: row.latitude,
       longitude: row.longitude,

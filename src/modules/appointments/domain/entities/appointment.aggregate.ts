@@ -1,8 +1,44 @@
 import { v7 as uuidv7 } from 'uuid';
 import { AppointmentId } from '../value-objects/appointment-id.vo';
-import { StatusLeadValue, StatusLead } from '../value-objects/status-lead.vo';
+import { StatusLeadValue } from '../value-objects/status-lead.vo';
 import { Phone } from '../value-objects/phone.vo';
 import { Email } from '../value-objects/email.vo';
+
+/**
+ * Primitive (VO-free) snapshot of an appointment — the single source of truth
+ * for the field list shared by `create()`, `updateDetails()` and `toPlain()`.
+ * Dates are kept as `Date`; `statusLead` is the raw enum value as a string.
+ */
+export interface AppointmentSnapshot {
+  firstName: string;
+  lastName: string;
+  phone: string;
+  email: string | null;
+  address: string;
+  address2: string | null;
+  city: string;
+  state: string;
+  zipcode: string;
+  country: string;
+  insuranceProperty: boolean;
+  message: string | null;
+  smsConsent: boolean;
+  registrationDate: Date | null;
+  inspectionDate: Date | null;
+  inspectionTime: Date | null;
+  inspectionStatus: string | null;
+  statusLead: string | null;
+  leadSource: string | null;
+  followUpCalls: unknown;
+  notes: string | null;
+  owner: string | null;
+  damageDetail: string | null;
+  intentToClaim: boolean | null;
+  followUpDate: Date | null;
+  additionalNote: string | null;
+  latitude: number | null;
+  longitude: number | null;
+}
 
 export class Appointment {
   constructor(
@@ -17,40 +53,27 @@ export class Appointment {
     private _state: string,
     private _zipcode: string,
     private _country: string,
+    private _insuranceProperty: boolean,
     private _message: string | null,
     private _smsConsent: boolean,
     private _registrationDate: Date | null,
+    private _inspectionDate: Date | null,
+    private _inspectionTime: Date | null,
+    private _inspectionStatus: string | null,
     private _statusLead: StatusLeadValue | null,
+    private _leadSource: string | null,
     private _followUpCalls: unknown,
     private _notes: string | null,
     private _owner: string | null,
+    private _damageDetail: string | null,
+    private _intentToClaim: boolean | null,
+    private _followUpDate: Date | null,
     private _additionalNote: string | null,
     private _latitude: number | null,
     private _longitude: number | null,
   ) {}
 
-  static create(props: {
-    firstName: string;
-    lastName: string;
-    phone: string;
-    email: string | null;
-    address: string;
-    address2: string | null;
-    city: string;
-    state: string;
-    zipcode: string;
-    country: string;
-    message: string | null;
-    smsConsent: boolean;
-    registrationDate: Date | null;
-    statusLead: string | null;
-    followUpCalls: unknown;
-    notes: string | null;
-    owner: string | null;
-    additionalNote: string | null;
-    latitude: number | null;
-    longitude: number | null;
-  }): Appointment {
+  static create(props: AppointmentSnapshot): Appointment {
     const phone = Phone.create(props.phone);
     const email = Email.create(props.email);
     const statusLead = props.statusLead
@@ -69,13 +92,21 @@ export class Appointment {
       props.state,
       props.zipcode,
       props.country,
+      props.insuranceProperty,
       props.message,
       props.smsConsent,
       props.registrationDate,
+      props.inspectionDate,
+      props.inspectionTime,
+      props.inspectionStatus,
       statusLead,
+      props.leadSource,
       props.followUpCalls,
       props.notes,
       props.owner,
+      props.damageDetail,
+      props.intentToClaim,
+      props.followUpDate,
       props.additionalNote,
       props.latitude,
       props.longitude,
@@ -123,6 +154,10 @@ export class Appointment {
     return this._country;
   }
 
+  get insuranceProperty(): boolean {
+    return this._insuranceProperty;
+  }
+
   get message(): string | null {
     return this._message;
   }
@@ -135,12 +170,28 @@ export class Appointment {
     return this._registrationDate;
   }
 
+  get inspectionDate(): Date | null {
+    return this._inspectionDate;
+  }
+
+  get inspectionTime(): Date | null {
+    return this._inspectionTime;
+  }
+
+  get inspectionStatus(): string | null {
+    return this._inspectionStatus;
+  }
+
   get statusLead(): StatusLeadValue | null {
     return this._statusLead;
   }
 
   get statusLeadValue(): string | null {
     return this._statusLead?.value ?? null;
+  }
+
+  get leadSource(): string | null {
+    return this._leadSource;
   }
 
   get followUpCalls(): unknown {
@@ -153,6 +204,18 @@ export class Appointment {
 
   get owner(): string | null {
     return this._owner;
+  }
+
+  get damageDetail(): string | null {
+    return this._damageDetail;
+  }
+
+  get intentToClaim(): boolean | null {
+    return this._intentToClaim;
+  }
+
+  get followUpDate(): Date | null {
+    return this._followUpDate;
   }
 
   get additionalNote(): string | null {
@@ -172,35 +235,16 @@ export class Appointment {
     oldStatus: string | null;
     newStatus: string;
   } {
+    // `create` validates enum membership (throws AppointmentDomainException)
+    // before the transition rule runs — no unchecked `as StatusLead` cast.
+    const target = StatusLeadValue.create(newStatus).value;
     const oldStatus = this._statusLead?.value ?? null;
-    const statusValue = this._statusLead || StatusLeadValue.new();
-    this._statusLead = statusValue.transitionTo(newStatus as StatusLead);
-    return { oldStatus, newStatus };
+    const current = this._statusLead ?? StatusLeadValue.new();
+    this._statusLead = current.transitionTo(target);
+    return { oldStatus, newStatus: target };
   }
 
-  updateDetails(
-    props: Partial<{
-      firstName: string;
-      lastName: string;
-      phone: string;
-      email: string | null;
-      address: string;
-      address2: string | null;
-      city: string;
-      state: string;
-      zipcode: string;
-      country: string;
-      message: string | null;
-      smsConsent: boolean;
-      registrationDate: Date | null;
-      followUpCalls: unknown;
-      notes: string | null;
-      owner: string | null;
-      additionalNote: string | null;
-      latitude: number | null;
-      longitude: number | null;
-    }>,
-  ): void {
+  updateDetails(props: Partial<Omit<AppointmentSnapshot, 'statusLead'>>): void {
     if (props.firstName !== undefined) this._firstName = props.firstName;
     if (props.lastName !== undefined) this._lastName = props.lastName;
     if (props.phone !== undefined) this._phone = Phone.create(props.phone);
@@ -211,43 +255,36 @@ export class Appointment {
     if (props.state !== undefined) this._state = props.state;
     if (props.zipcode !== undefined) this._zipcode = props.zipcode;
     if (props.country !== undefined) this._country = props.country;
+    if (props.insuranceProperty !== undefined)
+      this._insuranceProperty = props.insuranceProperty;
     if (props.message !== undefined) this._message = props.message;
     if (props.smsConsent !== undefined) this._smsConsent = props.smsConsent;
     if (props.registrationDate !== undefined)
       this._registrationDate = props.registrationDate;
+    if (props.inspectionDate !== undefined)
+      this._inspectionDate = props.inspectionDate;
+    if (props.inspectionTime !== undefined)
+      this._inspectionTime = props.inspectionTime;
+    if (props.inspectionStatus !== undefined)
+      this._inspectionStatus = props.inspectionStatus;
+    if (props.leadSource !== undefined) this._leadSource = props.leadSource;
     if (props.followUpCalls !== undefined)
       this._followUpCalls = props.followUpCalls;
     if (props.notes !== undefined) this._notes = props.notes;
     if (props.owner !== undefined) this._owner = props.owner;
+    if (props.damageDetail !== undefined)
+      this._damageDetail = props.damageDetail;
+    if (props.intentToClaim !== undefined)
+      this._intentToClaim = props.intentToClaim;
+    if (props.followUpDate !== undefined)
+      this._followUpDate = props.followUpDate;
     if (props.additionalNote !== undefined)
       this._additionalNote = props.additionalNote;
     if (props.latitude !== undefined) this._latitude = props.latitude;
     if (props.longitude !== undefined) this._longitude = props.longitude;
   }
 
-  toPlain(): {
-    id: string;
-    firstName: string;
-    lastName: string;
-    phone: string;
-    email: string | null;
-    address: string;
-    address2: string | null;
-    city: string;
-    state: string;
-    zipcode: string;
-    country: string;
-    message: string | null;
-    smsConsent: boolean;
-    registrationDate: Date | null;
-    statusLead: string | null;
-    followUpCalls: unknown;
-    notes: string | null;
-    owner: string | null;
-    additionalNote: string | null;
-    latitude: number | null;
-    longitude: number | null;
-  } {
+  toPlain(): AppointmentSnapshot & { id: string } {
     return {
       id: this.id.value,
       firstName: this._firstName,
@@ -260,13 +297,21 @@ export class Appointment {
       state: this._state,
       zipcode: this._zipcode,
       country: this._country,
+      insuranceProperty: this._insuranceProperty,
       message: this._message,
       smsConsent: this._smsConsent,
       registrationDate: this._registrationDate,
+      inspectionDate: this._inspectionDate,
+      inspectionTime: this._inspectionTime,
+      inspectionStatus: this._inspectionStatus,
       statusLead: this._statusLead?.value ?? null,
+      leadSource: this._leadSource,
       followUpCalls: this._followUpCalls,
       notes: this._notes,
       owner: this._owner,
+      damageDetail: this._damageDetail,
+      intentToClaim: this._intentToClaim,
+      followUpDate: this._followUpDate,
       additionalNote: this._additionalNote,
       latitude: this._latitude,
       longitude: this._longitude,

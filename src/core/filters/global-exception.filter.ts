@@ -12,6 +12,7 @@ import type { Request, Response } from 'express';
 import { ZodError } from 'zod';
 import { LoggerService } from '../../logger/logger.service';
 import { CLS_KEYS } from '../../shared/cls/cls.constants';
+import { DomainException } from '../../shared/exceptions/domain.exception';
 
 interface ProblemDetails {
   type: string;
@@ -106,6 +107,15 @@ export class GlobalExceptionFilter implements ExceptionFilter {
           path: i.path.join('.'),
           message: i.message,
         })),
+      };
+    }
+
+    // Domain-invariant violation: well-formed request, broken business rule.
+    if (exception instanceof DomainException) {
+      return {
+        status: HttpStatus.UNPROCESSABLE_ENTITY,
+        title: exception.name,
+        detail: exception.message,
       };
     }
 

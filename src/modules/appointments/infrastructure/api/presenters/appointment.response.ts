@@ -13,13 +13,25 @@ export const AppointmentResponseSchema = z.object({
   state: z.string(),
   zipcode: z.string(),
   country: z.string(),
+  insuranceProperty: z.boolean(),
   message: z.string().nullable(),
   smsConsent: z.boolean(),
   registrationDate: z.string().datetime().nullable(),
+  inspectionDate: z.string().datetime().nullable(),
+  inspectionTime: z.string().datetime().nullable(),
+  inspectionStatus: z
+    .enum(['Confirmed', 'Completed', 'Pending', 'Declined'])
+    .nullable(),
   statusLead: z.string().nullable(),
+  leadSource: z
+    .enum(['Website', 'FacebookAds', 'Reference', 'RetellAI'])
+    .nullable(),
   followUpCalls: z.unknown().nullable(),
   notes: z.string().nullable(),
   owner: z.string().nullable(),
+  damageDetail: z.string().nullable(),
+  intentToClaim: z.boolean().nullable(),
+  followUpDate: z.string().datetime().nullable(),
   additionalNote: z.string().nullable(),
   latitude: z.number().nullable(),
   longitude: z.number().nullable(),

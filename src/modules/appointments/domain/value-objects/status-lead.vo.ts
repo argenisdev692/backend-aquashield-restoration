@@ -1,3 +1,5 @@
+import { AppointmentDomainException } from '../exceptions/appointment-domain.exception';
+
 export enum StatusLead {
   NEW = 'New',
   CALLED = 'Called',
@@ -11,7 +13,7 @@ export class StatusLeadValue {
   static create(value: string): StatusLeadValue {
     const validStatuses = Object.values(StatusLead);
     if (!validStatuses.includes(value as StatusLead)) {
-      throw new Error(
+      throw new AppointmentDomainException(
         `Invalid status: ${value}. Must be one of: ${validStatuses.join(', ')}`,
       );
     }
@@ -37,7 +39,7 @@ export class StatusLeadValue {
 
     const allowed = validTransitions[this.value];
     if (!allowed.includes(newStatus)) {
-      throw new Error(
+      throw new AppointmentDomainException(
         `Cannot transition from ${this.value} to ${newStatus}. Allowed transitions: ${allowed.join(', ')}`,
       );
     }

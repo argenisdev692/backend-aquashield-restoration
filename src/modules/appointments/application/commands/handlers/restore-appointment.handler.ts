@@ -1,46 +1,52 @@
-import { Injectable, Inject, NotFoundException } from '@nestjs/common';
+import { Injectable, Inject } from '@nestjs/common';
 import { Transactional } from '@nestjs-cls/transactional';
 import { CommandHandler, ICommandHandler } from '@nestjs/cqrs';
 import { RestoreAppointmentCommand } from '../restore-appointment.command';
-import { APPOINTMENT_REPOSITORY } from '../../../domain/repositories/appointment-repository.interface';
-import type { IAppointmentRepository } from '../../../domain/repositories/appointment-repository.interface';
-import { AUDIT_PORT } from '../../../domain/ports/outbound/audit.port.interface';
-import type { IAuditPort } from '../../../domain/ports/outbound/audit.port.interface';
-import { CACHE_PORT } from '../../../../../shared/cache/cache.port';
-import type { ICachePort } from '../../../../../shared/cache/cache.port';
+import {
+  APPOINTMENT_REPOSITORY,
+  type IAppointmentRepository,
+} from '../../../domain/repositories/appointment-repository.interface';
+import {
+  AUDIT_PORT,
+  type IAuditPort,
+} from '../../../domain/ports/outbound/audit.port.interface';
+import {
+  CACHE_PORT,
+  type ICachePort,
+} from '../../../../../shared/cache/cache.port';
 import { LoggerService } from '../../../../../logger/logger.service';
 import { ClsService } from 'nestjs-cls';
+import { AppointmentMutationHandler } from './appointment-mutation.handler';
 
 @Injectable()
 @CommandHandler(RestoreAppointmentCommand)
-export class RestoreAppointmentHandler implements ICommandHandler<RestoreAppointmentCommand> {
-  private static readonly CACHE_PATTERN = 'http:*:/appointments*';
-
+export class RestoreAppointmentHandler
+  extends AppointmentMutationHandler
+  implements ICommandHandler<RestoreAppointmentCommand>
+{
   constructor(
-    @Inject(APPOINTMENT_REPOSITORY)
-    private readonly repo: IAppointmentRepository,
-    @Inject(AUDIT_PORT) private readonly audit: IAuditPort,
-    @Inject(CACHE_PORT) private readonly cache: ICachePort,
-    private readonly logger: LoggerService,
-    private readonly cls: ClsService,
+    @Inject(APPOINTMENT_REPOSITORY) repo: IAppointmentRepository,
+    @Inject(AUDIT_PORT) audit: IAuditPort,
+    @Inject(CACHE_PORT) cache: ICachePort,
+    logger: LoggerService,
+    cls: ClsService,
   ) {
-    this.logger.setContext(RestoreAppointmentHandler.name);
+    super(repo, audit, cache, logger, cls);
   }
 
   async execute(command: RestoreAppointmentCommand): Promise<void> {
     const { id } = command;
-    const traceId = this.cls.get<string>('traceId');
     this.logger.info('RestoreAppointmentHandler start', {
-      traceId,
+      traceId: this.traceId,
       appointmentId: id,
     });
 
     await this.persist(command);
 
-    await this.cache.delByPattern(RestoreAppointmentHandler.CACHE_PATTERN);
+    await this.invalidateListCache();
 
     this.logger.info('RestoreAppointmentHandler end', {
-      traceId,
+      traceId: this.traceId,
       appointmentId: id,
     });
   }
@@ -48,14 +54,9 @@ export class RestoreAppointmentHandler implements ICommandHandler<RestoreAppoint
   @Transactional()
   private async persist(command: RestoreAppointmentCommand): Promise<void> {
     const { id, actorId } = command;
-    const traceId = this.cls.get<string>('traceId');
 
-    // Use `withTrashed=true` so we can find a soft-deleted row to restore.
-    const appointment = await this.repo.findById(id, true);
-    if (!appointment) {
-      throw new NotFoundException(`Appointment with id ${id} not found`);
-    }
-
+    // `trashed=true` so a soft-deleted row is visible to restore.
+    await this.findOrFail(id, true);
     await this.repo.restore(id);
 
     await this.audit.log(
@@ -63,7 +64,7 @@ export class RestoreAppointmentHandler implements ICommandHandler<RestoreAppoint
         action: 'appointments.restored',
         actorId,
         resourceId: id,
-        traceId,
+        traceId: this.traceId,
       },
       { strict: true },
     );

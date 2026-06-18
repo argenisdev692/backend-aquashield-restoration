@@ -14,6 +14,24 @@ enum StatusLead {
   @@map("status_lead")
 }
 
+enum InspectionStatus {
+  Confirmed
+  Completed
+  Pending
+  Declined
+
+  @@map("inspection_status")
+}
+
+enum LeadSource {
+  Website
+  FacebookAds @map("Facebook Ads")
+  Reference
+  RetellAI    @map("Retell AI")
+
+  @@map("lead_source")
+}
+
 model Appointment {
   id               String      @id @default(dbgenerated("uuid_generate_v7()")) @db.Uuid
   firstName        String      @map("first_name") @db.VarChar(255)
@@ -26,13 +44,21 @@ model Appointment {
   state            String      @db.VarChar(100)
   zipcode          String      @db.VarChar(20)
   country          String      @db.VarChar(100)
+  insuranceProperty Boolean    @default(false) @map("insurance_property")
   message          String?
   smsConsent       Boolean     @default(false) @map("sms_consent")
   registrationDate DateTime?   @map("registration_date") @db.Timestamp(6)
+  inspectionDate   DateTime?   @map("inspection_date") @db.Date
+  inspectionTime   DateTime?   @map("inspection_time") @db.Time(6)
+  inspectionStatus InspectionStatus? @map("inspection_status")
   statusLead       StatusLead? @map("status_lead")
+  leadSource       LeadSource? @map("lead_source")
   followUpCalls    Json?       @map("follow_up_calls") @db.JsonB
   notes            String?
   owner            String?     @db.VarChar(255)
+  damageDetail     String?     @map("damage_detail")
+  intentToClaim    Boolean?    @map("intent_to_claim")
+  followUpDate     DateTime?   @map("follow_up_date") @db.Date
   additionalNote   String?     @map("additional_note")
   latitude         Float?      @db.DoublePrecision
   longitude        Float?      @db.DoublePrecision
@@ -42,6 +68,8 @@ model Appointment {
   deletedAt        DateTime?   @map("deleted_at") @db.Timestamp(6)
 
   @@index([statusLead], map: "idx_appointments_status_lead")
+  @@index([inspectionStatus], map: "idx_appointments_inspection_status")
+  @@index([leadSource], map: "idx_appointments_lead_source")
   @@index([deletedAt], map: "idx_appointments_deleted_at")
   @@index([readed], map: "idx_appointments_readed")
   @@unique([email], name: "idx_appointments_email_unique", where: { deletedAt: null })

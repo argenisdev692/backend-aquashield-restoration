@@ -17,7 +17,6 @@ import type { IAuditPort } from '../../../domain/ports/outbound/audit.port.inter
 import { LoggerService } from '../../../../../logger/logger.service';
 import { ClsService } from 'nestjs-cls';
 import { resolveTrashedMode } from '../../../../../shared/crud/trashed.util';
-import { resolveDateRange } from '../../../../../shared/crud/date-range.util';
 import {
   csvEscape,
   sheetEscape,
@@ -35,7 +34,15 @@ const COLUMNS = [
   { header: 'state', key: 'state', width: 12 },
   { header: 'zipcode', key: 'zipcode', width: 12 },
   { header: 'country', key: 'country', width: 16 },
+  { header: 'insuranceProperty', key: 'insuranceProperty', width: 12 },
   { header: 'statusLead', key: 'statusLead', width: 12 },
+  { header: 'leadSource', key: 'leadSource', width: 14 },
+  { header: 'inspectionStatus', key: 'inspectionStatus', width: 14 },
+  { header: 'inspectionDate', key: 'inspectionDate', width: 22 },
+  { header: 'inspectionTime', key: 'inspectionTime', width: 22 },
+  { header: 'intentToClaim', key: 'intentToClaim', width: 12 },
+  { header: 'damageDetail', key: 'damageDetail', width: 30 },
+  { header: 'followUpDate', key: 'followUpDate', width: 22 },
   { header: 'owner', key: 'owner', width: 18 },
   { header: 'smsConsent', key: 'smsConsent', width: 10 },
   { header: 'readed', key: 'readed', width: 8 },
@@ -63,7 +70,15 @@ function toRow(r: AppointmentReadModel): Row {
     state: r.state,
     zipcode: r.zipcode,
     country: r.country,
+    insuranceProperty: r.insuranceProperty,
     statusLead: r.statusLead ?? '',
+    leadSource: r.leadSource ?? '',
+    inspectionStatus: r.inspectionStatus ?? '',
+    inspectionDate: r.inspectionDate ?? '',
+    inspectionTime: r.inspectionTime ?? '',
+    intentToClaim: r.intentToClaim ?? '',
+    damageDetail: r.damageDetail ?? '',
+    followUpDate: r.followUpDate ?? '',
     owner: r.owner ?? '',
     smsConsent: r.smsConsent,
     readed: r.readed,

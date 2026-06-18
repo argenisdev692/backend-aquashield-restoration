@@ -1,53 +1,59 @@
-import { Injectable, Inject, NotFoundException } from '@nestjs/common';
+import { Injectable, Inject } from '@nestjs/common';
 import { Transactional } from '@nestjs-cls/transactional';
 import { CommandHandler, ICommandHandler } from '@nestjs/cqrs';
 import { EventEmitter2 } from '@nestjs/event-emitter';
 import { DeleteAppointmentCommand } from '../delete-appointment.command';
-import { APPOINTMENT_REPOSITORY } from '../../../domain/repositories/appointment-repository.interface';
-import type { IAppointmentRepository } from '../../../domain/repositories/appointment-repository.interface';
-import { AUDIT_PORT } from '../../../domain/ports/outbound/audit.port.interface';
-import type { IAuditPort } from '../../../domain/ports/outbound/audit.port.interface';
-import { CACHE_PORT } from '../../../../../shared/cache/cache.port';
-import type { ICachePort } from '../../../../../shared/cache/cache.port';
+import {
+  APPOINTMENT_REPOSITORY,
+  type IAppointmentRepository,
+} from '../../../domain/repositories/appointment-repository.interface';
+import {
+  AUDIT_PORT,
+  type IAuditPort,
+} from '../../../domain/ports/outbound/audit.port.interface';
+import {
+  CACHE_PORT,
+  type ICachePort,
+} from '../../../../../shared/cache/cache.port';
 import { AppointmentDeletedEvent } from '../../../domain/events/appointment-deleted.domain-event';
 import { LoggerService } from '../../../../../logger/logger.service';
 import { ClsService } from 'nestjs-cls';
+import { AppointmentMutationHandler } from './appointment-mutation.handler';
 
 @Injectable()
 @CommandHandler(DeleteAppointmentCommand)
-export class DeleteAppointmentHandler implements ICommandHandler<DeleteAppointmentCommand> {
-  private static readonly CACHE_PATTERN = 'http:*:/appointments*';
-
+export class DeleteAppointmentHandler
+  extends AppointmentMutationHandler
+  implements ICommandHandler<DeleteAppointmentCommand>
+{
   constructor(
-    @Inject(APPOINTMENT_REPOSITORY)
-    private readonly repo: IAppointmentRepository,
-    @Inject(AUDIT_PORT) private readonly audit: IAuditPort,
-    @Inject(CACHE_PORT) private readonly cache: ICachePort,
-    private readonly logger: LoggerService,
-    private readonly cls: ClsService,
+    @Inject(APPOINTMENT_REPOSITORY) repo: IAppointmentRepository,
+    @Inject(AUDIT_PORT) audit: IAuditPort,
+    @Inject(CACHE_PORT) cache: ICachePort,
+    logger: LoggerService,
+    cls: ClsService,
     private readonly eventEmitter: EventEmitter2,
   ) {
-    this.logger.setContext(DeleteAppointmentHandler.name);
+    super(repo, audit, cache, logger, cls);
   }
 
   async execute(command: DeleteAppointmentCommand): Promise<void> {
     const { id } = command;
-    const traceId = this.cls.get<string>('traceId');
     this.logger.info('DeleteAppointmentHandler start', {
-      traceId,
+      traceId: this.traceId,
       appointmentId: id,
     });
 
     await this.persist(command);
 
-    await this.cache.delByPattern(DeleteAppointmentHandler.CACHE_PATTERN);
+    await this.invalidateListCache();
     this.eventEmitter.emit(
       'appointment.deleted',
       new AppointmentDeletedEvent(id),
     );
 
     this.logger.info('DeleteAppointmentHandler end', {
-      traceId,
+      traceId: this.traceId,
       appointmentId: id,
     });
   }
@@ -55,13 +61,8 @@ export class DeleteAppointmentHandler implements ICommandHandler<DeleteAppointme
   @Transactional()
   private async persist(command: DeleteAppointmentCommand): Promise<void> {
     const { id, actorId } = command;
-    const traceId = this.cls.get<string>('traceId');
 
-    const appointment = await this.repo.findById(id);
-    if (!appointment) {
-      throw new NotFoundException(`Appointment with id ${id} not found`);
-    }
-
+    await this.findOrFail(id);
     await this.repo.delete(id);
 
     await this.audit.log(
@@ -69,7 +70,7 @@ export class DeleteAppointmentHandler implements ICommandHandler<DeleteAppointme
         action: 'appointments.deleted',
         actorId,
         resourceId: id,
-        traceId,
+        traceId: this.traceId,
       },
       { strict: true },
     );

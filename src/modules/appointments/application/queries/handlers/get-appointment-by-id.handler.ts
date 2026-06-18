@@ -33,7 +33,7 @@ export class GetAppointmentByIdHandler implements IQueryHandler<GetAppointmentBy
       query.withTrashed,
     );
     if (!appointment) {
-      throw new NotFoundException(`Appointment ${query.id} not found`);
+      throw new NotFoundException(`Appointment with id ${query.id} not found`);
     }
     return appointment;
   }

@@ -12,16 +12,30 @@ export const UpdateAppointmentSchema = z.object({
   state: z.string().min(1).max(100).optional(),
   zipcode: z.string().min(1).max(20).optional(),
   country: z.string().min(1).max(100).optional(),
+  insuranceProperty: z.boolean().optional(),
   message: z.string().nullable().optional(),
   smsConsent: z.boolean().optional(),
   registrationDate: z.string().datetime().nullable().optional(),
+  inspectionDate: z.string().datetime().nullable().optional(),
+  inspectionTime: z.string().datetime().nullable().optional(),
+  inspectionStatus: z
+    .enum(['Confirmed', 'Completed', 'Pending', 'Declined'])
+    .nullable()
+    .optional(),
   statusLead: z
     .enum(['New', 'Called', 'Pending', 'Declined'])
+    .nullable()
+    .optional(),
+  leadSource: z
+    .enum(['Website', 'FacebookAds', 'Reference', 'RetellAI'])
     .nullable()
     .optional(),
   followUpCalls: z.unknown().nullable().optional(),
   notes: z.string().nullable().optional(),
   owner: z.string().max(255).nullable().optional(),
+  damageDetail: z.string().nullable().optional(),
+  intentToClaim: z.boolean().nullable().optional(),
+  followUpDate: z.string().datetime().nullable().optional(),
   additionalNote: z.string().nullable().optional(),
   latitude: z.number().nullable().optional(),
   longitude: z.number().nullable().optional(),

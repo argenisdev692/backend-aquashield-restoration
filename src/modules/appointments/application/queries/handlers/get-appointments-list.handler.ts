@@ -11,7 +11,6 @@ import type {
 import { LoggerService } from '../../../../../logger/logger.service';
 import { ClsService } from 'nestjs-cls';
 import { resolveTrashedMode } from '../../../../../shared/crud/trashed.util';
-import { resolveDateRange } from '../../../../../shared/crud/date-range.util';
 
 @Injectable()
 @QueryHandler(GetAppointmentsListQuery)

@@ -23,13 +23,8 @@ import { APPOINTMENT_REPOSITORY } from './domain/repositories/appointment-reposi
 import { AUDIT_PORT } from './domain/ports/outbound/audit.port.interface';
 import { EMAIL_PORT } from './domain/ports/outbound/email.port.interface';
 import { ADMIN_RECIPIENTS_PORT } from './domain/ports/outbound/admin-recipients.port.interface';
-import { AppointmentCreatedListener } from './infrastructure/event-listeners/appointment-created.listener';
-import { AppointmentReadListener } from './infrastructure/event-listeners/appointment-read.listener';
-import { AppointmentUpdatedListener } from './infrastructure/event-listeners/appointment-updated.listener';
-import { AppointmentDeletedListener } from './infrastructure/event-listeners/appointment-deleted.listener';
-import { StatusChangedListener } from './infrastructure/event-listeners/status-changed.listener';
+import { AppointmentsRealtimeListener } from './infrastructure/event-listeners/appointments-realtime.listener';
 import { AppointmentCreatedEmailListener } from './infrastructure/event-listeners/appointment-created-email.listener';
-import { AppointmentsBulkListener } from './infrastructure/event-listeners/appointments-bulk-deleted.listener';
 import { ActivityLogService } from '../../shared/activity-log/activity-log.service';
 import { ResendAppointmentEmailAdapter } from './infrastructure/external-services/resend-appointment-email.adapter';
 import { UsersAdminRecipientsAdapter } from './infrastructure/acl/users-admin-recipients.adapter';
@@ -80,13 +75,8 @@ import { WsJwtMiddleware } from '../../shared/websockets/ws-jwt.middleware';
     WsJwtMiddleware,
 
     // Event Listeners
-    AppointmentCreatedListener,
-    AppointmentReadListener,
-    AppointmentUpdatedListener,
-    AppointmentDeletedListener,
-    StatusChangedListener,
+    AppointmentsRealtimeListener,
     AppointmentCreatedEmailListener,
-    AppointmentsBulkListener,
   ],
   exports: [AppointmentsGateway],
 })
