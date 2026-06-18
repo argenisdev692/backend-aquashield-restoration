@@ -9,6 +9,7 @@ import { APPOINTMENT_REPOSITORY } from '../../domain/repositories/appointment-re
 import type { IAppointmentRepository } from '../../domain/repositories/appointment-repository.interface';
 import { LoggerService } from '../../../../logger/logger.service';
 import { ClsService } from 'nestjs-cls';
+import { toAppointmentEmailData } from './appointment-email-data.mapper';
 
 @Injectable()
 export class AppointmentCreatedEmailListener {
@@ -69,6 +70,26 @@ export class AppointmentCreatedEmailListener {
         });
       } catch (err) {
         this.logger.error('Failed to send submission confirmation', {
+          traceId,
+          appointmentId: event.appointmentId,
+          error: err instanceof Error ? err.message : 'Unknown error',
+        });
+      }
+    }
+
+    // When the lead is created with an inspection already scheduled, alert the
+    // admins with the blade-style "New Appointment Confirmed" notice on top of
+    // the generic new-lead mail above.
+    if (plain.inspectionDate) {
+      try {
+        const adminEmails =
+          await this.adminRecipients.getAdminRecipientEmails();
+        await this.email.notifyAdminsAppointmentScheduled({
+          adminEmails,
+          appointment: toAppointmentEmailData(appointment),
+        });
+      } catch (err) {
+        this.logger.error('Failed to send scheduled admin notification', {
           traceId,
           appointmentId: event.appointmentId,
           error: err instanceof Error ? err.message : 'Unknown error',

@@ -6,8 +6,7 @@ jest.mock('@nestjs-cls/transactional', () => ({
 
 import { Test, TestingModule } from '@nestjs/testing';
 import { ClsService } from 'nestjs-cls';
-import { BulkRestoreContactSupportHandler } from '../../application/commands/handlers/bulk-restore-contact-support.handler';
-import { BulkRestoreContactSupportCommand } from '../../application/commands/bulk-restore-contact-support.command';
+import { BulkRestoreContactSupportUseCase } from '../../application/use-cases/bulk-restore-contact-support.use-case';
 import { CONTACT_SUPPORT_REPOSITORY } from '../../domain/ports/contact-support.repository.interface';
 import { AUDIT_PORT } from '../../../../shared/activity-log/audit.port';
 import { CACHE_PORT } from '../../../../shared/cache/cache.port';
@@ -19,8 +18,8 @@ const IDS = [
 ];
 const ACTOR = 'admin-uuid';
 
-describe('BulkRestoreContactSupportHandler', () => {
-  let handler: BulkRestoreContactSupportHandler;
+describe('BulkRestoreContactSupportUseCase', () => {
+  let useCase: BulkRestoreContactSupportUseCase;
   let repo: { bulkRestore: jest.Mock };
   let audit: { log: jest.Mock };
   let cache: { delByPattern: jest.Mock };
@@ -39,7 +38,7 @@ describe('BulkRestoreContactSupportHandler', () => {
 
     const module: TestingModule = await Test.createTestingModule({
       providers: [
-        BulkRestoreContactSupportHandler,
+        BulkRestoreContactSupportUseCase,
         { provide: CONTACT_SUPPORT_REPOSITORY, useValue: repo },
         { provide: AUDIT_PORT, useValue: audit },
         { provide: CACHE_PORT, useValue: cache },
@@ -51,13 +50,11 @@ describe('BulkRestoreContactSupportHandler', () => {
       ],
     }).compile();
 
-    handler = module.get(BulkRestoreContactSupportHandler);
+    useCase = module.get(BulkRestoreContactSupportUseCase);
   });
 
   it('bulk-restores via a single repo call, emits one audit row, invalidates cache once', async () => {
-    const result = await handler.execute(
-      new BulkRestoreContactSupportCommand(IDS, ACTOR),
-    );
+    const result = await useCase.execute(IDS, ACTOR);
 
     expect(repo.bulkRestore).toHaveBeenCalledTimes(1);
     expect(repo.bulkRestore).toHaveBeenCalledWith(IDS);
@@ -75,11 +72,11 @@ describe('BulkRestoreContactSupportHandler', () => {
     expect(cache.delByPattern).toHaveBeenCalledTimes(1);
     expect(cache.delByPattern).toHaveBeenCalledWith('http:*:/contact-support*');
     expect(logger.info).toHaveBeenCalledWith(
-      'BulkRestoreContactSupportHandler start',
+      'BulkRestoreContactSupportUseCase start',
       expect.objectContaining({ traceId: 'trace-id', idsCount: 2 }),
     );
     expect(logger.info).toHaveBeenCalledWith(
-      'BulkRestoreContactSupportHandler end',
+      'BulkRestoreContactSupportUseCase end',
       expect.objectContaining({ traceId: 'trace-id', count: 2 }),
     );
   });

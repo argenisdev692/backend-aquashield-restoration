@@ -6,8 +6,7 @@ jest.mock('@nestjs-cls/transactional', () => ({
 
 import { Test, TestingModule } from '@nestjs/testing';
 import { ClsService } from 'nestjs-cls';
-import { BulkDeleteContactSupportHandler } from '../../application/commands/handlers/bulk-delete-contact-support.handler';
-import { BulkDeleteContactSupportCommand } from '../../application/commands/bulk-delete-contact-support.command';
+import { BulkDeleteContactSupportUseCase } from '../../application/use-cases/bulk-delete-contact-support.use-case';
 import { CONTACT_SUPPORT_REPOSITORY } from '../../domain/ports/contact-support.repository.interface';
 import { AUDIT_PORT } from '../../../../shared/activity-log/audit.port';
 import { CACHE_PORT } from '../../../../shared/cache/cache.port';
@@ -20,8 +19,8 @@ const IDS = [
 ];
 const ACTOR = 'admin-uuid';
 
-describe('BulkDeleteContactSupportHandler', () => {
-  let handler: BulkDeleteContactSupportHandler;
+describe('BulkDeleteContactSupportUseCase', () => {
+  let useCase: BulkDeleteContactSupportUseCase;
   let repo: { bulkDelete: jest.Mock };
   let audit: { log: jest.Mock };
   let cache: { delByPattern: jest.Mock };
@@ -40,7 +39,7 @@ describe('BulkDeleteContactSupportHandler', () => {
 
     const module: TestingModule = await Test.createTestingModule({
       providers: [
-        BulkDeleteContactSupportHandler,
+        BulkDeleteContactSupportUseCase,
         { provide: CONTACT_SUPPORT_REPOSITORY, useValue: repo },
         { provide: AUDIT_PORT, useValue: audit },
         { provide: CACHE_PORT, useValue: cache },
@@ -52,13 +51,11 @@ describe('BulkDeleteContactSupportHandler', () => {
       ],
     }).compile();
 
-    handler = module.get(BulkDeleteContactSupportHandler);
+    useCase = module.get(BulkDeleteContactSupportUseCase);
   });
 
   it('bulk soft-deletes via a single repo call, emits one audit row, invalidates cache once', async () => {
-    const result = await handler.execute(
-      new BulkDeleteContactSupportCommand(IDS, ACTOR),
-    );
+    const result = await useCase.execute(IDS, ACTOR);
 
     expect(repo.bulkDelete).toHaveBeenCalledTimes(1);
     expect(repo.bulkDelete).toHaveBeenCalledWith(IDS);
@@ -76,11 +73,11 @@ describe('BulkDeleteContactSupportHandler', () => {
     expect(cache.delByPattern).toHaveBeenCalledTimes(1);
     expect(cache.delByPattern).toHaveBeenCalledWith('http:*:/contact-support*');
     expect(logger.info).toHaveBeenCalledWith(
-      'BulkDeleteContactSupportHandler start',
+      'BulkDeleteContactSupportUseCase start',
       expect.objectContaining({ traceId: 'trace-id', idsCount: 3 }),
     );
     expect(logger.info).toHaveBeenCalledWith(
-      'BulkDeleteContactSupportHandler end',
+      'BulkDeleteContactSupportUseCase end',
       expect.objectContaining({ traceId: 'trace-id', count: 3 }),
     );
   });
@@ -89,7 +86,7 @@ describe('BulkDeleteContactSupportHandler', () => {
     repo.bulkDelete.mockResolvedValueOnce({ count: 1 });
     const oneId = [IDS[0]];
 
-    await handler.execute(new BulkDeleteContactSupportCommand(oneId, ACTOR));
+    await useCase.execute(oneId, ACTOR);
 
     expect(audit.log).toHaveBeenCalledWith(
       expect.objectContaining({ resourceId: IDS[0] }),

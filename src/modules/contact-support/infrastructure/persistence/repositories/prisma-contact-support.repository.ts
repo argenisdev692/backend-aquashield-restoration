@@ -41,14 +41,10 @@ export class PrismaContactSupportRepository implements IContactSupportRepository
     await this.prisma.contactSupport.upsert({
       where: { id: entity.id },
       create: data,
+      // Only `isRead` and `deletedAt` are mutable after creation — every other
+      // column is immutable on the aggregate, so updating them would be dead writes.
       update: {
-        firstName: data.firstName,
-        lastName: data.lastName,
-        email: data.email,
-        phone: data.phone,
-        message: data.message,
-        smsConsent: data.smsConsent,
-        readed: data.readed,
+        isRead: data.isRead,
         deletedAt: data.deletedAt,
       },
     });
@@ -56,9 +52,9 @@ export class PrismaContactSupportRepository implements IContactSupportRepository
 
   async findReadModelById(
     id: string,
-    trashed: boolean = false,
+    withTrashed: boolean = false,
   ): Promise<ContactSupportReadModel | null> {
-    const where: Prisma.ContactSupportWhereInput = trashed
+    const where: Prisma.ContactSupportWhereInput = withTrashed
       ? { id }
       : { id, deletedAt: null };
     const row = await this.prisma.contactSupport.findFirst({ where });
@@ -70,7 +66,7 @@ export class PrismaContactSupportRepository implements IContactSupportRepository
   ): Promise<PaginatedContactSupport> {
     const where: Prisma.ContactSupportWhereInput = {
       ...buildTrashedWhere(filters.trashed ?? 'exclude'),
-      ...(filters.readed === undefined ? {} : { readed: filters.readed }),
+      ...(filters.isRead === undefined ? {} : { isRead: filters.isRead }),
       ...(filters.range ? buildDateRangeWhere(filters.range, 'createdAt') : {}),
     };
     const skip = (filters.page - 1) * filters.limit;
@@ -98,7 +94,7 @@ export class PrismaContactSupportRepository implements IContactSupportRepository
   ): Promise<ContactSupportReadModel[]> {
     const where: Prisma.ContactSupportWhereInput = {
       ...buildTrashedWhere(filters.trashed ?? 'exclude'),
-      ...(filters.readed === undefined ? {} : { readed: filters.readed }),
+      ...(filters.isRead === undefined ? {} : { isRead: filters.isRead }),
       ...(filters.range ? buildDateRangeWhere(filters.range, 'createdAt') : {}),
     };
     const rows = await this.prisma.contactSupport.findMany({

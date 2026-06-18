@@ -26,7 +26,6 @@ export class MarkContactSupportReadUseCase {
     this.logger.setContext(MarkContactSupportReadUseCase.name);
   }
 
-  @Transactional()
   async execute(id: string, actorId: string): Promise<void> {
     const traceId = this.cls.get<string>('traceId');
     this.logger.info('MarkContactSupportReadUseCase start', {
@@ -34,6 +33,23 @@ export class MarkContactSupportReadUseCase {
       id,
     });
 
+    await this.persist(id, actorId);
+
+    // Side-effects run OUTSIDE the tx.
+    await this.cache.delByPattern(CONTACT_SUPPORT_CACHE_PATTERN);
+    this.eventEmitter.emit(
+      'contact-support.read',
+      new ContactSupportReadEvent(id),
+    );
+
+    this.logger.info('MarkContactSupportReadUseCase end', {
+      traceId,
+      id,
+    });
+  }
+
+  @Transactional()
+  private async persist(id: string, actorId: string): Promise<void> {
     const entity = await this.repo.findById(id);
     if (!entity) throw new NotFoundException('Contact request not found');
 
@@ -49,16 +65,5 @@ export class MarkContactSupportReadUseCase {
       },
       { strict: true },
     );
-
-    await this.cache.delByPattern(CONTACT_SUPPORT_CACHE_PATTERN);
-
-    this.eventEmitter.emit(
-      'contact-support.read',
-      new ContactSupportReadEvent(id),
-    );
-    this.logger.info('MarkContactSupportReadUseCase end', {
-      traceId,
-      id,
-    });
   }
 }

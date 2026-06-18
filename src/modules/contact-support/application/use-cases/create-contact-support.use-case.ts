@@ -29,7 +29,6 @@ export class CreateContactSupportUseCase {
     this.logger.setContext(CreateContactSupportUseCase.name);
   }
 
-  @Transactional()
   async execute(
     dto: CreateContactSupportDto,
     actorId?: string,
@@ -49,8 +48,31 @@ export class CreateContactSupportUseCase {
       dto.smsConsent,
     );
 
-    await this.repo.save(entity);
+    await this.persist(entity, id, actorId);
 
+    // Side-effects run OUTSIDE the tx — Postgres cannot un-send an email and a
+    // listener must never observe an uncommitted row.
+    await this.cache.delByPattern(CONTACT_SUPPORT_CACHE_PATTERN);
+    this.eventEmitter.emit(
+      'contact-support.created',
+      new ContactSupportCreatedEvent(id),
+    );
+
+    this.logger.info('CreateContactSupportUseCase end', {
+      traceId,
+      contactSupportId: id,
+    });
+
+    return id;
+  }
+
+  @Transactional()
+  private async persist(
+    entity: ContactSupport,
+    id: string,
+    actorId?: string,
+  ): Promise<void> {
+    await this.repo.save(entity);
     await this.audit.log(
       {
         action: 'contact_support.created',
@@ -60,18 +82,5 @@ export class CreateContactSupportUseCase {
       },
       { strict: true },
     );
-
-    await this.cache.delByPattern(CONTACT_SUPPORT_CACHE_PATTERN);
-
-    this.eventEmitter.emit(
-      'contact-support.created',
-      new ContactSupportCreatedEvent(id),
-    );
-    this.logger.info('CreateContactSupportUseCase end', {
-      traceId,
-      contactSupportId: id,
-    });
-
-    return id;
   }
 }

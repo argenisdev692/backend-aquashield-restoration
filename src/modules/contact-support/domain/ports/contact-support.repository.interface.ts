@@ -9,8 +9,8 @@ import type { DateRange } from '../../../../shared/crud/date-range.util';
 export interface ListContactSupportFilters {
   page: number;
   limit: number;
-  /** When defined, filters by the `readed` flag. */
-  readed?: boolean;
+  /** When defined, filters by the `isRead` flag. */
+  isRead?: boolean;
   /** Soft-delete visibility — Laravel-style. Defaults to `exclude`. */
   trashed?: TrashedMode;
   /** Inclusive date range on `createdAt`. */
@@ -18,8 +18,8 @@ export interface ListContactSupportFilters {
 }
 
 export interface ExportContactSupportFilters {
-  /** When defined, filters by the `readed` flag. */
-  readed?: boolean;
+  /** When defined, filters by the `isRead` flag. */
+  isRead?: boolean;
   /** Soft-delete visibility — Laravel-style. Defaults to `exclude`. */
   trashed?: TrashedMode;
   /** Inclusive date range on `createdAt`. */
@@ -34,12 +34,12 @@ export interface IContactSupportRepository {
   save(entity: ContactSupport): Promise<void>;
   /**
    * Read model for a single row.
-   * @param trashed when `true`, soft-deleted requests are returned too
-   *                (Laravel `withTrashed()->find()`).
+   * @param withTrashed when `true`, soft-deleted requests are returned too
+   *                    (Laravel `withTrashed()->find()`).
    */
   findReadModelById(
     id: string,
-    trashed?: boolean,
+    withTrashed?: boolean,
   ): Promise<ContactSupportReadModel | null>;
   /** Paginated read models, with optional soft-delete visibility. */
   findMany(

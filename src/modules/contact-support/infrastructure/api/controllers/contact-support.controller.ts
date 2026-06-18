@@ -15,7 +15,6 @@ import {
   StreamableFile,
 } from '@nestjs/common';
 import type { Response } from 'express';
-import { Throttle } from '@nestjs/throttler';
 import { CacheTTL } from '@nestjs/cache-manager';
 import {
   ApiTags,
@@ -41,7 +40,9 @@ import type { AuthenticatedUser } from '../../../../../core/access/actions.enum'
 import { CaslAbilityFactory } from '../../../../../core/access/casl-ability.factory';
 import { stringBoolean } from '../../../../../shared/crud/trashed.util';
 import { resolveTrashedMode } from '../../../../../shared/crud/trashed.util';
+import type { TrashedMode } from '../../../../../shared/crud/trashed.util';
 import { resolveDateRange } from '../../../../../shared/crud/date-range.util';
+import type { DateRange } from '../../../../../shared/crud/date-range.util';
 import { CreateContactSupportUseCase } from '../../../application/use-cases/create-contact-support.use-case';
 import { MarkContactSupportReadUseCase } from '../../../application/use-cases/mark-contact-support-read.use-case';
 import { DeleteContactSupportUseCase } from '../../../application/use-cases/delete-contact-support.use-case';
@@ -91,18 +92,57 @@ export class ContactSupportController {
     private readonly abilityFactory: CaslAbilityFactory,
   ) {}
 
-  // ── Public — anonymous contact form ───────────────────────────
+  /**
+   * Viewing soft-deleted ("suspended") requests — whether by listing/exporting
+   * them (`onlyTrashed`) or fetching a tombstoned row directly (`withTrashed`) —
+   * requires `Action.Restore`, NOT `Action.Read`, so a read-only role cannot
+   * enumerate or inspect deleted requests.
+   */
+  private async assertCanViewTrashed(
+    wantsTrashed: boolean | undefined,
+    user: AuthenticatedUser,
+  ): Promise<void> {
+    if (!wantsTrashed) return;
+    const ability = await this.abilityFactory.createForUser(user);
+    if (!ability.can(Action.Restore, 'CONTACT')) {
+      throw new ForbiddenException('Insufficient permissions');
+    }
+  }
+
+  /** Shared soft-delete visibility + date-range resolution for list & export. */
+  private resolveFilters(query: {
+    withTrashed?: boolean;
+    onlyTrashed?: boolean;
+    start_date?: Date;
+    end_date?: Date;
+  }): { trashed: TrashedMode; range: DateRange } {
+    const trashed = resolveTrashedMode({
+      status: undefined,
+      withTrashed: query.withTrashed,
+      onlyTrashed: query.onlyTrashed,
+    });
+    const range = resolveDateRange({
+      start_date: query.start_date,
+      end_date: query.end_date,
+    });
+    return { trashed, range };
+  }
+
+  // ── Admin — create on behalf of staff (CASL: CONTACT) ─────────
+  // Public/anonymous submissions go through POST /public/contact-support.
   @Post()
+  @UseGuards(JwtAuthGuard, CaslGuard)
+  @ApiBearerAuth()
   @HttpCode(201)
-  @Throttle({ default: { limit: 3, ttl: 60_000 } })
+  @CheckAbilities({ action: Action.Create, subject: 'CONTACT' })
   @ApiCreatedResponse({ type: CreateContactSupportResponse })
   @ApiBadRequestResponse({ description: 'Validation failed' })
   async create(
     @Body(new ZodValidationPipe(CreateContactSupportSchema))
     dto: CreateContactSupportDto,
-    @CurrentUser() user: AuthenticatedUser | undefined,
+    @CurrentUser() user: AuthenticatedUser,
   ): Promise<CreateContactSupportResponse> {
-    const id = await this.createUseCase.execute(dto, user?.id);
+    const id = await this.createUseCase.execute(dto, user.id);
     return { id };
   }
 
@@ -117,7 +157,7 @@ export class ContactSupportController {
   @ApiOkResponse({ type: ContactSupportListResponse })
   @ApiQuery({ name: 'page', required: false, type: Number, example: 1 })
   @ApiQuery({ name: 'limit', required: false, type: Number, example: 20 })
-  @ApiQuery({ name: 'readed', required: false, enum: ['true', 'false'] })
+  @ApiQuery({ name: 'isRead', required: false, enum: ['true', 'false'] })
   @ApiQuery({
     name: 'withTrashed',
     required: false,
@@ -136,7 +176,8 @@ export class ContactSupportController {
     required: false,
     type: String,
     example: '2024-06-01',
-    description: 'Filter by creation date (inclusive start). Format: YYYY-MM-DD.',
+    description:
+      'Filter by creation date (inclusive start). Format: YYYY-MM-DD.',
   })
   @ApiQuery({
     name: 'end_date',
@@ -150,26 +191,12 @@ export class ContactSupportController {
     query: ListContactSupportDto,
     @CurrentUser() user: AuthenticatedUser,
   ): Promise<PaginatedContactSupport> {
-    // Enumerating tombstoned rows requires Action.Restore — not Action.Read.
-    if (query.onlyTrashed) {
-      const ability = await this.abilityFactory.createForUser(user);
-      if (!ability.can(Action.Restore, 'CONTACT')) {
-        throw new ForbiddenException('Insufficient permissions');
-      }
-    }
-    const trashed = resolveTrashedMode({
-      status: undefined,
-      withTrashed: query.withTrashed,
-      onlyTrashed: query.onlyTrashed,
-    });
-    const range = resolveDateRange({
-      start_date: query.start_date,
-      end_date: query.end_date,
-    });
+    await this.assertCanViewTrashed(query.onlyTrashed, user);
+    const { trashed, range } = this.resolveFilters(query);
     return this.listUseCase.execute({
       page: query.page,
       limit: query.limit,
-      readed: query.readed,
+      isRead: query.isRead,
       trashed,
       range,
     });
@@ -193,7 +220,7 @@ export class ContactSupportController {
   })
   @ApiBadRequestResponse({ description: 'Validation failed' })
   @ApiQuery({ name: 'format', required: false, enum: ['csv', 'pdf'] })
-  @ApiQuery({ name: 'readed', required: false, enum: ['true', 'false'] })
+  @ApiQuery({ name: 'isRead', required: false, enum: ['true', 'false'] })
   @ApiQuery({
     name: 'withTrashed',
     required: false,
@@ -212,7 +239,8 @@ export class ContactSupportController {
     required: false,
     type: String,
     example: '2024-06-01',
-    description: 'Filter by creation date (inclusive start). Format: YYYY-MM-DD.',
+    description:
+      'Filter by creation date (inclusive start). Format: YYYY-MM-DD.',
   })
   @ApiQuery({
     name: 'end_date',
@@ -227,25 +255,12 @@ export class ContactSupportController {
     @CurrentUser() user: AuthenticatedUser,
     @Res({ passthrough: true }) res: Response,
   ): Promise<StreamableFile> {
-    if (query.onlyTrashed) {
-      const ability = await this.abilityFactory.createForUser(user);
-      if (!ability.can(Action.Restore, 'CONTACT')) {
-        throw new ForbiddenException('Insufficient permissions');
-      }
-    }
-    const trashed = resolveTrashedMode({
-      status: undefined,
-      withTrashed: query.withTrashed,
-      onlyTrashed: query.onlyTrashed,
-    });
-    const range = resolveDateRange({
-      start_date: query.start_date,
-      end_date: query.end_date,
-    });
+    await this.assertCanViewTrashed(query.onlyTrashed, user);
+    const { trashed, range } = this.resolveFilters(query);
     const result = await this.exportUseCase.execute({
       format: query.format,
       actorId: user.id,
-      readed: query.readed,
+      isRead: query.isRead,
       trashed,
       range,
     });
@@ -271,13 +286,15 @@ export class ContactSupportController {
     required: false,
     type: Boolean,
     description:
-      'When `true`, return the request even if it has been soft-deleted.',
+      'When `true`, return the request even if it has been soft-deleted. Requires `Action.Restore`.',
   })
-  findOne(
+  async findOne(
     @Param('id', ParseUUIDPipe) id: string,
+    @CurrentUser() user: AuthenticatedUser,
     @Query('withTrashed', new ZodValidationPipe(stringBoolean.optional()))
     withTrashed?: boolean,
   ): Promise<ContactSupportReadModel> {
+    await this.assertCanViewTrashed(withTrashed, user);
     return this.getUseCase.execute(id, withTrashed ?? false);
   }
 

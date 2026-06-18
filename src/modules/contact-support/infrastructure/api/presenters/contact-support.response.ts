@@ -10,7 +10,7 @@ export const ContactSupportResponseSchema = z.object({
   subject: z.string(),
   message: z.string(),
   smsConsent: z.boolean(),
-  readed: z.boolean(),
+  isRead: z.boolean(),
   createdAt: z.string().datetime(),
   updatedAt: z.string().datetime(),
   /**

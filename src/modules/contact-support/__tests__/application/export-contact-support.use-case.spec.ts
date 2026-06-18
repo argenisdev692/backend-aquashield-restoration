@@ -1,7 +1,6 @@
 import { Test, TestingModule } from '@nestjs/testing';
 import { ClsService } from 'nestjs-cls';
-import { ExportContactSupportHandler } from '../../application/queries/handlers/export-contact-support.handler';
-import { ExportContactSupportQuery } from '../../application/queries/export-contact-support.query';
+import { ExportContactSupportUseCase } from '../../application/use-cases/export-contact-support.use-case';
 import { CONTACT_SUPPORT_REPOSITORY } from '../../domain/ports/contact-support.repository.interface';
 import { AUDIT_PORT } from '../../../../shared/activity-log/audit.port';
 import { LoggerService } from '../../../../logger/logger.service';
@@ -21,7 +20,7 @@ function row(
     subject: 'Help',
     message: 'message body',
     smsConsent: false,
-    readed: false,
+    isRead: false,
     createdAt: '2026-05-01T10:00:00.000Z',
     updatedAt: '2026-05-01T10:00:00.000Z',
     deletedAt: null,
@@ -29,8 +28,8 @@ function row(
   };
 }
 
-describe('ExportContactSupportHandler', () => {
-  let handler: ExportContactSupportHandler;
+describe('ExportContactSupportUseCase', () => {
+  let useCase: ExportContactSupportUseCase;
   let repo: { findAllForExport: jest.Mock };
   let audit: { log: jest.Mock };
   let logger: Record<string, jest.Mock>;
@@ -47,7 +46,7 @@ describe('ExportContactSupportHandler', () => {
 
     const module: TestingModule = await Test.createTestingModule({
       providers: [
-        ExportContactSupportHandler,
+        ExportContactSupportUseCase,
         { provide: CONTACT_SUPPORT_REPOSITORY, useValue: repo },
         { provide: AUDIT_PORT, useValue: audit },
         { provide: LoggerService, useValue: logger },
@@ -58,14 +57,16 @@ describe('ExportContactSupportHandler', () => {
       ],
     }).compile();
 
-    handler = module.get(ExportContactSupportHandler);
+    useCase = module.get(ExportContactSupportUseCase);
   });
 
   describe('CSV', () => {
     it('returns a CSV buffer with header row + UTF-8 BOM and audits', async () => {
-      const result = await handler.execute(
-        new ExportContactSupportQuery('csv', ACTOR, undefined, 'exclude'),
-      );
+      const result = await useCase.execute({
+        format: 'csv',
+        actorId: ACTOR,
+        trashed: 'exclude',
+      });
 
       expect(result.contentType).toBe('text/csv; charset=utf-8');
       expect(result.filename).toMatch(/^contact-support-.*\.csv$/);
@@ -80,8 +81,9 @@ describe('ExportContactSupportHandler', () => {
       expect(text).toContain('john@acme.com');
 
       expect(repo.findAllForExport).toHaveBeenCalledWith({
-        readed: undefined,
+        isRead: undefined,
         trashed: 'exclude',
+        range: undefined,
       });
       expect(audit.log).toHaveBeenCalledWith(
         expect.objectContaining({
@@ -98,9 +100,11 @@ describe('ExportContactSupportHandler', () => {
         row({ firstName: '=SUM(A1:A99)', subject: '+CMD' }),
       ]);
 
-      const result = await handler.execute(
-        new ExportContactSupportQuery('csv', ACTOR),
-      );
+      const result = await useCase.execute({
+        format: 'csv',
+        actorId: ACTOR,
+        trashed: 'exclude',
+      });
       const text = result.buffer.subarray(3).toString('utf8');
 
       // Leading `=` and `+` must be prefixed with a single quote inside the quoted cell.
@@ -110,12 +114,15 @@ describe('ExportContactSupportHandler', () => {
 
     it('forwards trashed=only when requested', async () => {
       repo.findAllForExport.mockResolvedValueOnce([]);
-      await handler.execute(
-        new ExportContactSupportQuery('csv', ACTOR, undefined, 'only'),
-      );
-      expect(repo.findAllForExport).toHaveBeenCalledWith({
-        readed: undefined,
+      await useCase.execute({
+        format: 'csv',
+        actorId: ACTOR,
         trashed: 'only',
+      });
+      expect(repo.findAllForExport).toHaveBeenCalledWith({
+        isRead: undefined,
+        trashed: 'only',
+        range: undefined,
       });
       expect(audit.log).toHaveBeenCalledWith(
         expect.objectContaining({
@@ -127,9 +134,11 @@ describe('ExportContactSupportHandler', () => {
 
   describe('PDF', () => {
     it('returns a PDF buffer (starts with %PDF magic) and audits', async () => {
-      const result = await handler.execute(
-        new ExportContactSupportQuery('pdf', ACTOR),
-      );
+      const result = await useCase.execute({
+        format: 'pdf',
+        actorId: ACTOR,
+        trashed: 'exclude',
+      });
 
       expect(result.contentType).toBe('application/pdf');
       expect(result.filename).toMatch(/^contact-support-.*\.pdf$/);

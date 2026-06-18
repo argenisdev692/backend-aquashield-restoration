@@ -20,7 +20,7 @@ const CSV_HEADERS = [
   'subject',
   'message',
   'smsConsent',
-  'readed',
+  'isRead',
   'createdAt',
   'updatedAt',
   'deletedAt',
@@ -47,7 +47,7 @@ export class ExportContactSupportUseCase {
   async execute(params: {
     format: 'csv' | 'pdf';
     actorId: string;
-    readed?: boolean;
+    isRead?: boolean;
     trashed: TrashedMode;
     range?: DateRange;
   }): Promise<ExportContactSupportResult> {
@@ -60,7 +60,7 @@ export class ExportContactSupportUseCase {
     });
 
     const rows = await this.repo.findAllForExport({
-      readed: params.readed,
+      isRead: params.isRead,
       trashed: params.trashed,
       range: params.range,
     });
@@ -103,7 +103,7 @@ export class ExportContactSupportUseCase {
           r.subject,
           r.message,
           r.smsConsent,
-          r.readed,
+          r.isRead,
           r.createdAt,
           r.updatedAt,
           r.deletedAt ?? '',
@@ -163,7 +163,7 @@ export class ExportContactSupportUseCase {
             .fillColor('#475569')
             .text(
               `Phone: ${r.phone}  ·  Subject: ${r.subject}  ·  Read: ${
-                r.readed ? 'yes' : 'no'
+                r.isRead ? 'yes' : 'no'
               }${r.deletedAt ? '  ·  DELETED' : ''}`,
             )
             .fillColor('#000');

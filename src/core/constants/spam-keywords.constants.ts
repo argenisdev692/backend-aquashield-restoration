@@ -35,6 +35,7 @@ export const MAX_URLS_IN_FIELD = 1;
 
 export const SPAM_CHECKED_FIELDS: readonly string[] = [
   'message',
+  'subject',
   'additionalNote',
   'notes',
 ];

@@ -2,6 +2,7 @@ import { Module } from '@nestjs/common';
 import { CqrsModule } from '@nestjs/cqrs';
 import { JwtModule } from '@nestjs/jwt';
 import { CacheModule } from '../../shared/cache/cache.module';
+import { CompanyDataModule } from '../companydata/companydata.module';
 import { AppointmentsController } from './infrastructure/api/controllers/appointments.controller';
 import { PublicAppointmentsController } from './infrastructure/api/controllers/public-appointments.controller';
 import { AppointmentsGateway } from './infrastructure/gateways/appointments.gateway';
@@ -23,11 +24,16 @@ import { APPOINTMENT_REPOSITORY } from './domain/repositories/appointment-reposi
 import { AUDIT_PORT } from './domain/ports/outbound/audit.port.interface';
 import { EMAIL_PORT } from './domain/ports/outbound/email.port.interface';
 import { ADMIN_RECIPIENTS_PORT } from './domain/ports/outbound/admin-recipients.port.interface';
+import { COMPANY_DATA_LOOKUP_PORT } from './domain/ports/outbound/company-data-lookup.port.interface';
 import { AppointmentsRealtimeListener } from './infrastructure/event-listeners/appointments-realtime.listener';
 import { AppointmentCreatedEmailListener } from './infrastructure/event-listeners/appointment-created-email.listener';
+import { AppointmentInspectionConfirmedEmailListener } from './infrastructure/event-listeners/appointment-inspection-confirmed-email.listener';
+import { AppointmentInspectionRescheduledEmailListener } from './infrastructure/event-listeners/appointment-inspection-rescheduled-email.listener';
+import { AppointmentInspectionCancelledEmailListener } from './infrastructure/event-listeners/appointment-inspection-cancelled-email.listener';
 import { ActivityLogService } from '../../shared/activity-log/activity-log.service';
 import { ResendAppointmentEmailAdapter } from './infrastructure/external-services/resend-appointment-email.adapter';
 import { UsersAdminRecipientsAdapter } from './infrastructure/acl/users-admin-recipients.adapter';
+import { CompanyDataLookupAdapter } from './infrastructure/acl/companydata-lookup.adapter';
 import { WsJwtMiddleware } from '../../shared/websockets/ws-jwt.middleware';
 
 /**
@@ -39,7 +45,7 @@ import { WsJwtMiddleware } from '../../shared/websockets/ws-jwt.middleware';
  */
 @Module({
   controllers: [AppointmentsController, PublicAppointmentsController],
-  imports: [CqrsModule, CacheModule, JwtModule.register({})],
+  imports: [CqrsModule, CacheModule, CompanyDataModule, JwtModule.register({})],
   providers: [
     // Command Handlers
     CreateAppointmentHandler,
@@ -69,6 +75,11 @@ import { WsJwtMiddleware } from '../../shared/websockets/ws-jwt.middleware';
       provide: ADMIN_RECIPIENTS_PORT,
       useExisting: UsersAdminRecipientsAdapter,
     },
+    CompanyDataLookupAdapter,
+    {
+      provide: COMPANY_DATA_LOOKUP_PORT,
+      useExisting: CompanyDataLookupAdapter,
+    },
 
     // WebSocket Gateway
     AppointmentsGateway,
@@ -77,6 +88,9 @@ import { WsJwtMiddleware } from '../../shared/websockets/ws-jwt.middleware';
     // Event Listeners
     AppointmentsRealtimeListener,
     AppointmentCreatedEmailListener,
+    AppointmentInspectionConfirmedEmailListener,
+    AppointmentInspectionRescheduledEmailListener,
+    AppointmentInspectionCancelledEmailListener,
   ],
   exports: [AppointmentsGateway],
 })

@@ -31,7 +31,7 @@ export class PublicAppointmentsController {
   constructor(private readonly commandBus: CommandBus) {}
 
   @Post()
-  @Throttle({ short: { limit: 3, ttl: 1000 } })
+  @Throttle({ short: { limit: 3, ttl: 60_000 } })
   @UseGuards(SpamFilterGuard)
   @ApiCreatedResponse({
     type: CreateAppointmentResponse,
@@ -48,7 +48,7 @@ export class PublicAppointmentsController {
     @Body(new ZodValidationPipe(PublicCreateAppointmentSchema))
     dto: PublicCreateAppointmentDto,
   ): Promise<CreateAppointmentResponse> {
-    const id = await this.commandBus.execute(
+    const id = await this.commandBus.execute<CreateAppointmentCommand, string>(
       new CreateAppointmentCommand({
         firstName: dto.firstName,
         lastName: dto.lastName,

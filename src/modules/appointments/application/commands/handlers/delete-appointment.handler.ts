@@ -16,6 +16,7 @@ import {
   type ICachePort,
 } from '../../../../../shared/cache/cache.port';
 import { AppointmentDeletedEvent } from '../../../domain/events/appointment-deleted.domain-event';
+import { InspectionCancelledEvent } from '../../../domain/events/inspection-cancelled.domain-event';
 import { LoggerService } from '../../../../../logger/logger.service';
 import { ClsService } from 'nestjs-cls';
 import { AppointmentMutationHandler } from './appointment-mutation.handler';
@@ -50,6 +51,12 @@ export class DeleteAppointmentHandler
     this.eventEmitter.emit(
       'appointment.deleted',
       new AppointmentDeletedEvent(id),
+    );
+    // Soft delete keeps the row, so the cancellation email listener can still
+    // reload the appointment (withTrashed) to render its details.
+    this.eventEmitter.emit(
+      'appointment.inspection_cancelled',
+      new InspectionCancelledEvent(id),
     );
 
     this.logger.info('DeleteAppointmentHandler end', {

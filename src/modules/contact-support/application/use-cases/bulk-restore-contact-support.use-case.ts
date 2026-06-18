@@ -23,7 +23,6 @@ export class BulkRestoreContactSupportUseCase {
     this.logger.setContext(BulkRestoreContactSupportUseCase.name);
   }
 
-  @Transactional()
   async execute(
     ids: string[],
     actorId: string,
@@ -35,6 +34,20 @@ export class BulkRestoreContactSupportUseCase {
       idsCount: ids.length,
     });
 
+    const { count } = await this.persist(ids, actorId);
+
+    // Cache invalidation runs OUTSIDE the tx.
+    await this.cache.delByPattern(CONTACT_SUPPORT_CACHE_PATTERN);
+
+    this.logger.info('BulkRestoreContactSupportUseCase end', { traceId, count });
+    return { count };
+  }
+
+  @Transactional()
+  private async persist(
+    ids: string[],
+    actorId: string,
+  ): Promise<{ count: number }> {
     const { count } = await this.repo.bulkRestore(ids);
 
     await this.audit.log(
@@ -48,9 +61,6 @@ export class BulkRestoreContactSupportUseCase {
       { strict: true },
     );
 
-    await this.cache.delByPattern(CONTACT_SUPPORT_CACHE_PATTERN);
-
-    this.logger.info('BulkRestoreContactSupportUseCase end', { traceId, count });
     return { count };
   }
 }

@@ -23,7 +23,6 @@ export class RestoreContactSupportUseCase {
     this.logger.setContext(RestoreContactSupportUseCase.name);
   }
 
-  @Transactional()
   async execute(id: string, actorId: string): Promise<void> {
     const traceId = this.cls.get<string>('traceId');
     this.logger.info('RestoreContactSupportUseCase start', {
@@ -31,6 +30,19 @@ export class RestoreContactSupportUseCase {
       id,
     });
 
+    await this.persist(id, actorId);
+
+    // Cache invalidation runs OUTSIDE the tx.
+    await this.cache.delByPattern(CONTACT_SUPPORT_CACHE_PATTERN);
+
+    this.logger.info('RestoreContactSupportUseCase end', {
+      traceId,
+      id,
+    });
+  }
+
+  @Transactional()
+  private async persist(id: string, actorId: string): Promise<void> {
     const entity = await this.repo.findByIdWithDeleted(id);
     if (!entity) throw new NotFoundException('Contact request not found');
 
@@ -46,12 +58,5 @@ export class RestoreContactSupportUseCase {
       },
       { strict: true },
     );
-
-    await this.cache.delByPattern(CONTACT_SUPPORT_CACHE_PATTERN);
-
-    this.logger.info('RestoreContactSupportUseCase end', {
-      traceId,
-      id,
-    });
   }
 }

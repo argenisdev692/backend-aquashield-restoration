@@ -81,7 +81,7 @@ describe('UpdateAppointmentHandler', () => {
     };
     mockEventEmitter = {
       emit: jest.fn(),
-    } as unknown as jest.Mocked<EventEmitter2>;
+    };
 
     const module: TestingModule = await Test.createTestingModule({
       providers: [
@@ -147,5 +147,80 @@ describe('UpdateAppointmentHandler', () => {
         ),
       ),
     ).rejects.toThrow('Appointment with id missing not found');
+  });
+
+  it('emits inspection_confirmed when inspectionStatus → Confirmed', async () => {
+    await handler.execute(
+      new UpdateAppointmentCommand(
+        'appt-1',
+        { inspectionStatus: 'Confirmed' },
+        'user-123',
+      ),
+    );
+
+    expect(mockEventEmitter.emit).toHaveBeenCalledWith(
+      'appointment.inspection_confirmed',
+      expect.objectContaining({ appointmentId: 'appt-1' }),
+    );
+  });
+
+  it('emits inspection_rescheduled when a scheduled inspection date changes', async () => {
+    const scheduled = Appointment.create({
+      firstName: 'John',
+      lastName: 'Doe',
+      phone: '+1234567890',
+      email: 'john@example.com',
+      address: '123 Main St',
+      address2: null,
+      city: 'Springfield',
+      state: 'IL',
+      zipcode: '62701',
+      country: 'USA',
+      insuranceProperty: false,
+      message: null,
+      smsConsent: false,
+      registrationDate: null,
+      inspectionDate: new Date('2026-01-01T00:00:00.000Z'),
+      inspectionTime: new Date('1970-01-01T09:00:00.000Z'),
+      inspectionStatus: 'Pending',
+      statusLead: 'New',
+      leadSource: null,
+      followUpCalls: null,
+      notes: null,
+      owner: null,
+      damageDetail: null,
+      intentToClaim: null,
+      followUpDate: null,
+      additionalNote: null,
+      latitude: null,
+      longitude: null,
+    });
+    mockRepo.findById.mockResolvedValue(scheduled);
+
+    await handler.execute(
+      new UpdateAppointmentCommand(
+        'appt-1',
+        { inspectionDate: '2026-01-08T00:00:00.000Z' },
+        'user-123',
+      ),
+    );
+
+    expect(mockEventEmitter.emit).toHaveBeenCalledWith(
+      'appointment.inspection_rescheduled',
+      expect.objectContaining({
+        appointmentId: 'appt-1',
+        previousInspectionDate: new Date('2026-01-01T00:00:00.000Z'),
+      }),
+    );
+  });
+
+  it('does NOT emit inspection events for a plain field update', async () => {
+    await handler.execute(
+      new UpdateAppointmentCommand('appt-1', { firstName: 'Jane' }, 'user-123'),
+    );
+
+    const emittedEvents = mockEventEmitter.emit.mock.calls.map((c) => c[0]);
+    expect(emittedEvents).not.toContain('appointment.inspection_confirmed');
+    expect(emittedEvents).not.toContain('appointment.inspection_rescheduled');
   });
 });

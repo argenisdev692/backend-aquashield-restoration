@@ -16,7 +16,7 @@ export class ContactSupport {
     public readonly subject: string,
     public readonly message: string,
     public readonly smsConsent: boolean,
-    private _readed: boolean,
+    private _isRead: boolean,
     private _deletedAt: Date | null,
   ) {}
 
@@ -72,7 +72,7 @@ export class ContactSupport {
     subject: string,
     message: string,
     smsConsent: boolean,
-    readed: boolean,
+    isRead: boolean,
     deletedAt: Date | null,
   ): ContactSupport {
     return new ContactSupport(
@@ -84,13 +84,13 @@ export class ContactSupport {
       subject,
       message,
       smsConsent,
-      readed,
+      isRead,
       deletedAt,
     );
   }
 
-  get readed(): boolean {
-    return this._readed;
+  get isRead(): boolean {
+    return this._isRead;
   }
 
   get deletedAt(): Date | null {
@@ -103,7 +103,7 @@ export class ContactSupport {
 
   /** Idempotent — marking an already-read entry again is a no-op. */
   markAsRead(): void {
-    this._readed = true;
+    this._isRead = true;
   }
 
   softDelete(): void {

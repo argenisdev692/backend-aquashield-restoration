@@ -2,6 +2,7 @@ import { Module, Provider } from '@nestjs/common';
 import { JwtModule } from '@nestjs/jwt';
 import { ConfigModule, ConfigService } from '@nestjs/config';
 import { ContactSupportController } from './infrastructure/api/controllers/contact-support.controller';
+import { PublicContactSupportController } from './infrastructure/api/controllers/public-contact-support.controller';
 import { CreateContactSupportUseCase } from './application/use-cases/create-contact-support.use-case';
 import { MarkContactSupportReadUseCase } from './application/use-cases/mark-contact-support-read.use-case';
 import { DeleteContactSupportUseCase } from './application/use-cases/delete-contact-support.use-case';
@@ -46,7 +47,7 @@ const UseCases: Provider[] = [
       }),
     }),
   ],
-  controllers: [ContactSupportController],
+  controllers: [ContactSupportController, PublicContactSupportController],
   providers: [
     ...UseCases,
     WsJwtMiddleware,

@@ -7,12 +7,12 @@ model ContactSupport {
   subject    String    @db.VarChar(150)
   message    String
   smsConsent Boolean   @default(false) @map("sms_consent")
-  readed     Boolean   @default(false)
+  isRead     Boolean   @default(false) @map("readed")
   createdAt  DateTime  @default(now()) @map("created_at") @db.Timestamp(6)
   updatedAt  DateTime  @default(now()) @map("updated_at") @db.Timestamp(6)
   deletedAt  DateTime? @map("deleted_at") @db.Timestamp(6)
 
-  @@index([readed], map: "idx_contact_supports_readed")
+  @@index([isRead], map: "idx_contact_supports_readed")
   @@map("contact_supports")
 }
 

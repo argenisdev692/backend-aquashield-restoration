@@ -16,7 +16,7 @@ export class ContactSupportMapper {
       row.subject,
       row.message,
       row.smsConsent,
-      row.readed,
+      row.isRead,
       row.deletedAt,
     );
   }
@@ -33,7 +33,7 @@ export class ContactSupportMapper {
       subject: entity.subject,
       message: entity.message,
       smsConsent: entity.smsConsent,
-      readed: entity.readed,
+      isRead: entity.isRead,
       deletedAt: entity.deletedAt,
     };
   }
@@ -48,7 +48,7 @@ export class ContactSupportMapper {
       subject: row.subject,
       message: row.message,
       smsConsent: row.smsConsent,
-      readed: row.readed,
+      isRead: row.isRead,
       createdAt: row.createdAt.toISOString(),
       updatedAt: row.updatedAt.toISOString(),
       deletedAt: row.deletedAt?.toISOString() ?? null,

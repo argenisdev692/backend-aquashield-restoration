@@ -27,7 +27,7 @@ function make(): ContactSupport {
 
 describe('ContactSupport aggregate', () => {
   describe('create()', () => {
-    it('creates with readed=false, not deleted, all fields stored', () => {
+    it('creates with isRead=false, not deleted, all fields stored', () => {
       const c = make();
       expect(c.id).toBe(BASE.id);
       expect(c.firstName).toBe(BASE.firstName);
@@ -37,7 +37,7 @@ describe('ContactSupport aggregate', () => {
       expect(c.subject).toBe(BASE.subject);
       expect(c.message).toBe(BASE.message);
       expect(c.smsConsent).toBe(true);
-      expect(c.readed).toBe(false);
+      expect(c.isRead).toBe(false);
       expect(c.isDeleted).toBe(false);
       expect(c.deletedAt).toBeNull();
     });
@@ -117,11 +117,11 @@ describe('ContactSupport aggregate', () => {
   });
 
   describe('markAsRead()', () => {
-    it('sets readed=true and is idempotent', () => {
+    it('sets isRead=true and is idempotent', () => {
       const c = make();
       c.markAsRead();
       c.markAsRead();
-      expect(c.readed).toBe(true);
+      expect(c.isRead).toBe(true);
     });
   });
 
@@ -149,7 +149,7 @@ describe('ContactSupport aggregate', () => {
   });
 
   describe('reconstitute()', () => {
-    it('rehydrates state including readed + deletedAt', () => {
+    it('rehydrates state including isRead + deletedAt', () => {
       const when = new Date('2026-01-02T03:04:05.000Z');
       const c = ContactSupport.reconstitute(
         BASE.id,
@@ -163,7 +163,7 @@ describe('ContactSupport aggregate', () => {
         true,
         when,
       );
-      expect(c.readed).toBe(true);
+      expect(c.isRead).toBe(true);
       expect(c.smsConsent).toBe(false);
       expect(c.isDeleted).toBe(true);
       expect(c.deletedAt).toEqual(when);

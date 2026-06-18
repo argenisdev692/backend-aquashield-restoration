@@ -7,8 +7,7 @@ jest.mock('@nestjs-cls/transactional', () => ({
 import { Test, TestingModule } from '@nestjs/testing';
 import { NotFoundException } from '@nestjs/common';
 import { ClsService } from 'nestjs-cls';
-import { DeleteContactSupportHandler } from '../../application/commands/handlers/delete-contact-support.handler';
-import { DeleteContactSupportCommand } from '../../application/commands/delete-contact-support.command';
+import { DeleteContactSupportUseCase } from '../../application/use-cases/delete-contact-support.use-case';
 import { CONTACT_SUPPORT_REPOSITORY } from '../../domain/ports/contact-support.repository.interface';
 import { AUDIT_PORT } from '../../../../shared/activity-log/audit.port';
 import { CACHE_PORT } from '../../../../shared/cache/cache.port';
@@ -16,10 +15,10 @@ import { LoggerService } from '../../../../logger/logger.service';
 import { ContactSupport } from '../../domain/entities/contact-support.aggregate';
 
 const ID = 'aaaaaaaa-0000-0000-0000-000000000001';
-const CMD = new DeleteContactSupportCommand(ID, 'admin-uuid');
+const ACTOR = 'admin-uuid';
 
-describe('DeleteContactSupportHandler', () => {
-  let handler: DeleteContactSupportHandler;
+describe('DeleteContactSupportUseCase', () => {
+  let useCase: DeleteContactSupportUseCase;
   let repo: { save: jest.Mock; findById: jest.Mock };
   let audit: { log: jest.Mock };
   let cache: { delByPattern: jest.Mock };
@@ -41,7 +40,7 @@ describe('DeleteContactSupportHandler', () => {
 
     const module: TestingModule = await Test.createTestingModule({
       providers: [
-        DeleteContactSupportHandler,
+        DeleteContactSupportUseCase,
         { provide: CONTACT_SUPPORT_REPOSITORY, useValue: repo },
         { provide: AUDIT_PORT, useValue: audit },
         { provide: CACHE_PORT, useValue: cache },
@@ -53,7 +52,7 @@ describe('DeleteContactSupportHandler', () => {
       ],
     }).compile();
 
-    handler = module.get(DeleteContactSupportHandler);
+    useCase = module.get(DeleteContactSupportUseCase);
   });
 
   it('soft-deletes, audits, invalidates cache', async () => {
@@ -69,7 +68,7 @@ describe('DeleteContactSupportHandler', () => {
     );
     repo.findById.mockResolvedValue(e);
 
-    await handler.execute(CMD);
+    await useCase.execute(ID, ACTOR);
 
     expect(e.isDeleted).toBe(true);
     expect(repo.save).toHaveBeenCalledWith(e);
@@ -83,18 +82,18 @@ describe('DeleteContactSupportHandler', () => {
     );
     expect(cache.delByPattern).toHaveBeenCalledWith('http:*:/contact-support*');
     expect(logger.info).toHaveBeenCalledWith(
-      'DeleteContactSupportHandler start',
+      'DeleteContactSupportUseCase start',
       expect.objectContaining({ traceId: 'trace-id', id: ID }),
     );
     expect(logger.info).toHaveBeenCalledWith(
-      'DeleteContactSupportHandler end',
+      'DeleteContactSupportUseCase end',
       expect.objectContaining({ traceId: 'trace-id', id: ID }),
     );
   });
 
   it('throws NotFound and skips side effects when missing', async () => {
     repo.findById.mockResolvedValue(null);
-    await expect(handler.execute(CMD)).rejects.toBeInstanceOf(
+    await expect(useCase.execute(ID, ACTOR)).rejects.toBeInstanceOf(
       NotFoundException,
     );
     expect(repo.save).not.toHaveBeenCalled();

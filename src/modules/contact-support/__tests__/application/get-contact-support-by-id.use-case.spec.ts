@@ -1,8 +1,7 @@
 import { Test, TestingModule } from '@nestjs/testing';
 import { NotFoundException } from '@nestjs/common';
 import { ClsService } from 'nestjs-cls';
-import { GetContactSupportByIdHandler } from '../../application/queries/handlers/get-contact-support-by-id.handler';
-import { GetContactSupportByIdQuery } from '../../application/queries/get-contact-support-by-id.query';
+import { GetContactSupportByIdUseCase } from '../../application/use-cases/get-contact-support-by-id.use-case';
 import { CONTACT_SUPPORT_REPOSITORY } from '../../domain/ports/contact-support.repository.interface';
 import { LoggerService } from '../../../../logger/logger.service';
 
@@ -17,7 +16,7 @@ const activeRow = {
   subject: 'Hi',
   message: 'Test',
   smsConsent: false,
-  readed: false,
+  isRead: false,
   createdAt: new Date().toISOString(),
   updatedAt: new Date().toISOString(),
   deletedAt: null,
@@ -28,8 +27,8 @@ const suspendedRow = {
   deletedAt: '2026-05-01T10:00:00.000Z',
 };
 
-describe('GetContactSupportByIdHandler — withTrashed', () => {
-  let handler: GetContactSupportByIdHandler;
+describe('GetContactSupportByIdUseCase — withTrashed', () => {
+  let useCase: GetContactSupportByIdUseCase;
   let repo: { findReadModelById: jest.Mock };
 
   beforeEach(async () => {
@@ -37,7 +36,7 @@ describe('GetContactSupportByIdHandler — withTrashed', () => {
 
     const module: TestingModule = await Test.createTestingModule({
       providers: [
-        GetContactSupportByIdHandler,
+        GetContactSupportByIdUseCase,
         { provide: CONTACT_SUPPORT_REPOSITORY, useValue: repo },
         {
           provide: LoggerService,
@@ -50,28 +49,26 @@ describe('GetContactSupportByIdHandler — withTrashed', () => {
       ],
     }).compile();
 
-    handler = module.get(GetContactSupportByIdHandler);
+    useCase = module.get(GetContactSupportByIdUseCase);
   });
 
-  it('forwards withTrashed=false by default', async () => {
+  it('forwards withTrashed=false', async () => {
     repo.findReadModelById.mockResolvedValueOnce(activeRow);
-    await handler.execute(new GetContactSupportByIdQuery(ID));
+    await useCase.execute(ID, false);
     expect(repo.findReadModelById).toHaveBeenCalledWith(ID, false);
   });
 
   it('forwards withTrashed=true so suspended rows are visible', async () => {
     repo.findReadModelById.mockResolvedValueOnce(suspendedRow);
-    const result = await handler.execute(
-      new GetContactSupportByIdQuery(ID, true),
-    );
+    const result = await useCase.execute(ID, true);
     expect(repo.findReadModelById).toHaveBeenCalledWith(ID, true);
     expect(result.deletedAt).toBe('2026-05-01T10:00:00.000Z');
   });
 
   it('throws NotFoundException when the row is missing', async () => {
     repo.findReadModelById.mockResolvedValueOnce(null);
-    await expect(
-      handler.execute(new GetContactSupportByIdQuery(ID, true)),
-    ).rejects.toBeInstanceOf(NotFoundException);
+    await expect(useCase.execute(ID, true)).rejects.toBeInstanceOf(
+      NotFoundException,
+    );
   });
 });

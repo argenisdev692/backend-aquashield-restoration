@@ -5,36 +5,29 @@ jest.mock('@nestjs-cls/transactional', () => ({
 }));
 
 import { Test, TestingModule } from '@nestjs/testing';
-import { NotFoundException } from '@nestjs/common';
 import { EventEmitter2 } from '@nestjs/event-emitter';
 import { ClsService } from 'nestjs-cls';
-import { MarkContactSupportReadHandler } from '../../application/commands/handlers/mark-contact-support-read.handler';
-import { MarkContactSupportReadCommand } from '../../application/commands/mark-contact-support-read.command';
+import { CreateContactSupportUseCase } from '../../application/use-cases/create-contact-support.use-case';
 import { CONTACT_SUPPORT_REPOSITORY } from '../../domain/ports/contact-support.repository.interface';
 import { AUDIT_PORT } from '../../../../shared/activity-log/audit.port';
 import { CACHE_PORT } from '../../../../shared/cache/cache.port';
 import { LoggerService } from '../../../../logger/logger.service';
-import { ContactSupport } from '../../domain/entities/contact-support.aggregate';
-import { ContactSupportReadEvent } from '../../domain/events/contact-support-read.domain-event';
+import { ContactSupportCreatedEvent } from '../../domain/events/contact-support-created.domain-event';
+import type { CreateContactSupportDto } from '../../application/dtos/create-contact-support.dto';
 
-const ID = 'aaaaaaaa-0000-0000-0000-000000000001';
-const CMD = new MarkContactSupportReadCommand(ID, 'admin-uuid');
+const DTO: CreateContactSupportDto = {
+  firstName: 'John',
+  lastName: 'Doe',
+  email: 'john@acme.com',
+  phone: '+1-555-0100',
+  subject: 'Cannot log in',
+  message: 'I cannot log in to my account.',
+  smsConsent: true,
+};
+const ACTOR = 'actor-uuid';
 
-function entity(): ContactSupport {
-  return ContactSupport.create(
-    ID,
-    'John',
-    'Doe',
-    'john@acme.com',
-    '+1-555-0100',
-    'Help',
-    'message body',
-    false,
-  );
-}
-
-describe('MarkContactSupportReadHandler', () => {
-  let handler: MarkContactSupportReadHandler;
+describe('CreateContactSupportUseCase', () => {
+  let useCase: CreateContactSupportUseCase;
   let repo: { save: jest.Mock; findById: jest.Mock };
   let audit: { log: jest.Mock };
   let cache: { delByPattern: jest.Mock };
@@ -58,7 +51,7 @@ describe('MarkContactSupportReadHandler', () => {
 
     const module: TestingModule = await Test.createTestingModule({
       providers: [
-        MarkContactSupportReadHandler,
+        CreateContactSupportUseCase,
         { provide: CONTACT_SUPPORT_REPOSITORY, useValue: repo },
         { provide: AUDIT_PORT, useValue: audit },
         { provide: CACHE_PORT, useValue: cache },
@@ -66,56 +59,43 @@ describe('MarkContactSupportReadHandler', () => {
         { provide: LoggerService, useValue: logger },
         {
           provide: ClsService,
-          useValue: { get: jest.fn().mockReturnValue('trace-id') },
+          useValue: { get: jest.fn().mockReturnValue('trace-id-123') },
         },
       ],
     }).compile();
 
-    handler = module.get(MarkContactSupportReadHandler);
+    useCase = module.get(CreateContactSupportUseCase);
   });
 
-  it('marks read, saves, audits, invalidates cache, emits read event', async () => {
-    const e = entity();
-    repo.findById.mockResolvedValue(e);
+  it('creates, saves, audits, invalidates cache, emits event', async () => {
+    const id = await useCase.execute(DTO, ACTOR);
 
-    await handler.execute(CMD);
-
-    expect(e.readed).toBe(true);
-    expect(repo.save).toHaveBeenCalledWith(e);
+    expect(typeof id).toBe('string');
+    expect(repo.save).toHaveBeenCalledTimes(1);
     expect(audit.log).toHaveBeenCalledWith(
       expect.objectContaining({
-        action: 'contact_support.read',
+        action: 'contact_support.created',
         resourceType: 'CONTACT',
-        actorId: 'admin-uuid',
-        resourceId: ID,
+        actorId: ACTOR,
+        resourceId: id,
       }),
       { strict: true },
     );
     expect(cache.delByPattern).toHaveBeenCalledWith('http:*:/contact-support*');
     expect(events.emit).toHaveBeenCalledWith(
-      'contact-support.read',
-      expect.any(ContactSupportReadEvent),
+      'contact-support.created',
+      expect.any(ContactSupportCreatedEvent),
     );
     expect(logger.info).toHaveBeenCalledWith(
-      'MarkContactSupportReadHandler start',
-      expect.objectContaining({ traceId: 'trace-id', id: ID }),
+      'CreateContactSupportUseCase start',
+      expect.objectContaining({ traceId: 'trace-id-123' }),
     );
     expect(logger.info).toHaveBeenCalledWith(
-      'MarkContactSupportReadHandler end',
-      expect.objectContaining({ traceId: 'trace-id', id: ID }),
+      'CreateContactSupportUseCase end',
+      expect.objectContaining({
+        traceId: 'trace-id-123',
+        contactSupportId: id,
+      }),
     );
-  });
-
-  it('throws NotFound and skips side effects when missing', async () => {
-    repo.findById.mockResolvedValue(null);
-
-    await expect(handler.execute(CMD)).rejects.toBeInstanceOf(
-      NotFoundException,
-    );
-
-    expect(repo.save).not.toHaveBeenCalled();
-    expect(audit.log).not.toHaveBeenCalled();
-    expect(cache.delByPattern).not.toHaveBeenCalled();
-    expect(events.emit).not.toHaveBeenCalled();
   });
 });

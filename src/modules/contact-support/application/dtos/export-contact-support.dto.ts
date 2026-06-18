@@ -15,7 +15,7 @@ export const ExportContactSupportSchema = z
   .object({
     format: z.enum(['csv', 'pdf']).default('csv'),
     /** `true` → only read, `false` → only unread, omitted → all. */
-    readed: z
+    isRead: z
       .enum(['true', 'false'])
       .optional()
       .transform((v) => (v === undefined ? undefined : v === 'true')),

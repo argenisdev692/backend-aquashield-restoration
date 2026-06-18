@@ -4,7 +4,20 @@ import { LoggerService } from '../../../../logger/logger.service';
 import { escapeHtml } from '../../../../shared/external/email/email-html.util';
 import { MAILER } from '../../../../shared/external/email/mailer.port';
 import type { IMailer } from '../../../../shared/external/email/mailer.port';
-import type { IEmailPort } from '../../domain/ports/outbound/email.port.interface';
+import type {
+  AppointmentEmailData,
+  IEmailPort,
+} from '../../domain/ports/outbound/email.port.interface';
+import { COMPANY_DATA_LOOKUP_PORT } from '../../domain/ports/outbound/company-data-lookup.port.interface';
+import type { ICompanyDataLookupPort } from '../../domain/ports/outbound/company-data-lookup.port.interface';
+import {
+  renderAppointmentCancelledClientHtml,
+  renderAppointmentCancelledInternalHtml,
+  renderAppointmentConfirmedClientHtml,
+  renderAppointmentRescheduledClientHtml,
+  renderAppointmentRescheduledInternalHtml,
+  renderAppointmentScheduledInternalHtml,
+} from './templates/appointment-email.templates';
 
 /**
  * Appointments-domain email templates.
@@ -18,6 +31,8 @@ import type { IEmailPort } from '../../domain/ports/outbound/email.port.interfac
 export class ResendAppointmentEmailAdapter implements IEmailPort {
   constructor(
     @Inject(MAILER) private readonly mailer: IMailer,
+    @Inject(COMPANY_DATA_LOOKUP_PORT)
+    private readonly companyLookup: ICompanyDataLookupPort,
     private readonly logger: LoggerService,
     private readonly cls: ClsService,
   ) {
@@ -141,6 +156,141 @@ export class ResendAppointmentEmailAdapter implements IEmailPort {
     } catch (error) {
       this.logger.warn('Failed to send submission confirmation', {
         traceId,
+        error: error instanceof Error ? error.message : String(error),
+      });
+    }
+  }
+
+  // ── Inspection lifecycle (blade-style) ──────────────────────────────────
+
+  async sendAppointmentConfirmed(params: {
+    appointment: AppointmentEmailData;
+  }): Promise<void> {
+    if (!params.appointment.email) return;
+    const company = await this.companyLookup.getCompanyInfo();
+    await this.deliver(
+      params.appointment.email,
+      '✅ ¡Su cita ha sido confirmada!',
+      renderAppointmentConfirmedClientHtml(params.appointment, company),
+      params.appointment.appointmentId,
+      'sendAppointmentConfirmed',
+    );
+  }
+
+  async sendAppointmentRescheduled(params: {
+    appointment: AppointmentEmailData;
+    previousInspectionDate: Date | null;
+    previousInspectionTime: Date | null;
+  }): Promise<void> {
+    if (!params.appointment.email) return;
+    const company = await this.companyLookup.getCompanyInfo();
+    await this.deliver(
+      params.appointment.email,
+      '🔄 Su cita ha sido reprogramada',
+      renderAppointmentRescheduledClientHtml(
+        params.appointment,
+        company,
+        params.previousInspectionDate,
+        params.previousInspectionTime,
+      ),
+      params.appointment.appointmentId,
+      'sendAppointmentRescheduled',
+    );
+  }
+
+  async sendAppointmentCancelled(params: {
+    appointment: AppointmentEmailData;
+  }): Promise<void> {
+    if (!params.appointment.email) return;
+    const company = await this.companyLookup.getCompanyInfo();
+    await this.deliver(
+      params.appointment.email,
+      '❌ Su cita ha sido cancelada',
+      renderAppointmentCancelledClientHtml(params.appointment, company),
+      params.appointment.appointmentId,
+      'sendAppointmentCancelled',
+    );
+  }
+
+  async notifyAdminsAppointmentScheduled(params: {
+    adminEmails: string[];
+    appointment: AppointmentEmailData;
+  }): Promise<void> {
+    if (params.adminEmails.length === 0) return;
+    const company = await this.companyLookup.getCompanyInfo();
+    await this.deliver(
+      params.adminEmails,
+      `📅 New Appointment Confirmed: ${params.appointment.firstName} ${params.appointment.lastName}`,
+      renderAppointmentScheduledInternalHtml(params.appointment, company),
+      params.appointment.appointmentId,
+      'notifyAdminsAppointmentScheduled',
+    );
+  }
+
+  async notifyAdminsAppointmentRescheduled(params: {
+    adminEmails: string[];
+    appointment: AppointmentEmailData;
+    previousInspectionDate: Date | null;
+    previousInspectionTime: Date | null;
+  }): Promise<void> {
+    if (params.adminEmails.length === 0) return;
+    const company = await this.companyLookup.getCompanyInfo();
+    await this.deliver(
+      params.adminEmails,
+      `🔄 Appointment Rescheduled Alert: ${params.appointment.firstName} ${params.appointment.lastName}`,
+      renderAppointmentRescheduledInternalHtml(
+        params.appointment,
+        company,
+        params.previousInspectionDate,
+        params.previousInspectionTime,
+      ),
+      params.appointment.appointmentId,
+      'notifyAdminsAppointmentRescheduled',
+    );
+  }
+
+  async notifyAdminsAppointmentCancelled(params: {
+    adminEmails: string[];
+    appointment: AppointmentEmailData;
+  }): Promise<void> {
+    if (params.adminEmails.length === 0) return;
+    const company = await this.companyLookup.getCompanyInfo();
+    await this.deliver(
+      params.adminEmails,
+      `❌ Appointment Cancelled Alert: ${params.appointment.firstName} ${params.appointment.lastName}`,
+      renderAppointmentCancelledInternalHtml(params.appointment, company),
+      params.appointment.appointmentId,
+      'notifyAdminsAppointmentCancelled',
+    );
+  }
+
+  /**
+   * Shared delivery + structured logging for the lifecycle mails. Swallows
+   * transport errors — these are fire-and-forget side-effects that must never
+   * abort the surrounding command.
+   */
+  private async deliver(
+    to: string | string[],
+    subject: string,
+    html: string,
+    appointmentId: string,
+    op: string,
+  ): Promise<void> {
+    const traceId = this.cls.get<string>('traceId');
+    try {
+      const result = await this.mailer.send({ to, subject, html });
+      if (result.skipped) {
+        this.logger.warn(`${op}: no mailable recipients — skipped`, {
+          traceId,
+          appointmentId,
+        });
+        return;
+      }
+      this.logger.info(`${op}: sent`, { traceId, appointmentId });
+    } catch (error) {
+      this.logger.warn(`${op}: failed`, {
+        traceId,
+        appointmentId,
         error: error instanceof Error ? error.message : String(error),
       });
     }

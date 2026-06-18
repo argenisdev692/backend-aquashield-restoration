@@ -21,7 +21,7 @@ export class ListContactSupportUseCase {
   async execute(filters: {
     page: number;
     limit: number;
-    readed?: boolean;
+    isRead?: boolean;
     trashed: TrashedMode;
     range?: DateRange;
   }): Promise<PaginatedContactSupport> {
