@@ -32,7 +32,7 @@ export interface AppointmentReadModel {
   additionalNote: string | null;
   latitude: number | null;
   longitude: number | null;
-  readed: boolean;
+  isRead: boolean;
   createdAt: string;
   updatedAt: string;
   deletedAt: string | null;
@@ -75,7 +75,7 @@ export interface IAppointmentRepository {
   delete(id: string): Promise<void>;
   /** Soft-delete tombstone clear — restores a previously deleted row. */
   restore(id: string): Promise<void>;
-  /** Sets the `readed` flag (admin marked the lead as read). */
+  /** Sets the `isRead` flag (admin marked the lead as read). */
   markAsRead(id: string): Promise<void>;
   /** Set-based soft delete — single SQL statement, idempotent. */
   bulkDelete(ids: string[]): Promise<{ count: number }>;

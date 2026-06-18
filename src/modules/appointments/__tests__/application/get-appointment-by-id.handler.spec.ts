@@ -42,7 +42,7 @@ const activeReadModel: AppointmentReadModel = {
   additionalNote: null,
   latitude: null,
   longitude: null,
-  readed: false,
+  isRead: false,
   createdAt: new Date().toISOString(),
   updatedAt: new Date().toISOString(),
   deletedAt: null,

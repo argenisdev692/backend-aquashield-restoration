@@ -45,7 +45,7 @@ const COLUMNS = [
   { header: 'followUpDate', key: 'followUpDate', width: 22 },
   { header: 'owner', key: 'owner', width: 18 },
   { header: 'smsConsent', key: 'smsConsent', width: 10 },
-  { header: 'readed', key: 'readed', width: 8 },
+  { header: 'isRead', key: 'isRead', width: 8 },
   { header: 'message', key: 'message', width: 40 },
   { header: 'notes', key: 'notes', width: 30 },
   { header: 'additionalNote', key: 'additionalNote', width: 30 },
@@ -81,7 +81,7 @@ function toRow(r: AppointmentReadModel): Row {
     followUpDate: r.followUpDate ?? '',
     owner: r.owner ?? '',
     smsConsent: r.smsConsent,
-    readed: r.readed,
+    isRead: r.isRead,
     message: r.message ?? '',
     notes: r.notes ?? '',
     additionalNote: r.additionalNote ?? '',
@@ -253,7 +253,7 @@ export class ExportAppointmentsHandler implements IQueryHandler<ExportAppointmen
             .fillColor('#475569')
             .text(
               `Phone: ${r.phone}  ·  Status: ${r.statusLead ?? '—'}  ·  Read: ${
-                r.readed ? 'yes' : 'no'
+                r.isRead ? 'yes' : 'no'
               }${r.deletedAt ? '  ·  DELETED' : ''}`,
             );
           doc

@@ -35,7 +35,7 @@ export const AppointmentResponseSchema = z.object({
   additionalNote: z.string().nullable(),
   latitude: z.number().nullable(),
   longitude: z.number().nullable(),
-  readed: z.boolean(),
+  isRead: z.boolean(),
   createdAt: z.string().datetime(),
   updatedAt: z.string().datetime(),
   deletedAt: z.string().datetime().nullable(),

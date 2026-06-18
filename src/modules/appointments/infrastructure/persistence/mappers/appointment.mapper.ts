@@ -131,7 +131,7 @@ export class AppointmentMapper {
       additionalNote: row.additionalNote,
       latitude: row.latitude,
       longitude: row.longitude,
-      readed: row.readed,
+      isRead: row.isRead,
       createdAt: row.createdAt.toISOString(),
       updatedAt: row.updatedAt.toISOString(),
       deletedAt: row.deletedAt?.toISOString() ?? null,

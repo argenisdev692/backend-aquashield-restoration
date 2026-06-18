@@ -122,7 +122,7 @@ export class PrismaAppointmentRepository implements IAppointmentRepository {
   async markAsRead(id: string): Promise<void> {
     await this.prisma.appointment.update({
       where: { id },
-      data: { readed: true },
+      data: { isRead: true },
     });
   }
 
