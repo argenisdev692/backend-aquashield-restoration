@@ -1,0 +1,35 @@
+// ============================================================
+//  Availability — weekly rules + date exceptions
+//  - AvailabilityRule   : one row per day-of-week (0=Sun … 6=Sat)
+//  - AvailabilityException : overrides for specific dates (holidays, closures)
+// ============================================================
+
+model AvailabilityRule {
+  id          String   @id @default(dbgenerated("uuid_generate_v7()")) @db.Uuid
+  dayOfWeek   Int      @map("day_of_week") // 0 = Sunday … 6 = Saturday
+  startTime   String   @map("start_time") @db.VarChar(8) // "HH:MM:SS"
+  endTime     String   @map("end_time") @db.VarChar(8)   // "HH:MM:SS"
+  isAvailable Boolean  @default(true) @map("is_available")
+  createdAt   DateTime @default(now()) @map("created_at") @db.Timestamp(6)
+  updatedAt   DateTime @default(now()) @map("updated_at") @db.Timestamp(6)
+
+  @@unique([dayOfWeek], map: "idx_availability_rules_day_of_week")
+  @@index([isAvailable], map: "idx_availability_rules_is_available")
+  @@map("availability_rules")
+}
+
+model AvailabilityException {
+  id          String    @id @default(dbgenerated("uuid_generate_v7()")) @db.Uuid
+  date        DateTime  @db.Date
+  isAvailable Boolean   @default(false) @map("is_available")
+  reason      String?   @db.VarChar(255)
+  createdAt   DateTime  @default(now()) @map("created_at") @db.Timestamp(6)
+  updatedAt   DateTime  @default(now()) @map("updated_at") @db.Timestamp(6)
+  deletedAt   DateTime? @map("deleted_at") @db.Timestamp(6)
+
+  @@unique([date], map: "idx_availability_exceptions_date", where: { deletedAt: null })
+  @@index([date], map: "idx_availability_exceptions_date_idx")
+  @@index([isAvailable], map: "idx_availability_exceptions_is_available")
+  @@index([deletedAt], map: "idx_availability_exceptions_deleted_at")
+  @@map("availability_exceptions")
+}

@@ -28,6 +28,8 @@ export type Subjects =
   | 'SOCIAL_MEDIA'
   | 'CAMPAIGN'
   | 'CALL_RECORD'
+  | 'AVAILABILITY_RULE'
+  | 'AVAILABILITY_EXCEPTION'
   | 'ALL';
 
 export type AppAbility = MongoAbility<[Action, Subjects]>;

@@ -40,6 +40,7 @@ import { SocialMediaModule } from './modules/social-media/social-media.module';
 import { CampaignsModule } from './modules/campaigns/campaigns.module';
 import { ActivityLogsModule } from './modules/activitylog/activitylog.module';
 import { RetellCallsModule } from './modules/retell-calls/retell-calls.module';
+import { AvailabilityModule } from './modules/availability/availability.module';
 
 @Module({
   imports: [
@@ -126,6 +127,7 @@ import { RetellCallsModule } from './modules/retell-calls/retell-calls.module';
     CampaignsModule,
     ActivityLogsModule,
     RetellCallsModule,
+    AvailabilityModule,
   ],
   controllers: [AppController],
   providers: [AppService, { provide: APP_GUARD, useClass: ThrottlerGuard }],

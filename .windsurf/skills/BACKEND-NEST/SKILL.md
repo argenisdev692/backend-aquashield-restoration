@@ -2,10 +2,10 @@
 
 > **Authority**: SINGLE SOURCE OF TRUTH for all NestJS/TypeScript rules, patterns, naming, testing, logging, cache, and exports.
 > **Pattern (default)**: Service/Repository for flat CRUD (SIMPLE / DEFAULT tiers). Hexagonal + DDD + UseCase pattern for ENTERPRISE tier, with Domain Events via `EventEmitter2`.
-> **CQRS (`@nestjs/cqrs`)**: installed but **OPT-IN per bounded context**. `CommandBus` / `QueryBus` / `EventBus` are NOT the default — they require an explicit, documented decision. The Command/Query handler examples below are reference material for the opt-in case; the default Hex/DDD shape is one `@Injectable()` UseCase per operation with a single `execute()` method (see `.claude/skills/ARCHITECTURE-ENTERPRISE/SKILL.md`).
-> **For directory trees and bounded context structure → see `.claude/skills/ARCHITECTURE-DECISION-GUIDE.md`.**
-> **For Service/Repository DRY patterns (findOrFail, singleton, repo return rules) → see `.claude/skills/BACKEND-NEST-PATTERNS/SKILL.md`.**
-> **Security baseline → see `.claude/skills/OWASP/SKILL.md` and apply it to every endpoint, use case, adapter, and external integration.**
+> **CQRS (`@nestjs/cqrs`)**: installed but **OPT-IN per bounded context**. `CommandBus` / `QueryBus` / `EventBus` are NOT the default — they require an explicit, documented decision. The Command/Query handler examples below are reference material for the opt-in case; the default Hex/DDD shape is one `@Injectable()` UseCase per operation with a single `execute()` method (see `.windsurf/skills/ARCHITECTURE-ENTERPRISE/SKILL.md`).
+> **For directory trees and bounded context structure → see `.windsurf/skills/ARCHITECTURE-DECISION-GUIDE.md`.**
+> **For Service/Repository DRY patterns (findOrFail, singleton, repo return rules) → see `.windsurf/skills/BACKEND-NEST-PATTERNS/SKILL.md`.**
+> **Security baseline → see `.windsurf/skills/OWASP/SKILL.md` and apply it to every endpoint, use case, adapter, and external integration.**
 > **Stack**: NestJS 11.1.x · Prisma 7.x (`prisma-client` generator + `@prisma/adapter-pg`) · Zod 4.x · nestjs-cls 6.x · cockatiel 4.x · BullMQ 5.x · @nestjs/event-emitter 3.x · @nestjs/cqrs 11.x (opt-in)
 
 ---
@@ -483,7 +483,7 @@ async execute(dto: CreateProjectDto, traceId: string): Promise<string>
 
 ## §2 — UseCase & (opt-in) CQRS Handler Rules (Hex/DDD modules)
 
-> The rules below apply to BOTH the default UseCase pattern AND the opt-in CQRS Command/Query handlers — replace "Handler" with "UseCase" when reading them in a non-CQRS module. CRUD modules (SIMPLE / DEFAULT) are out of scope; their mutation contract lives in `.claude/skills/ARCHITECTURE-DEFAULT/SKILL.md` (Canonical Mutation Pattern).
+> The rules below apply to BOTH the default UseCase pattern AND the opt-in CQRS Command/Query handlers — replace "Handler" with "UseCase" when reading them in a non-CQRS module. CRUD modules (SIMPLE / DEFAULT) are out of scope; their mutation contract lives in `.windsurf/skills/ARCHITECTURE-DEFAULT/SKILL.md` (Canonical Mutation Pattern).
 
 ### Command Handlers (write logic)
 
@@ -543,7 +543,7 @@ export class ApproveProjectHandler implements ICommandHandler<ApproveProjectComm
 }
 ```
 
-> This is the **canonical CommandHandler example for the whole repo**. The 6-step Canonical Mutation Pattern (load → mutate → save → audit → cache → emit) is detailed in `.claude/skills/ARCHITECTURE-ENTERPRISE/SKILL.md`. Bulk variant: see § "Bulk Delete / Bulk Restore (Hex/DDD)" in the same file.
+> This is the **canonical CommandHandler example for the whole repo**. The 6-step Canonical Mutation Pattern (load → mutate → save → audit → cache → emit) is detailed in `.windsurf/skills/ARCHITECTURE-ENTERPRISE/SKILL.md`. Bulk variant: see § "Bulk Delete / Bulk Restore (Hex/DDD)" in the same file.
 
 ### Query Handlers (read logic)
 
@@ -738,7 +738,7 @@ await Promise.all(ids.map((id) => this.prisma.widget.update({ where: { id }, dat
 await this.prisma.widget.updateMany({ where: { id: { in: ids } }, data });
 ```
 
-> Bulk delete / bulk restore endpoints (`POST /{module}/bulk-delete` and `bulk-restore`) are the canonical application of this rule — see `.claude/skills/ARCHITECTURE-SIMPLE/SKILL.md` § "Bulk Delete / Bulk Restore (flat CRUD)" and `.claude/skills/ARCHITECTURE-ENTERPRISE/SKILL.md` for the Hex/DDD variant. **One** `updateMany` / `deleteMany` per call — never a loop.
+> Bulk delete / bulk restore endpoints (`POST /{module}/bulk-delete` and `bulk-restore`) are the canonical application of this rule — see `.windsurf/skills/ARCHITECTURE-SIMPLE/SKILL.md` § "Bulk Delete / Bulk Restore (flat CRUD)" and `.windsurf/skills/ARCHITECTURE-ENTERPRISE/SKILL.md` for the Hex/DDD variant. **One** `updateMany` / `deleteMany` per call — never a loop.
 
 ### Rule 2 — Eager-load relations with `include` / `select` (no implicit lazy loading)
 
@@ -1161,7 +1161,7 @@ GET /projects/export?format=xlsx
 
 ## §8 — Security (OWASP Top 10:2025 / OWASP API Security Top 10:2023)
 
-> **Mandatory baseline**: follow `.claude/skills/OWASP/SKILL.md` for all security design and implementation decisions.
+> **Mandatory baseline**: follow `.windsurf/skills/OWASP/SKILL.md` for all security design and implementation decisions.
 
 | Category                  | Mitigation                                                                                                          |
 | ------------------------- | ------------------------------------------------------------------------------------------------------------------- |

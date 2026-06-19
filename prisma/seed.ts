@@ -406,6 +406,15 @@ const PERMISSIONS: readonly PermissionSeed[] = [
   { name: "campaigns:export", module: "campaigns", subject: "CAMPAIGN", action: "export", description: "Request and generate full campaign video exports (TOFU/MOFU/BOFU/LOYALTY) with AI assets" },
   { name: "campaigns:read",   module: "campaigns", subject: "CAMPAIGN", action: "read",   description: "View campaign export status and download links" },
   { name: "campaigns:delete", module: "campaigns", subject: "CAMPAIGN", action: "delete", description: "Hard-delete campaign generations (individual + bulk)" },
+  // availability-rules
+  { name: "availability-rules:read",   module: "availability-rules",   subject: "AVAILABILITY_RULE",      action: "read",    description: "View weekly availability rules" },
+  { name: "availability-rules:update", module: "availability-rules",   subject: "AVAILABILITY_RULE",      action: "update",  description: "Create or update weekly availability rules" },
+  // availability-exceptions
+  { name: "availability-exceptions:create",  module: "availability-exceptions", subject: "AVAILABILITY_EXCEPTION", action: "create",  description: "Create availability exceptions (holidays, closures)" },
+  { name: "availability-exceptions:read",    module: "availability-exceptions", subject: "AVAILABILITY_EXCEPTION", action: "read",    description: "View availability exceptions" },
+  { name: "availability-exceptions:update",  module: "availability-exceptions", subject: "AVAILABILITY_EXCEPTION", action: "update",  description: "Edit availability exceptions" },
+  { name: "availability-exceptions:delete",  module: "availability-exceptions", subject: "AVAILABILITY_EXCEPTION", action: "delete",  description: "Soft-delete availability exceptions" },
+  { name: "availability-exceptions:restore", module: "availability-exceptions", subject: "AVAILABILITY_EXCEPTION", action: "restore", description: "Restore soft-deleted availability exceptions" },
 ];
 
 const ROLE_GRANTS: Readonly<Record<string, readonly string[] | "ALL">> = {
@@ -418,6 +427,8 @@ const ROLE_GRANTS: Readonly<Record<string, readonly string[] | "ALL">> = {
     "content:create", "content:read", "content:update", "content:delete", "content:publish",
     "appointments:create", "appointments:read", "appointments:update", "appointments:delete",
     "contacts:create", "contacts:read", "contacts:update", "contacts:delete",
+    "availability-rules:read", "availability-rules:update",
+    "availability-exceptions:create", "availability-exceptions:read", "availability-exceptions:update", "availability-exceptions:delete", "availability-exceptions:restore",
     "blog-categories:create", "blog-categories:read", "blog-categories:update", "blog-categories:delete", "blog-categories:restore",
     "activity-logs:manage",
     "call-records:read", "call-records:update", "call-records:delete", "call-records:restore", "call-records:export",
@@ -729,6 +740,59 @@ async function main(): Promise<void> {
       if (!existing) {
         await prisma.blogCategory.create({
           data: { name: cat.name, description: cat.description, image: cat.image, userId: superAdminUser.id },
+        });
+      }
+    }
+
+    // ──────────────────────────────────────────────────────
+    //  Availability — weekly rules (Houston business hours)
+    // ──────────────────────────────────────────────────────
+    console.log("→ seeding availability_rules…");
+    const WEEKLY_RULES: Readonly<{ dayOfWeek: number; startTime: string; endTime: string; isAvailable: boolean }>[] = [
+      { dayOfWeek: 0, startTime: "08:00:00", endTime: "14:30:00", isAvailable: true  }, // Sunday
+      { dayOfWeek: 1, startTime: "08:00:00", endTime: "18:00:00", isAvailable: true  }, // Monday
+      { dayOfWeek: 2, startTime: "08:00:00", endTime: "18:00:00", isAvailable: true  }, // Tuesday
+      { dayOfWeek: 3, startTime: "08:00:00", endTime: "18:00:00", isAvailable: true  }, // Wednesday
+      { dayOfWeek: 4, startTime: "08:00:00", endTime: "18:00:00", isAvailable: true  }, // Thursday
+      { dayOfWeek: 5, startTime: "08:00:00", endTime: "18:00:00", isAvailable: true  }, // Friday
+      { dayOfWeek: 6, startTime: "08:00:00", endTime: "16:30:00", isAvailable: true  }, // Saturday
+    ];
+    for (const rule of WEEKLY_RULES) {
+      await prisma.availabilityRule.upsert({
+        where:  { dayOfWeek: rule.dayOfWeek },
+        update: { startTime: rule.startTime, endTime: rule.endTime, isAvailable: rule.isAvailable },
+        create: rule,
+      });
+    }
+
+    // ──────────────────────────────────────────────────────
+    //  Availability — Houston TX public holidays 2026
+    //  Source: City of Houston Council-approved 2026 schedule
+    // ──────────────────────────────────────────────────────
+    console.log("→ seeding Houston 2026 holidays…");
+    const HOUSTON_HOLIDAYS_2026: Readonly<{ date: string; reason: string }>[] = [
+      { date: "2026-01-01", reason: "New Year's Day" },
+      { date: "2026-01-19", reason: "Martin Luther King Jr. Day" },
+      { date: "2026-02-16", reason: "Presidents' Day" },
+      { date: "2026-04-03", reason: "Good Friday / Spring Holiday" },
+      { date: "2026-05-25", reason: "Memorial Day" },
+      { date: "2026-06-19", reason: "Juneteenth / Emancipation Day" },
+      { date: "2026-07-03", reason: "Independence Day (observed)" },
+      { date: "2026-09-07", reason: "Labor Day" },
+      { date: "2026-10-12", reason: "Columbus Day" },
+      { date: "2026-11-11", reason: "Veterans Day" },
+      { date: "2026-11-26", reason: "Thanksgiving Day" },
+      { date: "2026-11-27", reason: "Day After Thanksgiving" },
+      { date: "2026-12-24", reason: "Christmas Eve" },
+      { date: "2026-12-25", reason: "Christmas Day" },
+    ];
+    for (const holiday of HOUSTON_HOLIDAYS_2026) {
+      const existing = await prisma.availabilityException.findFirst({
+        where: { date: new Date(holiday.date), deletedAt: null },
+      });
+      if (!existing) {
+        await prisma.availabilityException.create({
+          data: { date: new Date(holiday.date), isAvailable: false, reason: holiday.reason },
         });
       }
     }
