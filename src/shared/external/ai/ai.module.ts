@@ -12,7 +12,7 @@ import { OpenAiClient } from './openai.adapter';
       provide: AI_CLIENT,
       useFactory: (config: ConfigService) => {
         const provider = config.get<string>('AI_PROVIDER', 'gemini');
-        
+
         switch (provider) {
           case 'anthropic':
             return new AnthropicAiClient(config);

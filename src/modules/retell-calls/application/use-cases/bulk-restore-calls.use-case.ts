@@ -1,0 +1,71 @@
+import { Inject, Injectable } from '@nestjs/common';
+import { Transactional } from '@nestjs-cls/transactional';
+import { EventEmitter2 } from '@nestjs/event-emitter';
+import { ClsService } from 'nestjs-cls';
+import { LoggerService } from '../../../../logger/logger.service';
+import {
+  RETELL_CALL_REPOSITORY,
+  type IRetellCallRepository,
+} from '../../domain/repositories/retell-call-repository.interface';
+import {
+  AUDIT_PORT,
+  type IAuditPort,
+} from '../../domain/ports/outbound/audit.port.interface';
+import {
+  CACHE_PORT,
+  type ICachePort,
+} from '../../../../shared/cache/cache.port';
+import { RetellCallsBulkRestoredEvent } from '../../domain/events/retell-call-lifecycle.events';
+import { RETELL_CALLS_CACHE_PATTERN } from '../retell-calls.constants';
+
+@Injectable()
+export class BulkRestoreCallsUseCase {
+  constructor(
+    @Inject(RETELL_CALL_REPOSITORY)
+    private readonly repo: IRetellCallRepository,
+    @Inject(AUDIT_PORT) private readonly audit: IAuditPort,
+    @Inject(CACHE_PORT) private readonly cache: ICachePort,
+    private readonly events: EventEmitter2,
+    private readonly logger: LoggerService,
+    private readonly cls: ClsService,
+  ) {
+    this.logger.setContext(BulkRestoreCallsUseCase.name);
+  }
+
+  async execute(ids: readonly string[], actorId?: string): Promise<number> {
+    const traceId = this.cls.get<string>('traceId');
+    this.logger.info('Bulk restoring Retell calls', {
+      traceId,
+      requested: ids.length,
+      actorId,
+    });
+
+    const count = await this.persist(ids, actorId);
+    await this.cache.delByPattern(RETELL_CALLS_CACHE_PATTERN);
+    this.events.emit(
+      RetellCallsBulkRestoredEvent.eventName,
+      new RetellCallsBulkRestoredEvent(ids),
+    );
+
+    this.logger.info('Retell calls bulk restored', { traceId, count });
+    return count;
+  }
+
+  @Transactional()
+  private async persist(
+    ids: readonly string[],
+    actorId?: string,
+  ): Promise<number> {
+    const count = await this.repo.bulkRestore(ids);
+    await this.audit.log(
+      {
+        action: 'call-records.bulk_restored',
+        actorId,
+        traceId: this.cls.get<string>('traceId'),
+        metadata: { ids, count },
+      },
+      { strict: true },
+    );
+    return count;
+  }
+}

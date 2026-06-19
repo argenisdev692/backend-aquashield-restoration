@@ -12,9 +12,7 @@ import { BulkDeleteCampaignsCommand } from '../bulk-delete-campaigns.command';
 
 @Injectable()
 @CommandHandler(BulkDeleteCampaignsCommand)
-export class BulkDeleteCampaignsHandler
-  implements ICommandHandler<BulkDeleteCampaignsCommand>
-{
+export class BulkDeleteCampaignsHandler implements ICommandHandler<BulkDeleteCampaignsCommand> {
   constructor(
     @Inject(CAMPAIGN_GENERATION_REPOSITORY)
     private readonly campaignRepo: ICampaignGenerationRepository,
@@ -28,7 +26,9 @@ export class BulkDeleteCampaignsHandler
   }
 
   @Transactional()
-  async execute(command: BulkDeleteCampaignsCommand): Promise<{ count: number }> {
+  async execute(
+    command: BulkDeleteCampaignsCommand,
+  ): Promise<{ count: number }> {
     const { dto, actorId } = command;
     const { ids } = dto;
 

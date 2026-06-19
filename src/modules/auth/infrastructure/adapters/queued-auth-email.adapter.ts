@@ -4,7 +4,10 @@ import { Queue } from 'bullmq';
 import { LoggerService } from '../../../../logger/logger.service';
 import { QUEUE_NAMES } from '../../../../shared/messaging/queues.constants';
 import type { IAuthEmailService } from '../../domain/ports/auth-email.port';
-import type { AuthEmailJob, AuthEmailJobKind } from '../jobs/auth-email-job.types';
+import type {
+  AuthEmailJob,
+  AuthEmailJobKind,
+} from '../jobs/auth-email-job.types';
 
 /**
  * `IAuthEmailService` implementation that simply ENQUEUES the email — the

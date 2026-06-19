@@ -8,9 +8,10 @@ import type { GenerateTopicsResponse } from '../../dtos/generate-topics.dto';
 
 @Injectable()
 @CommandHandler(GenerateTopicsCommand)
-export class GenerateTopicsHandler
-  implements ICommandHandler<GenerateTopicsCommand, GenerateTopicsResponse>
-{
+export class GenerateTopicsHandler implements ICommandHandler<
+  GenerateTopicsCommand,
+  GenerateTopicsResponse
+> {
   constructor(
     @Inject(VIRALITY_RESEARCH_PORT)
     private readonly viralityResearch: IViralityResearchPort,

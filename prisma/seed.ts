@@ -147,12 +147,12 @@ const PERMISSIONS: readonly PermissionSeed[] = [
   { name: "seo:update",  module: "seo", subject: "SEO", action: "update",  description: "Edit SEO entries" },
   { name: "seo:delete",  module: "seo", subject: "SEO", action: "delete",  description: "Soft-delete SEO entries" },
   { name: "seo:restore", module: "seo", subject: "SEO", action: "restore", description: "Restore soft-deleted SEO entries" },
-  // call-records
-  { name: "call-records:create",  module: "call-records", subject: "CALL_RECORD", action: "create",  description: "Create call records" },
-  { name: "call-records:read",    module: "call-records", subject: "CALL_RECORD", action: "read",    description: "View call records" },
-  { name: "call-records:update",  module: "call-records", subject: "CALL_RECORD", action: "update",  description: "Edit call records" },
-  { name: "call-records:delete",  module: "call-records", subject: "CALL_RECORD", action: "delete",  description: "Soft-delete call records" },
-  { name: "call-records:restore", module: "call-records", subject: "CALL_RECORD", action: "restore", description: "Restore soft-deleted call records" },
+  // call-records (Retell AI — ingested via the `call_analyzed` webhook, no manual create)
+  { name: "call-records:read",    module: "call-records", subject: "CALL_RECORD", action: "read",    description: "View Retell call records and recordings" },
+  { name: "call-records:update",  module: "call-records", subject: "CALL_RECORD", action: "update",  description: "Mark Retell call records as read / sync from Retell" },
+  { name: "call-records:delete",  module: "call-records", subject: "CALL_RECORD", action: "delete",  description: "Soft-delete Retell call records (individual + bulk)" },
+  { name: "call-records:restore", module: "call-records", subject: "CALL_RECORD", action: "restore", description: "Restore soft-deleted Retell call records (individual + bulk)" },
+  { name: "call-records:export",  module: "call-records", subject: "CALL_RECORD", action: "export",  description: "Export Retell call records (csv/xlsx/pdf)" },
   // model-ai
   { name: "model-ai:create",  module: "model-ai", subject: "MODEL_AI", action: "create",  description: "Create AI models" },
   { name: "model-ai:read",    module: "model-ai", subject: "MODEL_AI", action: "read",    description: "View AI models" },
@@ -420,7 +420,7 @@ const ROLE_GRANTS: Readonly<Record<string, readonly string[] | "ALL">> = {
     "contacts:create", "contacts:read", "contacts:update", "contacts:delete",
     "blog-categories:create", "blog-categories:read", "blog-categories:update", "blog-categories:delete", "blog-categories:restore",
     "activity-logs:manage",
-    "call-records:create", "call-records:read", "call-records:update", "call-records:delete",
+    "call-records:read", "call-records:update", "call-records:delete", "call-records:restore", "call-records:export",
     // company:* is intentionally excluded — super-admin only
   ],
   manager: [

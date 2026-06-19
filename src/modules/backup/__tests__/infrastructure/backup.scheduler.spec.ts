@@ -37,7 +37,7 @@ describe('BackupScheduler', () => {
   beforeEach(() => {
     commandBus = {
       execute: jest.fn().mockResolvedValue('new-backup-id'),
-    } as unknown as jest.Mocked<CommandBus>;
+    };
     logger = mockLogger();
     cls = mockCls();
     scheduler = new BackupScheduler(commandBus, logger, cls);

@@ -51,7 +51,9 @@ export class SocialAuthController {
 
   @Get('redirect')
   @Throttle({ default: { limit: 10, ttl: 60_000 } })
-  @ApiOperation({ summary: 'Begin Google sign-in (sets the CSRF state cookie)' })
+  @ApiOperation({
+    summary: 'Begin Google sign-in (sets the CSRF state cookie)',
+  })
   redirect(@Res({ passthrough: false }) res: Response) {
     const state = randomBytes(32).toString('base64url');
     res.cookie(OAUTH_STATE_COOKIE, state, {
@@ -68,7 +70,9 @@ export class SocialAuthController {
   @Get('callback')
   @HttpCode(HttpStatus.OK)
   @Throttle({ default: { limit: 10, ttl: 60_000 } })
-  @ApiOperation({ summary: 'Complete Google sign-in (verifies state + exchanges code)' })
+  @ApiOperation({
+    summary: 'Complete Google sign-in (verifies state + exchanges code)',
+  })
   async callback(
     @Query('code') code: string | undefined,
     @Query('state') state: string | undefined,

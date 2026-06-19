@@ -8,7 +8,10 @@ import {
   TwoFactorNotEnabledException,
 } from '../exceptions/auth-domain.exception';
 import { AccountLockedEvent } from '../events/account-locked.event';
-import { PasswordChangedEvent, PasswordChangeSource } from '../events/password-changed.event';
+import {
+  PasswordChangedEvent,
+  PasswordChangeSource,
+} from '../events/password-changed.event';
 import {
   TwoFactorDisabledEvent,
   TwoFactorEnabledEvent,
@@ -137,7 +140,9 @@ export class UserAccount {
   }
 
   isLocked(now: Date = new Date()): boolean {
-    return this._lockedUntil !== null && this._lockedUntil.getTime() > now.getTime();
+    return (
+      this._lockedUntil !== null && this._lockedUntil.getTime() > now.getTime()
+    );
   }
 
   hasPasswordAuth(): boolean {
@@ -193,10 +198,18 @@ export class UserAccount {
    */
   lock(reason: { ipAddress: string | null; now?: Date }): void {
     const now = reason.now ?? new Date();
-    const until = new Date(now.getTime() + ACCOUNT_LOCKOUT_DURATION_MINUTES * 60 * 1000);
+    const until = new Date(
+      now.getTime() + ACCOUNT_LOCKOUT_DURATION_MINUTES * 60 * 1000,
+    );
     this._lockedUntil = until;
     this.addEvent(
-      new AccountLockedEvent(this.id, this.email.value, until, reason.ipAddress, now),
+      new AccountLockedEvent(
+        this.id,
+        this.email.value,
+        until,
+        reason.ipAddress,
+        now,
+      ),
     );
   }
 
@@ -257,7 +270,9 @@ export class UserAccount {
     this._mustChangePassword = false;
     this._passwordExpiresAt =
       options.passwordTtlDays && options.passwordTtlDays > 0
-        ? new Date(now.getTime() + options.passwordTtlDays * 24 * 60 * 60 * 1000)
+        ? new Date(
+            now.getTime() + options.passwordTtlDays * 24 * 60 * 60 * 1000,
+          )
         : null;
     // On password change/reset we also clear the lockout — a successful
     // reset implies the legitimate owner is in control.
@@ -309,7 +324,12 @@ export class UserAccount {
     }
     this._totpEnabled = true;
     this.addEvent(
-      new TwoFactorEnabledEvent(this.id, this.email.value, backupCodesIssued, now),
+      new TwoFactorEnabledEvent(
+        this.id,
+        this.email.value,
+        backupCodesIssued,
+        now,
+      ),
     );
   }
 

@@ -53,7 +53,9 @@ export const CAMPAIGN_THRESHOLDS: Record<keyof CampaignScores, number> = {
 /** Maximum regeneration attempts before returning the best attempt. */
 export const MAX_QUALITY_ITERATIONS = 5;
 
-const SCORE_KEYS = Object.keys(CAMPAIGN_THRESHOLDS) as Array<keyof CampaignScores>;
+const SCORE_KEYS = Object.keys(CAMPAIGN_THRESHOLDS) as Array<
+  keyof CampaignScores
+>;
 
 function clamp(value: number): number {
   if (!Number.isFinite(value) || value < 0) return 0;
@@ -76,7 +78,9 @@ export function buildScoreResult(
 }
 
 /** Evaluates all 5 scores against their thresholds. */
-export function evaluateCampaignScores(scores: CampaignScores): ScoreEvaluation {
+export function evaluateCampaignScores(
+  scores: CampaignScores,
+): ScoreEvaluation {
   const failing: ScoreWeakness[] = [];
   let sum = 0;
 

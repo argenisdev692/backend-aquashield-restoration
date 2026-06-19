@@ -63,18 +63,19 @@ export class TwoFactorController {
   @HttpCode(HttpStatus.OK)
   @UseGuards(FreshPasswordGuard)
   @UsePipes(new ZodValidationPipe(EnableTotpDto))
-  @ApiOperation({ summary: 'Confirm setup with a TOTP code and receive backup codes' })
-  enable(
-    @CurrentUser() user: AuthenticatedUser,
-    @Body() dto: EnableTotpDto,
-  ) {
+  @ApiOperation({
+    summary: 'Confirm setup with a TOTP code and receive backup codes',
+  })
+  enable(@CurrentUser() user: AuthenticatedUser, @Body() dto: EnableTotpDto) {
     return this.enableUc.execute({ userId: user.id, input: dto });
   }
 
   @Post('disable')
   @HttpCode(HttpStatus.OK)
   @UseGuards(FreshPasswordGuard)
-  @ApiOperation({ summary: 'Disable TOTP and wipe backup codes + trusted devices' })
+  @ApiOperation({
+    summary: 'Disable TOTP and wipe backup codes + trusted devices',
+  })
   async disable(@CurrentUser() user: AuthenticatedUser) {
     await this.disableUc.execute(user.id);
     return { disabled: true };

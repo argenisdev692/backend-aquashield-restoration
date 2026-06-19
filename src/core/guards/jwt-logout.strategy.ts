@@ -21,7 +21,10 @@ interface JwtPayload {
  * valid in the DB and should be revoked regardless of token age.
  */
 @Injectable()
-export class JwtLogoutStrategy extends PassportStrategy(Strategy, 'jwt-logout') {
+export class JwtLogoutStrategy extends PassportStrategy(
+  Strategy,
+  'jwt-logout',
+) {
   constructor(config: ConfigService) {
     const options: StrategyOptions = {
       jwtFromRequest: ExtractJwt.fromAuthHeaderAsBearerToken(),

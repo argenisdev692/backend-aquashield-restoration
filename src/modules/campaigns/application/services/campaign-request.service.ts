@@ -10,8 +10,14 @@ import type { IAuditPort } from '../../../../shared/activity-log/audit.port';
 import { CACHE_PORT } from '../../../../shared/cache/cache.port';
 import type { ICachePort } from '../../../../shared/cache/cache.port';
 import { CampaignGeneration } from '../../domain/entities/campaign-generation.aggregate';
-import { FunnelStageVO, type FunnelStage } from '../../domain/value-objects/funnel-stage.vo';
-import { VideoFormatVO, type VideoFormat } from '../../domain/value-objects/video-format.vo';
+import {
+  FunnelStageVO,
+  type FunnelStage,
+} from '../../domain/value-objects/funnel-stage.vo';
+import {
+  VideoFormatVO,
+  type VideoFormat,
+} from '../../domain/value-objects/video-format.vo';
 import { CampaignExportRequestedEvent } from '../../domain/events/campaign-export-requested.event';
 import { LoggerService } from '../../../../logger/logger.service';
 

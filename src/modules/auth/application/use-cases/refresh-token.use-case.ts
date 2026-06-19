@@ -109,7 +109,9 @@ export class RefreshTokenUseCase {
       actorId: account.id,
       resourceType: 'AUTH_SESSION',
       resourceId: session.id!,
-      metadata: { ipAddress: this.cls.get<string>(CLS_KEYS.IP_ADDRESS) ?? null },
+      metadata: {
+        ipAddress: this.cls.get<string>(CLS_KEYS.IP_ADDRESS) ?? null,
+      },
     });
 
     return {

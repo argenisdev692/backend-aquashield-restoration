@@ -2,7 +2,6 @@ import { Injectable, Inject, NotFoundException } from '@nestjs/common';
 import { CommandHandler, ICommandHandler } from '@nestjs/cqrs';
 import { ClsService } from 'nestjs-cls';
 
-// eslint-disable-next-line @typescript-eslint/no-var-requires
 const archiver = require('archiver');
 import {
   DownloadZipCommand,
@@ -15,7 +14,10 @@ import {
   type IStoragePort,
 } from '../../../../../shared/storage/storage.port';
 import { LoggerService } from '../../../../../logger/logger.service';
-import type { SocialMediaGeneration, SocialNetwork } from '../../../domain/entities/social-media-generation.entity';
+import type {
+  SocialMediaGeneration,
+  SocialNetwork,
+} from '../../../domain/entities/social-media-generation.entity';
 
 @CommandHandler(DownloadZipCommand)
 @Injectable()
@@ -99,11 +101,13 @@ export class DownloadZipHandler implements ICommandHandler<DownloadZipCommand> {
 
     // Add metadata folder
     const metadataFolder = 'metadata/';
-    
+
     // Add scores report
     if (generation.qualityScores) {
       const scoresReport = JSON.stringify(generation.qualityScores, null, 2);
-      archive.append(scoresReport, { name: `${metadataFolder}scores-report.json` });
+      archive.append(scoresReport, {
+        name: `${metadataFolder}scores-report.json`,
+      });
     }
 
     // Add AI detection score

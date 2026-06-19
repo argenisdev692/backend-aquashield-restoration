@@ -69,7 +69,9 @@ export class SessionsController {
   @Get('trusted-devices')
   @SkipCache()
   @CacheTTL(0)
-  @ApiOperation({ summary: 'List trusted devices (30-day cookies) for the caller' })
+  @ApiOperation({
+    summary: 'List trusted devices (30-day cookies) for the caller',
+  })
   listTrustedDevices(@CurrentUser() user: AuthenticatedUser) {
     return this.listTrustedUc.execute(user.id);
   }

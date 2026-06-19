@@ -34,7 +34,10 @@ export class RedisRateLimiterAdapter implements IAuthRateLimiter {
     return this.increment(`${this.prefix}:ip:${key}`, windowSeconds);
   }
 
-  private async increment(fullKey: string, ttlSeconds: number): Promise<number> {
+  private async increment(
+    fullKey: string,
+    ttlSeconds: number,
+  ): Promise<number> {
     const pipeline = this.redis.multi();
     pipeline.incr(fullKey);
     // EXPIRE w/ NX (only if no TTL) — first failure sets the window,

@@ -68,7 +68,10 @@ export class AuthEmailRenderer {
           html: this.layout(
             'New sign-in to your account',
             `<p>We noticed a new sign-in to your account on <strong>${escapeHtml(job.occurredAtIso)}</strong>.</p>` +
-              this.requestContext(job.ipAddress, job.userAgent ?? job.deviceLabel) +
+              this.requestContext(
+                job.ipAddress,
+                job.userAgent ?? job.deviceLabel,
+              ) +
               this.alertBlock(
                 "If this wasn't you, change your password and revoke all sessions in your security settings.",
               ),
@@ -131,7 +134,9 @@ export class AuthEmailRenderer {
             'Two-factor authentication is now active',
             `<p>Two-factor authentication was enabled on your account.</p>` +
               this.requestContext(job.ipAddress, null) +
-              this.alertBlock("If this wasn't you, contact support immediately."),
+              this.alertBlock(
+                "If this wasn't you, contact support immediately.",
+              ),
           ),
         };
 

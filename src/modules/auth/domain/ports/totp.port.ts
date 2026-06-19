@@ -10,7 +10,11 @@ export interface ITotpService {
    * provision the account. The use-case turns this into a QR code via
    * `qrcode` (in shared/) before responding to the client.
    */
-  buildOtpAuthUri(input: { secret: string; accountName: string; issuer: string }): string;
+  buildOtpAuthUri(input: {
+    secret: string;
+    accountName: string;
+    issuer: string;
+  }): string;
 
   /**
    * Verify a 6-digit candidate code against the secret. Adapter applies

@@ -27,7 +27,7 @@ export class PrismaUserAccountRepository implements IUserAccountRepository {
       where: { id, deletedAt: null },
       select: USER_ACCOUNT_SELECT,
     });
-    return row ? toUserAccount(row as UserAccountRow, this.cipher) : null;
+    return row ? toUserAccount(row, this.cipher) : null;
   }
 
   async findByEmail(email: string): Promise<UserAccount | null> {
@@ -35,7 +35,7 @@ export class PrismaUserAccountRepository implements IUserAccountRepository {
       where: { email: email.toLowerCase(), deletedAt: null },
       select: USER_ACCOUNT_SELECT,
     });
-    return row ? toUserAccount(row as UserAccountRow, this.cipher) : null;
+    return row ? toUserAccount(row, this.cipher) : null;
   }
 
   async findByGoogleId(googleId: string): Promise<UserAccount | null> {
@@ -43,7 +43,7 @@ export class PrismaUserAccountRepository implements IUserAccountRepository {
       where: { googleId, deletedAt: null },
       select: USER_ACCOUNT_SELECT,
     });
-    return row ? toUserAccount(row as UserAccountRow, this.cipher) : null;
+    return row ? toUserAccount(row, this.cipher) : null;
   }
 
   async save(account: UserAccount): Promise<void> {
@@ -82,6 +82,6 @@ export class PrismaUserAccountRepository implements IUserAccountRepository {
       },
       select: USER_ACCOUNT_SELECT,
     });
-    return toUserAccount(row as UserAccountRow, this.cipher);
+    return toUserAccount(row, this.cipher);
   }
 }

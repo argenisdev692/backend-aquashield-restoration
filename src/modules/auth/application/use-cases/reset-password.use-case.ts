@@ -135,7 +135,10 @@ export class ResetPasswordUseCase {
     await this.accounts.save(account);
 
     await this.passwordHistory.append(
-      PasswordHistoryEntry.create({ userId: account.id, passwordHash: newHash }),
+      PasswordHistoryEntry.create({
+        userId: account.id,
+        passwordHash: newHash,
+      }),
       PASSWORD_HISTORY_LIMIT,
     );
 

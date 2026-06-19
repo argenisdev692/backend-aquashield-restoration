@@ -67,13 +67,13 @@ describe('CreatePostHandler', () => {
       error: jest.fn(),
       debug: jest.fn(),
       setContext: jest.fn(),
-    } as unknown as jest.Mocked<LoggerService>;
+    };
     mockCls = {
       get: jest.fn().mockReturnValue('trace-123'),
-    } as unknown as jest.Mocked<ClsService>;
+    };
     mockEventEmitter = {
       emit: jest.fn(),
-    } as unknown as jest.Mocked<EventEmitter2>;
+    };
 
     const mockAiGeneration: jest.Mocked<AiPostGenerationPort> = {
       generatePreview: jest.fn().mockResolvedValue({

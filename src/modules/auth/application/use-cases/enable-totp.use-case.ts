@@ -20,10 +20,7 @@ import {
   BACKUP_CODE_REPOSITORY,
   type IBackupCodeRepository,
 } from '../../domain/ports/backup-code.repository.port';
-import {
-  TOTP_SERVICE,
-  type ITotpService,
-} from '../../domain/ports/totp.port';
+import { TOTP_SERVICE, type ITotpService } from '../../domain/ports/totp.port';
 import {
   TwoFactorInvalidException,
   TwoFactorNotEnabledException,

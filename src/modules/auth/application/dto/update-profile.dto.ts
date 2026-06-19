@@ -17,7 +17,10 @@ export const UpdateProfileSchema = z
       .trim()
       .min(3)
       .max(255)
-      .regex(/^[a-zA-Z0-9._-]+$/, 'Username may only contain letters, digits, ., _ and -')
+      .regex(
+        /^[a-zA-Z0-9._-]+$/,
+        'Username may only contain letters, digits, ., _ and -',
+      )
       .nullable()
       .optional(),
     phone: phoneSchema.nullable().optional(),
@@ -32,7 +35,10 @@ export const UpdateProfileSchema = z
     city: z.string().trim().max(100).nullable().optional(),
     state: z.string().trim().max(100).nullable().optional(),
     country: z.string().trim().max(100).nullable().optional(),
-    gender: z.enum(['male', 'female', 'other', 'prefer_not_to_say']).nullable().optional(),
+    gender: z
+      .enum(['male', 'female', 'other', 'prefer_not_to_say'])
+      .nullable()
+      .optional(),
   })
   .refine((v) => Object.keys(v).length > 0, {
     message: 'At least one field must be provided',

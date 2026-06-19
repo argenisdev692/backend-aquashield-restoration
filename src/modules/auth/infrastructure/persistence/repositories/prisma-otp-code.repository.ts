@@ -47,7 +47,7 @@ export class PrismaOtpCodeRepository implements IOtpCodeRepository {
       },
       orderBy: { createdAt: 'desc' },
     });
-    return row ? toOtpCode(row as OtpCodeRow) : null;
+    return row ? toOtpCode(row) : null;
   }
 
   async invalidatePending(

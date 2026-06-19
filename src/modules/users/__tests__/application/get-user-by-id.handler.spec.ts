@@ -69,10 +69,10 @@ describe('GetUserByIdHandler — withTrashed semantics', () => {
       warn: jest.fn(),
       error: jest.fn(),
       setContext: jest.fn(),
-    } as unknown as jest.Mocked<LoggerService>;
+    };
     mockCls = {
       get: jest.fn().mockReturnValue('trace-1'),
-    } as unknown as jest.Mocked<ClsService>;
+    };
 
     const module: TestingModule = await Test.createTestingModule({
       providers: [
@@ -119,7 +119,9 @@ describe('GetUserByIdHandler — withTrashed semantics', () => {
     const result = await handler.execute(new GetUserByIdQuery(userId, true));
 
     expect(mockUserRepo.findAccessByUserId).toHaveBeenCalledWith(userId);
-    expect(result?.roles).toEqual([{ id: roleId, name: 'admin', description: null }]);
+    expect(result?.roles).toEqual([
+      { id: roleId, name: 'admin', description: null },
+    ]);
     expect(result?.permissions).toEqual([
       { action: 'read', subject: 'USER' },
       { action: 'update', subject: 'USER' },

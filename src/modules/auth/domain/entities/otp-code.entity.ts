@@ -42,7 +42,15 @@ export class OtpCode {
     const expiresAt = new Date(
       now.getTime() + OTP_CODE_TTL_SECONDS[props.type] * 1000,
     );
-    return new OtpCode(null, props.userId, props.code, props.type, expiresAt, null, now);
+    return new OtpCode(
+      null,
+      props.userId,
+      props.code,
+      props.type,
+      expiresAt,
+      null,
+      now,
+    );
   }
 
   static reconstitute(props: {

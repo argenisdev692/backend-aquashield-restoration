@@ -4,9 +4,7 @@ import type { IPasswordHistoryRepository } from '../../../domain/ports/password-
 import { PasswordHistoryEntry } from '../../../domain/entities/password-history.entity';
 
 @Injectable()
-export class PrismaPasswordHistoryRepository
-  implements IPasswordHistoryRepository
-{
+export class PrismaPasswordHistoryRepository implements IPasswordHistoryRepository {
   constructor(private readonly prisma: PrismaService) {}
 
   async append(entry: PasswordHistoryEntry, limit: number): Promise<void> {

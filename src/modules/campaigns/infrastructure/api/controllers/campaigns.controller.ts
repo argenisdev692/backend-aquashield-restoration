@@ -314,11 +314,25 @@ export class CampaignsController {
   @ApiOperation({ summary: 'List campaign generations' })
   @ApiQuery({ name: 'limit', required: false, type: Number, example: 20 })
   @ApiQuery({ name: 'offset', required: false, type: Number, example: 0 })
-  @ApiQuery({ name: 'status', required: false, enum: ['pending', 'processing', 'completed', 'failed', 'partial'] })
+  @ApiQuery({
+    name: 'status',
+    required: false,
+    enum: ['pending', 'processing', 'completed', 'failed', 'partial'],
+  })
   @ApiQuery({ name: 'withTrashed', required: false, type: Boolean })
   @ApiQuery({ name: 'onlyTrashed', required: false, type: Boolean })
-  @ApiQuery({ name: 'start_date', required: false, type: String, description: 'Filter by creation date (ISO 8601)' })
-  @ApiQuery({ name: 'end_date', required: false, type: String, description: 'Filter by creation date (ISO 8601)' })
+  @ApiQuery({
+    name: 'start_date',
+    required: false,
+    type: String,
+    description: 'Filter by creation date (ISO 8601)',
+  })
+  @ApiQuery({
+    name: 'end_date',
+    required: false,
+    type: String,
+    description: 'Filter by creation date (ISO 8601)',
+  })
   @ApiOkResponse({ type: [CampaignExportListItemResponse] })
   @ApiResponse({
     status: 403,
@@ -418,6 +432,9 @@ export class CampaignsController {
     const result = await this.commandBus.execute(
       new BulkDeleteCampaignsCommand(dto, actorId),
     );
-    return { count: result.count, message: `${result.count} campaigns deleted` };
+    return {
+      count: result.count,
+      message: `${result.count} campaigns deleted`,
+    };
   }
 }

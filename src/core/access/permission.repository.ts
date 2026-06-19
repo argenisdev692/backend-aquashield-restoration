@@ -68,7 +68,9 @@ export class PrismaPermissionRepository implements IPermissionRepository {
     }));
   }
 
-  async getRolesForUser(userId: string): Promise<{ id: string; name: string }[]> {
+  async getRolesForUser(
+    userId: string,
+  ): Promise<{ id: string; name: string }[]> {
     const now = new Date();
     const rows = await this.prisma.userRole.findMany({
       where: {

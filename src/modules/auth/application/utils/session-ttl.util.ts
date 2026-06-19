@@ -32,5 +32,7 @@ export async function resolveRefreshTtlDays(
     select: { role: { select: { name: true } } },
   });
   const isElevated = rows.some((r) => ELEVATED_ROLES.has(r.role.name));
-  return isElevated ? REFRESH_TOKEN_TTL_DAYS_ADMIN : REFRESH_TOKEN_TTL_DAYS_USER;
+  return isElevated
+    ? REFRESH_TOKEN_TTL_DAYS_ADMIN
+    : REFRESH_TOKEN_TTL_DAYS_USER;
 }

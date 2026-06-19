@@ -92,10 +92,10 @@ describe('GetUsersListHandler — trashed semantics', () => {
       warn: jest.fn(),
       error: jest.fn(),
       setContext: jest.fn(),
-    } as unknown as jest.Mocked<LoggerService>;
+    };
     mockCls = {
       get: jest.fn().mockReturnValue('trace-1'),
-    } as unknown as jest.Mocked<ClsService>;
+    };
 
     const module: TestingModule = await Test.createTestingModule({
       providers: [

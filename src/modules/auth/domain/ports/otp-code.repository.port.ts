@@ -20,7 +20,11 @@ export interface IOtpCodeRepository {
    * Used before sending a fresh code (login OTP, email-verify, password-reset).
    * Returns the number of rows marked used.
    */
-  invalidatePending(userId: string, type: OtpCodeType, now?: Date): Promise<number>;
+  invalidatePending(
+    userId: string,
+    type: OtpCodeType,
+    now?: Date,
+  ): Promise<number>;
 }
 
 export const OTP_CODE_REPOSITORY = Symbol('IOtpCodeRepository');

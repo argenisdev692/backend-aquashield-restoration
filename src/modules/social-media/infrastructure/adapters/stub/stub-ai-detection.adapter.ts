@@ -12,9 +12,7 @@ import {
  * Replace with real adapter that uses GPTZero, Originality.ai, or similar services.
  */
 @Injectable()
-export class StubAiDetectionAdapter
-  implements IAiDetectionPort, OnModuleInit
-{
+export class StubAiDetectionAdapter implements IAiDetectionPort, OnModuleInit {
   private resilience!: IPolicy;
 
   onModuleInit(): void {

@@ -1,0 +1,40 @@
+// ============================================================
+//  RetellCall — Retell AI call recordings (CRM)
+//  - Ingested in real time from the Retell `call_analyzed` webhook.
+//  - `callId`     : Retell's own call id — partial-unique while alive so
+//                   webhook re-deliveries upsert instead of duplicating.
+//  - `raw`        : full webhook/API payload (JSONB) for forward-compat.
+//  - `isRead`     : admin inbox read flag (`readed`).
+//  - updatedAt managed by `set_updated_at_retell_calls` trigger.
+// ============================================================
+
+model RetellCall {
+  id                  String    @id @default(dbgenerated("uuid_generate_v7()")) @db.Uuid
+  callId              String    @map("call_id") @db.VarChar(255)
+  agentId             String?   @map("agent_id") @db.VarChar(255)
+  callType            String?   @map("call_type") @db.VarChar(50)
+  direction           String?   @db.VarChar(20)
+  fromNumber          String?   @map("from_number") @db.VarChar(50)
+  toNumber            String?   @map("to_number") @db.VarChar(50)
+  callStatus          String?   @map("call_status") @db.VarChar(50)
+  disconnectionReason String?   @map("disconnection_reason") @db.VarChar(100)
+  startedAt           DateTime? @map("started_at") @db.Timestamp(6)
+  endedAt             DateTime? @map("ended_at") @db.Timestamp(6)
+  durationMs          Int?      @map("duration_ms")
+  userSentiment       String?   @map("user_sentiment") @db.VarChar(20)
+  callSummary         String?   @map("call_summary")
+  transcript          String?
+  recordingUrl        String?   @map("recording_url")
+  raw                 Json?     @db.JsonB
+  isRead              Boolean   @default(false) @map("readed")
+  createdAt           DateTime  @default(now()) @map("created_at") @db.Timestamp(6)
+  updatedAt           DateTime  @default(now()) @map("updated_at") @db.Timestamp(6)
+  deletedAt           DateTime? @map("deleted_at") @db.Timestamp(6)
+
+  @@index([startedAt], map: "idx_retell_calls_started_at")
+  @@index([callStatus], map: "idx_retell_calls_call_status")
+  @@index([deletedAt], map: "idx_retell_calls_deleted_at")
+  @@index([isRead], map: "idx_retell_calls_readed")
+  @@unique([callId], name: "idx_retell_calls_call_id_unique", where: { deletedAt: null })
+  @@map("retell_calls")
+}

@@ -34,12 +34,15 @@ export class ListMyCampaignExportsHandler implements IQueryHandler<ListMyCampaig
       dateRange,
     });
 
-    const { data: aggregates, total } = await this.campaignRepo.findByUserId(actorId, {
-      limit,
-      offset,
-      withTrashed: false,
-      dateRange,
-    });
+    const { data: aggregates, total } = await this.campaignRepo.findByUserId(
+      actorId,
+      {
+        limit,
+        offset,
+        withTrashed: false,
+        dateRange,
+      },
+    );
 
     const items: CampaignExportListItem[] = aggregates.map((agg) => {
       const stagesRequested = agg.stages.length;

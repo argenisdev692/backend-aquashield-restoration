@@ -36,7 +36,12 @@ export class ExportUsersHandler implements ICommandHandler<ExportUsersCommand> {
       start_date: query.start_date,
       end_date: query.end_date,
     });
-    this.logger.info('ExportUsersHandler start', { traceId, format, trashed, range });
+    this.logger.info('ExportUsersHandler start', {
+      traceId,
+      format,
+      trashed,
+      range,
+    });
 
     const { users } = await this.userRepo.findAll({
       skip: 0,

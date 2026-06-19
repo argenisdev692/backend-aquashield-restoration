@@ -36,9 +36,9 @@ describe('CampaignRequestService', () => {
 
     service = new CampaignRequestService(
       campaignRepo as never,
-      audit as never,
+      audit,
       cache as never,
-      companyDataLookup as never,
+      companyDataLookup,
       eventEmitter as never,
       logger as never,
       cls as never,

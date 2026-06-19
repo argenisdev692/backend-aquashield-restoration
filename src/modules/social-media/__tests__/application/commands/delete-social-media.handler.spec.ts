@@ -110,6 +110,8 @@ describe('DeleteSocialMediaHandler', () => {
       }),
       { strict: true },
     );
-    expect(mockCache.delByPattern).toHaveBeenCalledWith('http:*:/social-media*');
+    expect(mockCache.delByPattern).toHaveBeenCalledWith(
+      'http:*:/social-media*',
+    );
   });
 });

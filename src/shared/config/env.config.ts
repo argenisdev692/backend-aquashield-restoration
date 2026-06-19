@@ -113,7 +113,10 @@ export const EnvSchema = z.object({
     .string()
     .default('gemini-2.0-flash-exp-image-generation'),
   ANTHROPIC_API_KEY: z.string().min(1).optional(),
-  ANTHROPIC_API_URL: z.string().url().default('https://api.anthropic.com/v1/messages'),
+  ANTHROPIC_API_URL: z
+    .string()
+    .url()
+    .default('https://api.anthropic.com/v1/messages'),
   ANTHROPIC_VERSION: z.string().default('2023-06-01'),
   OPENAI_API_KEY: z.string().min(1).optional(),
 
@@ -126,6 +129,11 @@ export const EnvSchema = z.object({
   // ── ElevenLabs (optional — module-level feature flag via presence of key)
   ELEVENLABS_API_KEY: z.string().optional(),
   ELEVENLABS_VOICE_ID: z.string().default('Rachel'),
+
+  // ── Retell AI (voice agent calls) ───────────────────────────────
+  // Doubles as the HMAC key for x-retell-signature webhook verification,
+  // so it MUST fail fast at bootstrap rather than 500 on the first webhook.
+  RETELL_AI_API_KEY: z.string().min(1),
 });
 
 export type EnvVars = z.infer<typeof EnvSchema>;
@@ -138,12 +146,17 @@ export function validateEnv(config: Record<string, unknown>): EnvVars {
   // Transform empty strings to undefined for optional fields
   // This allows .env files to have empty values for optional fields without failing validation
   const cleanedConfig = { ...config };
-  if (cleanedConfig.GOOGLE_CLIENT_ID === '') delete cleanedConfig.GOOGLE_CLIENT_ID;
-  if (cleanedConfig.GOOGLE_CLIENT_SECRET === '') delete cleanedConfig.GOOGLE_CLIENT_SECRET;
-  if (cleanedConfig.GOOGLE_REDIRECT_URL === '') delete cleanedConfig.GOOGLE_REDIRECT_URL;
-  if (cleanedConfig.ANTHROPIC_API_KEY === '') delete cleanedConfig.ANTHROPIC_API_KEY;
+  if (cleanedConfig.GOOGLE_CLIENT_ID === '')
+    delete cleanedConfig.GOOGLE_CLIENT_ID;
+  if (cleanedConfig.GOOGLE_CLIENT_SECRET === '')
+    delete cleanedConfig.GOOGLE_CLIENT_SECRET;
+  if (cleanedConfig.GOOGLE_REDIRECT_URL === '')
+    delete cleanedConfig.GOOGLE_REDIRECT_URL;
+  if (cleanedConfig.ANTHROPIC_API_KEY === '')
+    delete cleanedConfig.ANTHROPIC_API_KEY;
   if (cleanedConfig.OPENAI_API_KEY === '') delete cleanedConfig.OPENAI_API_KEY;
-  if (cleanedConfig.ELEVENLABS_API_KEY === '') delete cleanedConfig.ELEVENLABS_API_KEY;
+  if (cleanedConfig.ELEVENLABS_API_KEY === '')
+    delete cleanedConfig.ELEVENLABS_API_KEY;
 
   const parsed = EnvSchema.safeParse(cleanedConfig);
 

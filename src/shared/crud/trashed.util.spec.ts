@@ -45,9 +45,9 @@ describe('trashed.util', () => {
     });
 
     it('status wins over the raw flags when both are supplied', () => {
-      expect(
-        resolveTrashedMode({ status: 'active', onlyTrashed: true }),
-      ).toBe('exclude');
+      expect(resolveTrashedMode({ status: 'active', onlyTrashed: true })).toBe(
+        'exclude',
+      );
     });
   });
 

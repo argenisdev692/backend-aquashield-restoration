@@ -23,10 +23,7 @@ export class BulkRestoreContactSupportUseCase {
     this.logger.setContext(BulkRestoreContactSupportUseCase.name);
   }
 
-  async execute(
-    ids: string[],
-    actorId: string,
-  ): Promise<{ count: number }> {
+  async execute(ids: string[], actorId: string): Promise<{ count: number }> {
     const traceId = this.cls.get<string>('traceId');
     this.logger.info('BulkRestoreContactSupportUseCase start', {
       traceId,
@@ -39,7 +36,10 @@ export class BulkRestoreContactSupportUseCase {
     // Cache invalidation runs OUTSIDE the tx.
     await this.cache.delByPattern(CONTACT_SUPPORT_CACHE_PATTERN);
 
-    this.logger.info('BulkRestoreContactSupportUseCase end', { traceId, count });
+    this.logger.info('BulkRestoreContactSupportUseCase end', {
+      traceId,
+      count,
+    });
     return { count };
   }
 

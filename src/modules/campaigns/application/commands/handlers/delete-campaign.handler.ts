@@ -12,9 +12,7 @@ import { DeleteCampaignCommand } from '../delete-campaign.command';
 
 @Injectable()
 @CommandHandler(DeleteCampaignCommand)
-export class DeleteCampaignHandler
-  implements ICommandHandler<DeleteCampaignCommand>
-{
+export class DeleteCampaignHandler implements ICommandHandler<DeleteCampaignCommand> {
   constructor(
     @Inject(CAMPAIGN_GENERATION_REPOSITORY)
     private readonly campaignRepo: ICampaignGenerationRepository,
@@ -60,6 +58,9 @@ export class DeleteCampaignHandler
     // Invalidate cache
     await this.cache.delByPattern(`campaigns:${actorId}:*`);
 
-    this.logger.info('Campaign generation deleted successfully', { id, actorId });
+    this.logger.info('Campaign generation deleted successfully', {
+      id,
+      actorId,
+    });
   }
 }

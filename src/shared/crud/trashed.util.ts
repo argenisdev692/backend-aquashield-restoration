@@ -98,11 +98,10 @@ export const stringBoolean = z
  * strings as absent so the frontend can wire dropdowns without
  * conditional URL building.
  */
-export const statusQuery = z
-  .preprocess(
-    (v) => (v === '' ? undefined : v),
-    z.enum(['active', 'suspended', 'all']).optional(),
-  );
+export const statusQuery = z.preprocess(
+  (v) => (v === '' ? undefined : v),
+  z.enum(['active', 'suspended', 'all']).optional(),
+);
 
 /**
  * Object shape — spread into any list / single-get / export query DTO

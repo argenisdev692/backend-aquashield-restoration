@@ -55,9 +55,7 @@ export class GoogleOAuthCallbackUseCase {
     this.logger.setContext(GoogleOAuthCallbackUseCase.name);
   }
 
-  async execute(args: {
-    code: string;
-  }): Promise<
+  async execute(args: { code: string }): Promise<
     | AuthTokensResponse
     | {
         twoFactorRequired: true;
@@ -161,9 +159,15 @@ export class GoogleOAuthCallbackUseCase {
   }
 
   @Transactional()
-  private async findOrCreate(
-    profile: { providerId: string; email: string; givenName: string | null; familyName: string | null },
-  ): Promise<{ account: Awaited<ReturnType<IUserAccountRepository['create']>>; justLinked: boolean }> {
+  private async findOrCreate(profile: {
+    providerId: string;
+    email: string;
+    givenName: string | null;
+    familyName: string | null;
+  }): Promise<{
+    account: Awaited<ReturnType<IUserAccountRepository['create']>>;
+    justLinked: boolean;
+  }> {
     // 1. Already linked.
     const byGoogle = await this.accounts.findByGoogleId(profile.providerId);
     if (byGoogle) {

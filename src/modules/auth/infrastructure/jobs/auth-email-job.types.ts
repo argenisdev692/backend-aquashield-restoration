@@ -51,7 +51,10 @@ export type AuthEmailJob =
   | {
       kind: 'suspicious_activity';
       to: string;
-      reason: 'repeated_failed_logins' | 'failed_two_factor' | 'unusual_location';
+      reason:
+        | 'repeated_failed_logins'
+        | 'failed_two_factor'
+        | 'unusual_location';
       failedAttempts: number;
       ipAddress: string | null;
       userAgent: string | null;

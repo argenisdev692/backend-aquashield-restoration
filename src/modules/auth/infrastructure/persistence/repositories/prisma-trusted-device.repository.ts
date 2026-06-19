@@ -41,7 +41,7 @@ export class PrismaTrustedDeviceRepository implements ITrustedDeviceRepository {
     const row = await this.prisma.trustedDevice.findUnique({
       where: { deviceTokenHash: hash },
     });
-    return row ? toTrustedDevice(row as TrustedDeviceRow) : null;
+    return row ? toTrustedDevice(row) : null;
   }
 
   async findByUserId(userId: string): Promise<TrustedDevice[]> {
@@ -49,7 +49,7 @@ export class PrismaTrustedDeviceRepository implements ITrustedDeviceRepository {
       where: { userId },
       orderBy: { lastUsedAt: 'desc' },
     });
-    return rows.map((r) => toTrustedDevice(r as TrustedDeviceRow));
+    return rows.map((r) => toTrustedDevice(r));
   }
 
   async deleteById(id: string): Promise<void> {

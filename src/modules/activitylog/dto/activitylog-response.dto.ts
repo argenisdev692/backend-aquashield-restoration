@@ -15,4 +15,6 @@ export const ActivityLogResponseSchema = z.object({
   createdAt: z.string().datetime(),
 });
 
-export class ActivityLogResponse extends createZodDto(ActivityLogResponseSchema) {}
+export class ActivityLogResponse extends createZodDto(
+  ActivityLogResponseSchema,
+) {}

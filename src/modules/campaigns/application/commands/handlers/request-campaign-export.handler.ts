@@ -11,9 +11,7 @@ import { CampaignRequestService } from '../../services/campaign-request.service'
  */
 @CommandHandler(RequestCampaignExportCommand)
 @Injectable()
-export class RequestCampaignExportHandler
-  implements ICommandHandler<RequestCampaignExportCommand>
-{
+export class RequestCampaignExportHandler implements ICommandHandler<RequestCampaignExportCommand> {
   constructor(private readonly campaignRequest: CampaignRequestService) {}
 
   @Transactional()

@@ -74,4 +74,6 @@ export const GenerateTopicsResponseSchema = z.object({
   ),
 });
 
-export type GenerateTopicsResponse = z.infer<typeof GenerateTopicsResponseSchema>;
+export type GenerateTopicsResponse = z.infer<
+  typeof GenerateTopicsResponseSchema
+>;

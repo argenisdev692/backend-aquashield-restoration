@@ -39,6 +39,7 @@ import { PostsModule } from './modules/posts/posts.module';
 import { SocialMediaModule } from './modules/social-media/social-media.module';
 import { CampaignsModule } from './modules/campaigns/campaigns.module';
 import { ActivityLogsModule } from './modules/activitylog/activitylog.module';
+import { RetellCallsModule } from './modules/retell-calls/retell-calls.module';
 
 @Module({
   imports: [
@@ -124,6 +125,7 @@ import { ActivityLogsModule } from './modules/activitylog/activitylog.module';
     SocialMediaModule,
     CampaignsModule,
     ActivityLogsModule,
+    RetellCallsModule,
   ],
   controllers: [AppController],
   providers: [AppService, { provide: APP_GUARD, useClass: ThrottlerGuard }],

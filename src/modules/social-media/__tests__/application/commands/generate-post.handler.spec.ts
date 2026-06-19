@@ -18,7 +18,7 @@ describe('GeneratePostHandler', () => {
       enqueueGeneratePost: jest.fn().mockResolvedValue({
         jobId: 'job-123',
         status: 'queued',
-      } as EnqueueGeneratePostResult),
+      }),
     };
 
     const module: TestingModule = await Test.createTestingModule({

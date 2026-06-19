@@ -118,11 +118,14 @@ export class GeminiPostGeneratorAdapter
       feedback,
     } = input;
 
-    this.logger.info('GeminiPostGeneratorAdapter.generatePostsWithFeedback start', {
-      traceId,
-      networks: activeNetworks,
-      iteration: feedback?.iteration ?? 1,
-    });
+    this.logger.info(
+      'GeminiPostGeneratorAdapter.generatePostsWithFeedback start',
+      {
+        traceId,
+        networks: activeNetworks,
+        iteration: feedback?.iteration ?? 1,
+      },
+    );
 
     const networkList = activeNetworks.join(', ');
     let feedbackInstruction = '';
@@ -248,11 +251,14 @@ Genera los posts ahora con sus scores de calidad.`;
 
     const ai_detection_risk = parsed.ai_detection_risk ?? 30;
 
-    this.logger.info('GeminiPostGeneratorAdapter.generatePostsWithFeedback done', {
-      traceId,
-      scores,
-      ai_detection_risk,
-    });
+    this.logger.info(
+      'GeminiPostGeneratorAdapter.generatePostsWithFeedback done',
+      {
+        traceId,
+        scores,
+        ai_detection_risk,
+      },
+    );
 
     return {
       ...output,

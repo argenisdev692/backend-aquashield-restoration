@@ -28,9 +28,7 @@ const baseEntity: ActivityLog = {
 
 const makeRepo = (overrides: Record<string, jest.Mock> = {}) => ({
   findById: jest.fn().mockResolvedValue(baseEntity),
-  findAll: jest
-    .fn()
-    .mockResolvedValue({ data: [baseEntity], total: 1 }),
+  findAll: jest.fn().mockResolvedValue({ data: [baseEntity], total: 1 }),
   delete: jest.fn().mockResolvedValue(undefined),
   ...overrides,
 });
@@ -46,9 +44,9 @@ describe('ActivityLogService', () => {
   describe('findById', () => {
     it('returns the entity when it exists', async () => {
       const repo = makeRepo();
-      await expect(
-        makeService(repo).findById(baseEntity.id),
-      ).resolves.toEqual(baseEntity);
+      await expect(makeService(repo).findById(baseEntity.id)).resolves.toEqual(
+        baseEntity,
+      );
       expect(repo.findById).toHaveBeenCalledWith(baseEntity.id);
     });
 

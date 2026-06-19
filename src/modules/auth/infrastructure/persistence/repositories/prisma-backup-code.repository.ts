@@ -2,7 +2,10 @@ import { Injectable } from '@nestjs/common';
 import { PrismaService } from '../../../../../shared/database/prisma.service';
 import type { IBackupCodeRepository } from '../../../domain/ports/backup-code.repository.port';
 import { BackupCode } from '../../../domain/entities/backup-code.entity';
-import { toBackupCode, type BackupCodeRow } from '../mappers/backup-code.mapper';
+import {
+  toBackupCode,
+  type BackupCodeRow,
+} from '../mappers/backup-code.mapper';
 
 @Injectable()
 export class PrismaBackupCodeRepository implements IBackupCodeRepository {
@@ -30,7 +33,7 @@ export class PrismaBackupCodeRepository implements IBackupCodeRepository {
       where: { userId, usedAt: null },
       orderBy: { createdAt: 'desc' },
     });
-    return rows.map((r) => toBackupCode(r as BackupCodeRow));
+    return rows.map((r) => toBackupCode(r));
   }
 
   async markUsed(id: string, now: Date = new Date()): Promise<void> {

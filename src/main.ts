@@ -18,7 +18,13 @@ function corsOrigin(raw: string): boolean | string[] {
 }
 
 async function bootstrap(): Promise<void> {
-  const app = await NestFactory.create(AppModule, { bufferLogs: true });
+  // `rawBody: true` exposes `req.rawBody` (Buffer) so the Retell webhook
+  // signature guard can HMAC-verify the exact bytes Retell signed — re-
+  // serializing the parsed JSON breaks the signature on non-ASCII payloads.
+  const app = await NestFactory.create(AppModule, {
+    bufferLogs: true,
+    rawBody: true,
+  });
   app.useLogger(app.get(Logger));
 
   const config = app.get(ConfigService);

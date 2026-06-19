@@ -38,7 +38,10 @@ import {
 } from '../../domain/exceptions/auth-domain.exception';
 import { PlaintextPassword } from '../../domain/value-objects/password.vo';
 import { OtpCode } from '../../domain/entities/otp-code.entity';
-import { PasswordHistoryEntry, PASSWORD_HISTORY_LIMIT } from '../../domain/entities/password-history.entity';
+import {
+  PasswordHistoryEntry,
+  PASSWORD_HISTORY_LIMIT,
+} from '../../domain/entities/password-history.entity';
 import { OTP_CODE_TTL_SECONDS } from '../../domain/value-objects/otp-code-type.vo';
 import { generateNumericCode } from '../utils/numeric-code.util';
 import type { RegisterInput } from '../dto/register.dto';

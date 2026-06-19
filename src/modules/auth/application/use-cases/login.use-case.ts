@@ -100,9 +100,10 @@ export class LoginUseCase {
     // 1. Pre-credential lockout gate — also handles "no such account" by
     //    burning equivalent CPU on a dummy bcrypt below.
     if (account?.isLocked()) {
-      this.events.emit(LoginFailedEvent.name, new LoginFailedEvent(
-        email, 'account_locked', ip, ua, account.id,
-      ));
+      this.events.emit(
+        LoginFailedEvent.name,
+        new LoginFailedEvent(email, 'account_locked', ip, ua, account.id),
+      );
       throw new AccountLockedException(account.lockedUntil!);
     }
 
@@ -118,9 +119,10 @@ export class LoginUseCase {
 
     // 3. Email must be verified before any token is issued.
     if (!account.isEmailVerified()) {
-      this.events.emit(LoginFailedEvent.name, new LoginFailedEvent(
-        email, 'email_not_verified', ip, ua, account.id,
-      ));
+      this.events.emit(
+        LoginFailedEvent.name,
+        new LoginFailedEvent(email, 'email_not_verified', ip, ua, account.id),
+      );
       throw new EmailNotVerifiedException();
     }
 
@@ -156,9 +158,8 @@ export class LoginUseCase {
 
     let response: LoginResult;
     if (account.totpEnabled && !twoFactorSatisfied) {
-      const remaining = (
-        await this.backupCodes.findUnusedByUserId(account.id)
-      ).length;
+      const remaining = (await this.backupCodes.findUnusedByUserId(account.id))
+        .length;
       response = {
         accessToken: issued.accessToken,
         accessTokenExpiresAt: issued.accessTokenExpiresAt.toISOString(),
@@ -194,30 +195,37 @@ export class LoginUseCase {
       },
     });
 
-    this.events.emit(LoginSucceededEvent.name, new LoginSucceededEvent(
-      account.id,
-      issued.sessionId,
-      ua ?? '',
-      ip,
-      ua,
-      issued.isNewDevice,
-    ));
+    this.events.emit(
+      LoginSucceededEvent.name,
+      new LoginSucceededEvent(
+        account.id,
+        issued.sessionId,
+        ua ?? '',
+        ip,
+        ua,
+        issued.isNewDevice,
+      ),
+    );
 
     if (issued.isNewDevice) {
-      this.events.emit(NewDeviceDetectedEvent.name, new NewDeviceDetectedEvent(
-        account.id,
-        account.email.value,
-        issued.sessionId,
-        null,
-        ua,
-        ip,
-      ));
+      this.events.emit(
+        NewDeviceDetectedEvent.name,
+        new NewDeviceDetectedEvent(
+          account.id,
+          account.email.value,
+          issued.sessionId,
+          null,
+          ua,
+          ip,
+        ),
+      );
     }
 
     this.logger.info('Login succeeded', {
       traceId: this.cls.get<string>(CLS_KEYS.TRACE_ID),
       userId: account.id,
-      twoFactorRequired: 'twoFactorRequired' in response && response.twoFactorRequired,
+      twoFactorRequired:
+        'twoFactorRequired' in response && response.twoFactorRequired,
     });
 
     return response;
@@ -242,13 +250,16 @@ export class LoginUseCase {
       FAILED_LOGIN_WINDOW_SECONDS,
     );
 
-    this.events.emit(LoginFailedEvent.name, new LoginFailedEvent(
-      email,
-      'invalid_credentials',
-      ip,
-      ua,
-      account?.id ?? null,
-    ));
+    this.events.emit(
+      LoginFailedEvent.name,
+      new LoginFailedEvent(
+        email,
+        'invalid_credentials',
+        ip,
+        ua,
+        account?.id ?? null,
+      ),
+    );
 
     if (!account) return;
 
@@ -282,7 +293,10 @@ export class LoginUseCase {
     await this.accounts.save(account);
     // Forward the AccountLockedEvent added by the aggregate.
     for (const event of account.domainEvents) {
-      this.events.emit((event as { constructor: { name: string } }).constructor.name, event);
+      this.events.emit(
+        (event as { constructor: { name: string } }).constructor.name,
+        event,
+      );
     }
     account.clearDomainEvents();
     await this.audit.log(

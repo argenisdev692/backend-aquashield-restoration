@@ -51,7 +51,10 @@ export class TavilyViralityResearchAdapter
       'TAVILY_SEARCH_URL',
       'https://api.tavily.com/search',
     );
-    this.searchDepth = this.config.get<string>('TAVILY_SEARCH_DEPTH', 'advanced');
+    this.searchDepth = this.config.get<string>(
+      'TAVILY_SEARCH_DEPTH',
+      'advanced',
+    );
     this.maxResults = this.config.get<number>('TAVILY_MAX_RESULTS', 8);
   }
 
@@ -68,9 +71,12 @@ export class TavilyViralityResearchAdapter
       .join(' ');
 
     if (!this.apiKey) {
-      this.logger.warn('Tavily key absent — using heuristic virality research', {
-        traceId,
-      });
+      this.logger.warn(
+        'Tavily key absent — using heuristic virality research',
+        {
+          traceId,
+        },
+      );
       return this.heuristic(input);
     }
 
@@ -110,8 +116,12 @@ export class TavilyViralityResearchAdapter
         results.length > 0
           ? results.reduce((s, r) => s + (r.score ?? 0), 0) / results.length
           : 0;
-      const score = this.clamp(60 + avgScore * 35 + Math.min(results.length, 8));
-      const roiScore = this.clamp(58 + avgScore * 30 + Math.min(results.length, 6));
+      const score = this.clamp(
+        60 + avgScore * 35 + Math.min(results.length, 8),
+      );
+      const roiScore = this.clamp(
+        58 + avgScore * 30 + Math.min(results.length, 6),
+      );
 
       const recommendations = [
         `Hook in the first 3 seconds referencing ${input.niche} in ${geo || input.location}`,

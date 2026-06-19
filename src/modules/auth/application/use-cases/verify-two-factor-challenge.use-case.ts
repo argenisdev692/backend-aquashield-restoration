@@ -29,10 +29,7 @@ import {
   TRUSTED_DEVICE_REPOSITORY,
   type ITrustedDeviceRepository,
 } from '../../domain/ports/trusted-device.repository.port';
-import {
-  TOTP_SERVICE,
-  type ITotpService,
-} from '../../domain/ports/totp.port';
+import { TOTP_SERVICE, type ITotpService } from '../../domain/ports/totp.port';
 import {
   AUTH_RATE_LIMITER,
   type IAuthRateLimiter,

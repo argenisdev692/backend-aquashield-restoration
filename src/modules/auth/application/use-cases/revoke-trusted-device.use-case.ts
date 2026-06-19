@@ -1,8 +1,4 @@
-import {
-  Inject,
-  Injectable,
-  NotFoundException,
-} from '@nestjs/common';
+import { Inject, Injectable, NotFoundException } from '@nestjs/common';
 import { ClsService } from 'nestjs-cls';
 import { LoggerService } from '../../../../logger/logger.service';
 import { CLS_KEYS } from '../../../../shared/cls/cls.constants';
@@ -64,7 +60,9 @@ export class RevokeTrustedDeviceUseCase {
       actorId: userId,
       resourceType: 'USER',
       resourceId: userId,
-      metadata: { ipAddress: this.cls.get<string>(CLS_KEYS.IP_ADDRESS) ?? null },
+      metadata: {
+        ipAddress: this.cls.get<string>(CLS_KEYS.IP_ADDRESS) ?? null,
+      },
     });
     return { revoked: true };
   }

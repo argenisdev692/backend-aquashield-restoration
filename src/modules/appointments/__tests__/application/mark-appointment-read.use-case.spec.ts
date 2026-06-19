@@ -81,7 +81,7 @@ describe('MarkAppointmentReadHandler', () => {
     };
     mockEventEmitter = {
       emit: jest.fn(),
-    } as unknown as jest.Mocked<EventEmitter2>;
+    };
 
     const module: TestingModule = await Test.createTestingModule({
       providers: [

@@ -108,7 +108,12 @@ export class BlogCategoryController {
     @Query(new ZodValidationPipe(ListBlogCategoryQuerySchema))
     query: ListBlogCategoryQueryDto,
   ): Promise<{ data: BlogCategoryResponse[]; total: number }> {
-    const result = await this.service.findAll(user.id, query.limit, query.skip, 'only');
+    const result = await this.service.findAll(
+      user.id,
+      query.limit,
+      query.skip,
+      'only',
+    );
     return {
       data: result.data.map((cat) => ({
         id: cat.id,
@@ -148,14 +153,16 @@ export class BlogCategoryController {
     required: false,
     type: String,
     example: '2024-06-01',
-    description: 'Filter by createdAt >= start_date (inclusive). Format: YYYY-MM-DD.',
+    description:
+      'Filter by createdAt >= start_date (inclusive). Format: YYYY-MM-DD.',
   })
   @ApiQuery({
     name: 'end_date',
     required: false,
     type: String,
     example: '2024-06-01',
-    description: 'Filter by createdAt <= end_date (inclusive). Format: YYYY-MM-DD.',
+    description:
+      'Filter by createdAt <= end_date (inclusive). Format: YYYY-MM-DD.',
   })
   @CacheTTL(TTL_SECONDS.MEDIUM)
   @CheckAbilities({ action: Action.Read, subject: 'BLOG_CATEGORY' })
@@ -174,7 +181,13 @@ export class BlogCategoryController {
       start_date: query.start_date,
       end_date: query.end_date,
     });
-    const result = await this.service.findAll(user.id, query.limit, query.skip, trashed, range);
+    const result = await this.service.findAll(
+      user.id,
+      query.limit,
+      query.skip,
+      trashed,
+      range,
+    );
     return {
       data: result.data.map((cat) => ({
         id: cat.id,
@@ -206,14 +219,16 @@ export class BlogCategoryController {
     required: false,
     type: String,
     example: '2024-06-01',
-    description: 'Filter by createdAt >= start_date (inclusive). Format: YYYY-MM-DD.',
+    description:
+      'Filter by createdAt >= start_date (inclusive). Format: YYYY-MM-DD.',
   })
   @ApiQuery({
     name: 'end_date',
     required: false,
     type: String,
     example: '2024-06-01',
-    description: 'Filter by createdAt <= end_date (inclusive). Format: YYYY-MM-DD.',
+    description:
+      'Filter by createdAt <= end_date (inclusive). Format: YYYY-MM-DD.',
   })
   @CheckAbilities({ action: Action.Read, subject: 'BLOG_CATEGORY' })
   async export(

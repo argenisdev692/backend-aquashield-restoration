@@ -112,7 +112,9 @@ export class AuthController {
   @HttpCode(HttpStatus.CREATED)
   @Throttle({ default: { limit: 3, ttl: 60_000 } })
   @UsePipes(new ZodValidationPipe(RegisterDto))
-  @ApiOperation({ summary: 'Register a new user — sends a 6-digit verification code by email' })
+  @ApiOperation({
+    summary: 'Register a new user — sends a 6-digit verification code by email',
+  })
   register(@Body() dto: RegisterDto) {
     return this.registerUc.execute(dto);
   }
@@ -131,7 +133,9 @@ export class AuthController {
   @HttpCode(HttpStatus.OK)
   @Throttle({ default: { limit: 3, ttl: 60_000 } })
   @UsePipes(new ZodValidationPipe(ResendVerificationCodeDto))
-  @ApiOperation({ summary: 'Resend the email-verification code (60 s throttle per email)' })
+  @ApiOperation({
+    summary: 'Resend the email-verification code (60 s throttle per email)',
+  })
   resendVerificationCode(@Body() dto: ResendVerificationCodeDto) {
     return this.resendVerificationUc.execute(dto);
   }
@@ -140,7 +144,9 @@ export class AuthController {
   @HttpCode(HttpStatus.OK)
   @Throttle({ default: { limit: 10, ttl: 60_000 } })
   @UsePipes(new ZodValidationPipe(LoginDto))
-  @ApiOperation({ summary: 'Password login (returns tokens, or a 2FA challenge if enabled)' })
+  @ApiOperation({
+    summary: 'Password login (returns tokens, or a 2FA challenge if enabled)',
+  })
   login(@Body() dto: LoginDto) {
     return this.loginUc.execute(dto);
   }
@@ -151,7 +157,9 @@ export class AuthController {
   @ApiBearerAuth()
   @Throttle({ default: { limit: 5, ttl: 5 * 60_000 } })
   @UsePipes(new ZodValidationPipe(VerifyTwoFactorChallengeDto))
-  @ApiOperation({ summary: 'Complete the 2FA challenge with a TOTP or backup code' })
+  @ApiOperation({
+    summary: 'Complete the 2FA challenge with a TOTP or backup code',
+  })
   async verifyTwoFactor(
     @CurrentUser() user: AuthenticatedUser,
     @Body() dto: VerifyTwoFactorChallengeDto,
@@ -182,7 +190,9 @@ export class AuthController {
   @HttpCode(HttpStatus.OK)
   @Throttle({ default: { limit: 30, ttl: 60_000 } })
   @UsePipes(new ZodValidationPipe(RefreshTokenDto))
-  @ApiOperation({ summary: 'Rotate the refresh token + emit a fresh access token' })
+  @ApiOperation({
+    summary: 'Rotate the refresh token + emit a fresh access token',
+  })
   refresh(@Body() dto: RefreshTokenDto) {
     return this.refreshUc.execute(dto);
   }
@@ -193,7 +203,10 @@ export class AuthController {
   @HttpCode(HttpStatus.OK)
   @Throttle({ default: { limit: 3, ttl: 15 * 60_000 } })
   @UsePipes(new ZodValidationPipe(RequestPasswordResetDto))
-  @ApiOperation({ summary: 'Send a 6-digit password-reset code (silent no-op on unknown email)' })
+  @ApiOperation({
+    summary:
+      'Send a 6-digit password-reset code (silent no-op on unknown email)',
+  })
   forgotPassword(@Body() dto: RequestPasswordResetDto) {
     return this.requestPasswordResetUc.execute(dto);
   }
@@ -202,7 +215,9 @@ export class AuthController {
   @HttpCode(HttpStatus.OK)
   @Throttle({ default: { limit: 5, ttl: 15 * 60_000 } })
   @UsePipes(new ZodValidationPipe(ResetPasswordDto))
-  @ApiOperation({ summary: 'Consume reset code + set new password; revokes ALL sessions' })
+  @ApiOperation({
+    summary: 'Consume reset code + set new password; revokes ALL sessions',
+  })
   async resetPassword(@Body() dto: ResetPasswordDto) {
     await this.resetPasswordUc.execute(dto);
     return { reset: true };
@@ -214,7 +229,10 @@ export class AuthController {
   @ApiBearerAuth()
   @Throttle({ default: { limit: 5, ttl: 15 * 60_000 } })
   @UsePipes(new ZodValidationPipe(ChangePasswordDto))
-  @ApiOperation({ summary: 'Authenticated user changes their own password; keeps current session' })
+  @ApiOperation({
+    summary:
+      'Authenticated user changes their own password; keeps current session',
+  })
   async changePassword(
     @CurrentUser() user: AuthenticatedUser,
     @Body() dto: ChangePasswordDto,
@@ -246,7 +264,9 @@ export class AuthController {
   @UseGuards(JwtAuthGuard)
   @ApiBearerAuth()
   @Throttle({ default: { limit: 5, ttl: 60_000 } })
-  @ApiOperation({ summary: 'Revoke every other session (keep the current one)' })
+  @ApiOperation({
+    summary: 'Revoke every other session (keep the current one)',
+  })
   logoutAll(@CurrentUser() user: AuthenticatedUser) {
     return this.logoutAllUc.execute({
       userId: user.id,
@@ -260,7 +280,9 @@ export class AuthController {
   @ApiBearerAuth()
   @SkipCache()
   @CacheTTL(0)
-  @ApiOperation({ summary: 'Current user identity, profile, roles + effective permissions' })
+  @ApiOperation({
+    summary: 'Current user identity, profile, roles + effective permissions',
+  })
   @ApiOkResponse({ description: 'Identity snapshot' })
   me(@CurrentUser() user: AuthenticatedUser) {
     return this.getMeUc.execute(user.id);
@@ -272,7 +294,9 @@ export class AuthController {
   @ApiBearerAuth()
   @Throttle({ default: { limit: 20, ttl: 60_000 } })
   @UsePipes(new ZodValidationPipe(UpdateProfileDto))
-  @ApiOperation({ summary: 'Update own profile (whitelist of non-auth columns)' })
+  @ApiOperation({
+    summary: 'Update own profile (whitelist of non-auth columns)',
+  })
   async updateMe(
     @CurrentUser() user: AuthenticatedUser,
     @Body() dto: UpdateProfileDto,
@@ -294,7 +318,9 @@ export class AuthController {
     }),
   )
   @Throttle({ default: { limit: 5, ttl: 60_000 } })
-  @ApiOperation({ summary: 'Upload / replace own profile photo (R2 via circuit breaker)' })
+  @ApiOperation({
+    summary: 'Upload / replace own profile photo (R2 via circuit breaker)',
+  })
   uploadPhoto(
     @CurrentUser() user: AuthenticatedUser,
     @UploadedFile() file: MulterFile | undefined,

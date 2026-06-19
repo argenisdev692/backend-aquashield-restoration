@@ -17,4 +17,6 @@ export const ActivityLogFilterSchema = z
   })
   .refine(rejectInvertedDateRange, INVERTED_DATE_RANGE_ERROR);
 
-export class ActivityLogFilterDto extends createZodDto(ActivityLogFilterSchema) {}
+export class ActivityLogFilterDto extends createZodDto(
+  ActivityLogFilterSchema,
+) {}

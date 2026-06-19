@@ -69,8 +69,8 @@ function identifyWeaknesses(
     score: string;
     current: number;
     target: number;
-  gap: number;
-  explanation: string;
+    gap: number;
+    explanation: string;
   }> = [];
 
   for (const [key, threshold] of Object.entries(SCORE_THRESHOLDS)) {
@@ -79,19 +79,24 @@ function identifyWeaknesses(
       let explanation = '';
       switch (key) {
         case 'human_writing_index':
-          explanation = 'El contenido suena demasiado generado por IA. Añade anécdotas personales, lenguaje más natural y variación en la estructura de oraciones.';
+          explanation =
+            'El contenido suena demasiado generado por IA. Añade anécdotas personales, lenguaje más natural y variación en la estructura de oraciones.';
           break;
         case 'virality_score':
-          explanation = 'El hook no es suficientemente fuerte. Mejora el inicio con algo más impactante o controversial.';
+          explanation =
+            'El hook no es suficientemente fuerte. Mejora el inicio con algo más impactante o controversial.';
           break;
         case 'engagement_score':
-          explanation = 'Falta un call-to-action claro. Añade una pregunta o invitación a comentar.';
+          explanation =
+            'Falta un call-to-action claro. Añade una pregunta o invitación a comentar.';
           break;
         case 'roi_score':
-          explanation = 'El contenido no tiene suficiente valor comercial. Añade beneficios claros o demostración de expertise.';
+          explanation =
+            'El contenido no tiene suficiente valor comercial. Añade beneficios claros o demostración de expertise.';
           break;
         case 'trend_alignment':
-          explanation = 'El contenido no está alineado con tendencias actuales. Incorpora temas más relevantes del momento.';
+          explanation =
+            'El contenido no está alineado con tendencias actuales. Incorpora temas más relevantes del momento.';
           break;
       }
       weaknesses.push({
@@ -441,18 +446,21 @@ export class SocialMediaGenerationProcessor extends WorkerHost {
 
     // 2. Generate posts via Gemini with quality loop (max 5 iterations)
     let bestGeneratedPosts: Partial<Record<SocialNetwork, GeneratedPost>> = {};
-    let bestScores: import('../../domain/ports/post-generator.port').ScoreEvaluation = {
-      human_writing_index: 0,
-      virality_score: 0,
-      engagement_score: 0,
-      roi_score: 0,
-      trend_alignment: 0,
-    };
+    let bestScores: import('../../domain/ports/post-generator.port').ScoreEvaluation =
+      {
+        human_writing_index: 0,
+        virality_score: 0,
+        engagement_score: 0,
+        roi_score: 0,
+        trend_alignment: 0,
+      };
     let bestAiDetectionRisk = 100;
     let bestOverallScore = 0;
     let iteration = 0;
     let qualityWarning = false;
-    let previousScores: import('../../domain/ports/post-generator.port').ScoreEvaluation | null = null;
+    let previousScores:
+      | import('../../domain/ports/post-generator.port').ScoreEvaluation
+      | null = null;
     let previousWeaknesses: Array<{
       score: string;
       current: number;
@@ -687,11 +695,14 @@ export class SocialMediaGenerationProcessor extends WorkerHost {
         reportKey,
       });
     } catch (reportErr) {
-      this.logger.warn('Failed to generate analysis report, continuing without it', {
-        traceId,
-        error:
-          reportErr instanceof Error ? reportErr.message : String(reportErr),
-      });
+      this.logger.warn(
+        'Failed to generate analysis report, continuing without it',
+        {
+          traceId,
+          error:
+            reportErr instanceof Error ? reportErr.message : String(reportErr),
+        },
+      );
     }
 
     // 6. Transactional write: save + update (with report) + audit (strict)
@@ -731,16 +742,25 @@ export class SocialMediaGenerationProcessor extends WorkerHost {
       if (reportKey) {
         try {
           await this.storage.delete(reportKey);
-          this.logger.warn('Cleaned up analysis report after transaction failure', {
-            traceId,
-            reportKey,
-          });
+          this.logger.warn(
+            'Cleaned up analysis report after transaction failure',
+            {
+              traceId,
+              reportKey,
+            },
+          );
         } catch (cleanupErr) {
-          this.logger.error('Failed to cleanup analysis report after transaction failure', {
-            traceId,
-            reportKey,
-            error: cleanupErr instanceof Error ? cleanupErr.message : String(cleanupErr),
-          });
+          this.logger.error(
+            'Failed to cleanup analysis report after transaction failure',
+            {
+              traceId,
+              reportKey,
+              error:
+                cleanupErr instanceof Error
+                  ? cleanupErr.message
+                  : String(cleanupErr),
+            },
+          );
         }
       }
       throw txErr;

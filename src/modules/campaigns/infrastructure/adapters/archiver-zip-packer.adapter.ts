@@ -5,7 +5,6 @@ import {
   ZipPackageResult,
 } from '../../domain/ports/zip-packer.port';
 
-// eslint-disable-next-line @typescript-eslint/no-var-requires
 const archiver = require('archiver');
 
 /**

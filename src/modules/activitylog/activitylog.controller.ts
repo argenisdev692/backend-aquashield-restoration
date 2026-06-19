@@ -41,8 +41,20 @@ export class ActivityLogController {
   @ApiQuery({ name: 'actorId', required: false, type: String, format: 'uuid' })
   @ApiQuery({ name: 'action', required: false, type: String })
   @ApiQuery({ name: 'resourceId', required: false, type: String })
-  @ApiQuery({ name: 'start_date', required: false, type: String, example: '2024-06-01', description: 'Filter by date (inclusive start). Format: YYYY-MM-DD.' })
-  @ApiQuery({ name: 'end_date', required: false, type: String, example: '2024-06-01', description: 'Filter by date (inclusive end). Format: YYYY-MM-DD.' })
+  @ApiQuery({
+    name: 'start_date',
+    required: false,
+    type: String,
+    example: '2024-06-01',
+    description: 'Filter by date (inclusive start). Format: YYYY-MM-DD.',
+  })
+  @ApiQuery({
+    name: 'end_date',
+    required: false,
+    type: String,
+    example: '2024-06-01',
+    description: 'Filter by date (inclusive end). Format: YYYY-MM-DD.',
+  })
   @CheckAbilities({ action: Action.Manage, subject: 'ACTIVITY_LOG' })
   async findAll(
     @Query(new ZodValidationPipe(ActivityLogFilterSchema))
@@ -72,9 +84,7 @@ export class ActivityLogController {
   @ApiParam({ name: 'id', type: String, format: 'uuid' })
   @HttpCode(204)
   @CheckAbilities({ action: Action.Manage, subject: 'ACTIVITY_LOG' })
-  async remove(
-    @Param('id', ParseUUIDPipe) id: string,
-  ): Promise<void> {
+  async remove(@Param('id', ParseUUIDPipe) id: string): Promise<void> {
     return this.service.delete(id);
   }
 }

@@ -9,10 +9,7 @@ import {
   AUTH_SESSION_REPOSITORY,
   type IAuthSessionRepository,
 } from '../domain/ports/auth-session.repository.port';
-import {
-  JWT_ISSUER,
-  type IJwtIssuer,
-} from '../domain/ports/jwt-issuer.port';
+import { JWT_ISSUER, type IJwtIssuer } from '../domain/ports/jwt-issuer.port';
 import {
   TRUSTED_DEVICE_REPOSITORY,
   type ITrustedDeviceRepository,

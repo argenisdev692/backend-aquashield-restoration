@@ -26,7 +26,9 @@ export class ActivityLogRepository {
   ): Promise<{ data: ActivityLog[]; total: number }> {
     const where: Prisma.ActivityLogWhereInput = {
       ...(filter.actorId ? { actorId: filter.actorId } : {}),
-      ...(filter.action ? { action: { contains: filter.action, mode: 'insensitive' } } : {}),
+      ...(filter.action
+        ? { action: { contains: filter.action, mode: 'insensitive' } }
+        : {}),
       ...(filter.resourceId ? { resourceId: filter.resourceId } : {}),
       ...buildDateRangeWhere(range, 'createdAt'),
     };

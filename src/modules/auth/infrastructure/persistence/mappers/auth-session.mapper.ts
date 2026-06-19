@@ -1,4 +1,7 @@
-import { AuthSession, type DeviceInfo } from '../../../domain/entities/auth-session.entity';
+import {
+  AuthSession,
+  type DeviceInfo,
+} from '../../../domain/entities/auth-session.entity';
 import { RefreshTokenHash } from '../../../domain/value-objects/refresh-token-hash.vo';
 
 export interface AuthSessionRow {

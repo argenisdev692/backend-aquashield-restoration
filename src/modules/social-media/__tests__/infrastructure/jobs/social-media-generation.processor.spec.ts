@@ -185,7 +185,9 @@ describe('SocialMediaGenerationProcessor', () => {
       expect.objectContaining({ action: 'social-media.post.generated' }),
       { strict: true },
     );
-    expect(mockCache.delByPattern).toHaveBeenCalledWith('http:*:/social-media*');
+    expect(mockCache.delByPattern).toHaveBeenCalledWith(
+      'http:*:/social-media*',
+    );
     expect(result.id).toBe('gen-123');
   });
 });

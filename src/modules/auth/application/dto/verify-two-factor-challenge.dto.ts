@@ -10,7 +10,10 @@ import { createZodDto } from 'nestjs-zod';
  */
 export const VerifyTwoFactorChallengeSchema = z
   .object({
-    code: z.string().regex(/^\d{6}$/).optional(),
+    code: z
+      .string()
+      .regex(/^\d{6}$/)
+      .optional(),
     backupCode: z.string().min(8).max(20).optional(),
     /** When true, persist a 30-day "trust this device" cookie. */
     trustDevice: z.boolean().default(false),

@@ -212,7 +212,7 @@ const SPAM_KEYWORDS = {
     'congratulations',
     'limited time',
     'act now',
-    'don\'t miss',
+    "don't miss",
     'exclusive deal',
     'special offer',
     'save big',
@@ -565,7 +565,10 @@ function normalizeText(text: string): string {
  * containsSpamKeywords('Oferta especial de descuento', 1); // true
  * ```
  */
-export function containsSpamKeywords(text: string, threshold: number = 1): boolean {
+export function containsSpamKeywords(
+  text: string,
+  threshold: number = 1,
+): boolean {
   if (!text || text.length === 0) {
     return false;
   }
@@ -637,7 +640,10 @@ export function checkSpam(
   }
 
   const combinedContent = [subject, body].filter(Boolean).join(' ');
-  const hasSpamContent = containsSpamKeywords(combinedContent, contentThreshold);
+  const hasSpamContent = containsSpamKeywords(
+    combinedContent,
+    contentThreshold,
+  );
   if (hasSpamContent) {
     reasons.push('spam_content');
   }

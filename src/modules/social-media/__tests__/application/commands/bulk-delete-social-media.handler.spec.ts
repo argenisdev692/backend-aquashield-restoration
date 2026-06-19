@@ -88,7 +88,9 @@ describe('BulkDeleteSocialMediaHandler', () => {
       }),
       { strict: true },
     );
-    expect(mockCache.delByPattern).toHaveBeenCalledWith('http:*:/social-media*');
+    expect(mockCache.delByPattern).toHaveBeenCalledWith(
+      'http:*:/social-media*',
+    );
     expect(result.count).toBe(2);
   });
 });

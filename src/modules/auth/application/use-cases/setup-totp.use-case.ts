@@ -13,10 +13,7 @@ import {
   USER_ACCOUNT_REPOSITORY,
   type IUserAccountRepository,
 } from '../../domain/ports/user-account.repository.port';
-import {
-  TOTP_SERVICE,
-  type ITotpService,
-} from '../../domain/ports/totp.port';
+import { TOTP_SERVICE, type ITotpService } from '../../domain/ports/totp.port';
 import { TotpSecret } from '../../domain/value-objects/totp-secret.vo';
 import {
   TwoFactorAlreadyEnabledException,
@@ -75,14 +72,18 @@ export class SetupTotpUseCase {
       accountName: account.email.value,
       issuer: this.issuer,
     });
-    const qrCodeDataUrl = await qrToDataUrl(otpAuthUri, { errorCorrectionLevel: 'M' });
+    const qrCodeDataUrl = await qrToDataUrl(otpAuthUri, {
+      errorCorrectionLevel: 'M',
+    });
 
     await this.audit.log({
       action: 'auth.two_factor.setup_initiated',
       actorId: userId,
       resourceType: 'USER',
       resourceId: userId,
-      metadata: { ipAddress: this.cls.get<string>(CLS_KEYS.IP_ADDRESS) ?? null },
+      metadata: {
+        ipAddress: this.cls.get<string>(CLS_KEYS.IP_ADDRESS) ?? null,
+      },
     });
 
     this.logger.info('TOTP setup initiated', {

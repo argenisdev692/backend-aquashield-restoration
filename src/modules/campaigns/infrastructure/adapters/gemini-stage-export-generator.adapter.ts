@@ -117,7 +117,10 @@ export class GeminiStageExportGeneratorAdapter
         specs169: getString(notes.specs_169, '1920x1080px · 30fps'),
         musicTone: getString(notes.music_tone, 'Uplifting corporate'),
         colorPalette: getStringArray(notes.color_palette),
-        transitionStyle: getString(notes.transition_style, 'Smooth cross-dissolve'),
+        transitionStyle: getString(
+          notes.transition_style,
+          'Smooth cross-dissolve',
+        ),
       },
       scores: this.mapScores(asObject(json.scores)),
     };
@@ -179,10 +182,18 @@ REQUIREMENTS: 4 scenes with timecodes; narration 38-63 words; include the AI_OBS
   // ── Mapping ──────────────────────────────────────────────────────────────
 
   private mapScene(raw: Json, index: number): GeneratedScene {
-    const fallbackTimecodes = ['0:00-0:05', '0:05-0:10', '0:10-0:15', '0:15-0:25'];
+    const fallbackTimecodes = [
+      '0:00-0:05',
+      '0:05-0:10',
+      '0:10-0:15',
+      '0:15-0:25',
+    ];
     return {
       id: getNumber(raw.id, index + 1),
-      timecode: getString(raw.timecode, fallbackTimecodes[index] ?? '0:00-0:05'),
+      timecode: getString(
+        raw.timecode,
+        fallbackTimecodes[index] ?? '0:00-0:05',
+      ),
       title: getString(raw.title, `Scene ${index + 1}`),
       visualDescription: getString(raw.visual_description, ''),
       imageKeywords: getStringArray(raw.image_keywords),
@@ -221,10 +232,38 @@ REQUIREMENTS: 4 scenes with timecodes; narration 38-63 words; include the AI_OBS
   private fallbackScenes(duration: 15 | 20): GeneratedScene[] {
     const last = duration === 20 ? 10 : 5;
     return [
-      { id: 1, timecode: '0:00-0:05', title: 'Hook', visualDescription: '', imageKeywords: [], durationSeconds: 5 },
-      { id: 2, timecode: '0:05-0:10', title: 'Value', visualDescription: '', imageKeywords: [], durationSeconds: 5 },
-      { id: 3, timecode: '0:10-0:15', title: 'AI Observation', visualDescription: '', imageKeywords: [], durationSeconds: 5 },
-      { id: 4, timecode: `0:15-0:${15 + last}`, title: 'CTA', visualDescription: '', imageKeywords: [], durationSeconds: last },
+      {
+        id: 1,
+        timecode: '0:00-0:05',
+        title: 'Hook',
+        visualDescription: '',
+        imageKeywords: [],
+        durationSeconds: 5,
+      },
+      {
+        id: 2,
+        timecode: '0:05-0:10',
+        title: 'Value',
+        visualDescription: '',
+        imageKeywords: [],
+        durationSeconds: 5,
+      },
+      {
+        id: 3,
+        timecode: '0:10-0:15',
+        title: 'AI Observation',
+        visualDescription: '',
+        imageKeywords: [],
+        durationSeconds: 5,
+      },
+      {
+        id: 4,
+        timecode: `0:15-0:${15 + last}`,
+        title: 'CTA',
+        visualDescription: '',
+        imageKeywords: [],
+        durationSeconds: last,
+      },
     ];
   }
 
@@ -243,7 +282,9 @@ REQUIREMENTS: 4 scenes with timecodes; narration 38-63 words; include the AI_OBS
     );
     const text = response.text ?? '';
     if (!text) {
-      throw new Error('AI returned empty content for campaign stage generation');
+      throw new Error(
+        'AI returned empty content for campaign stage generation',
+      );
     }
     return parseJsonObject(text);
   }

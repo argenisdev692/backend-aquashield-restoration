@@ -13,9 +13,10 @@ import type { GenerateCampaignResponse } from '../../dtos/generate-campaign.dto'
  */
 @CommandHandler(GenerateCampaignCommand)
 @Injectable()
-export class GenerateCampaignHandler
-  implements ICommandHandler<GenerateCampaignCommand, GenerateCampaignResponse>
-{
+export class GenerateCampaignHandler implements ICommandHandler<
+  GenerateCampaignCommand,
+  GenerateCampaignResponse
+> {
   constructor(private readonly campaignRequest: CampaignRequestService) {}
 
   @Transactional()

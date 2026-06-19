@@ -400,7 +400,8 @@ export class PostsController {
     required: false,
     type: String,
     example: '2024-06-01',
-    description: 'Filter by creation date (inclusive start). Format: YYYY-MM-DD.',
+    description:
+      'Filter by creation date (inclusive start). Format: YYYY-MM-DD.',
   })
   @ApiQuery({
     name: 'end_date',
@@ -464,7 +465,8 @@ export class PostsController {
     required: false,
     type: String,
     example: '2024-06-01',
-    description: 'Filter by creation date (inclusive start). Format: YYYY-MM-DD.',
+    description:
+      'Filter by creation date (inclusive start). Format: YYYY-MM-DD.',
   })
   @ApiQuery({
     name: 'end_date',

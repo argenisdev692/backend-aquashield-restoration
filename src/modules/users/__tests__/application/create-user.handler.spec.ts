@@ -94,22 +94,22 @@ describe('CreateUserHandler', () => {
       warn: jest.fn(),
       error: jest.fn(),
       setContext: jest.fn(),
-    } as unknown as jest.Mocked<LoggerService>;
+    };
     mockCache = {
       del: jest.fn(),
       delByPattern: jest.fn(),
       get: jest.fn(),
       set: jest.fn(),
-    } as unknown as jest.Mocked<CacheService>;
+    };
     mockEventEmitter = {
       emit: jest.fn(),
-    } as unknown as jest.Mocked<EventEmitter2>;
+    };
     mockConfig = {
       get: jest.fn().mockReturnValue('http://localhost:3000'),
-    } as unknown as jest.Mocked<ConfigService>;
+    };
     mockCls = {
       get: jest.fn().mockReturnValue('trace-123'),
-    } as unknown as jest.Mocked<ClsService>;
+    };
 
     const module: TestingModule = await Test.createTestingModule({
       providers: [

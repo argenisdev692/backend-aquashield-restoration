@@ -42,7 +42,9 @@ export class PdfKitPdfBuilderAdapter implements IPdfBuilderPort {
         .fontSize(12)
         .font('Helvetica')
         .fillColor('#475569')
-        .text(`${input.niche}  ·  ${input.format}  ·  ${input.durationSeconds}s`);
+        .text(
+          `${input.niche}  ·  ${input.format}  ·  ${input.durationSeconds}s`,
+        );
       doc.moveDown(0.3);
       doc
         .fontSize(11)
@@ -62,14 +64,22 @@ export class PdfKitPdfBuilderAdapter implements IPdfBuilderPort {
       doc.fontSize(14).font('Helvetica-Bold').text('Script — 9:16');
       doc.fontSize(10).font('Helvetica').text(v.narration, { width: 500 });
       if (v.overlayTexts.length) {
-        doc.fontSize(9).fillColor('#64748b').text(`Overlays: ${v.overlayTexts.join(' · ')}`).fillColor('#000');
+        doc
+          .fontSize(9)
+          .fillColor('#64748b')
+          .text(`Overlays: ${v.overlayTexts.join(' · ')}`)
+          .fillColor('#000');
       }
       doc.fontSize(9).fillColor(badge).text(`CTA: ${v.cta}`).fillColor('#000');
       doc.moveDown(0.5);
       doc.fontSize(14).font('Helvetica-Bold').text('Script — 16:9');
       doc.fontSize(10).font('Helvetica').text(h.narration, { width: 500 });
       if (h.overlayTexts.length) {
-        doc.fontSize(9).fillColor('#64748b').text(`Overlays: ${h.overlayTexts.join(' · ')}`).fillColor('#000');
+        doc
+          .fontSize(9)
+          .fillColor('#64748b')
+          .text(`Overlays: ${h.overlayTexts.join(' · ')}`)
+          .fillColor('#000');
       }
       doc.fontSize(9).fillColor(badge).text(`CTA: ${h.cta}`).fillColor('#000');
       doc.moveDown(0.8);
@@ -87,7 +97,11 @@ export class PdfKitPdfBuilderAdapter implements IPdfBuilderPort {
           .fillColor('#0f172a')
           .fontSize(11)
           .font('Helvetica-Bold')
-          .text(`  ${scene.timecode}  ·  ${scene.title}`, 48 + barWidth + 6, doc.y - 11);
+          .text(
+            `  ${scene.timecode}  ·  ${scene.title}`,
+            48 + barWidth + 6,
+            doc.y - 11,
+          );
         doc.fillColor('#000').moveDown(0.4);
 
         const imgY = doc.y;
@@ -110,8 +124,12 @@ export class PdfKitPdfBuilderAdapter implements IPdfBuilderPort {
         doc
           .fontSize(8)
           .fillColor('#94a3b8')
-          .text(`Keywords: ${scene.imageKeywords.join(', ')}`, 220, doc.y, { width: 327 })
-          .text(`Duration: ${scene.durationSeconds}s`, 220, doc.y, { width: 327 });
+          .text(`Keywords: ${scene.imageKeywords.join(', ')}`, 220, doc.y, {
+            width: 327,
+          })
+          .text(`Duration: ${scene.durationSeconds}s`, 220, doc.y, {
+            width: 327,
+          });
         doc.fillColor('#000');
         doc.y = Math.max(doc.y, imgY + 96);
         doc.moveDown(0.4);
@@ -146,11 +164,7 @@ export class PdfKitPdfBuilderAdapter implements IPdfBuilderPort {
     });
   }
 
-  private placeholder(
-    doc: PDFKit.PDFDocument,
-    x: number,
-    y: number,
-  ): void {
+  private placeholder(doc: PDFKit.PDFDocument, x: number, y: number): void {
     doc.rect(x, y, 160, 90).fill('#e2e8f0');
     doc
       .fillColor('#94a3b8')

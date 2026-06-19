@@ -15,7 +15,7 @@ export interface OtpCodeRow {
 }
 
 export function toOtpCode(row: OtpCodeRow): OtpCode {
-  const type = OtpCodeTypeSchema.parse(row.type) as OtpCodeType;
+  const type = OtpCodeTypeSchema.parse(row.type);
   return OtpCode.reconstitute({
     id: row.id,
     userId: row.userId,

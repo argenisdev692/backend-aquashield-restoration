@@ -23,10 +23,7 @@ export class BulkDeleteContactSupportUseCase {
     this.logger.setContext(BulkDeleteContactSupportUseCase.name);
   }
 
-  async execute(
-    ids: string[],
-    actorId: string,
-  ): Promise<{ count: number }> {
+  async execute(ids: string[], actorId: string): Promise<{ count: number }> {
     const traceId = this.cls.get<string>('traceId');
     this.logger.info('BulkDeleteContactSupportUseCase start', {
       traceId,

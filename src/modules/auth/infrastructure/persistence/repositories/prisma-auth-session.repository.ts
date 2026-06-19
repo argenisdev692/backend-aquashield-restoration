@@ -3,7 +3,10 @@ import { PrismaService } from '../../../../../shared/database/prisma.service';
 import { Prisma } from '../../../../../generated/prisma/client';
 import type { IAuthSessionRepository } from '../../../domain/ports/auth-session.repository.port';
 import { AuthSession } from '../../../domain/entities/auth-session.entity';
-import { toAuthSession, type AuthSessionRow } from '../mappers/auth-session.mapper';
+import {
+  toAuthSession,
+  type AuthSessionRow,
+} from '../mappers/auth-session.mapper';
 
 @Injectable()
 export class PrismaAuthSessionRepository implements IAuthSessionRepository {
@@ -47,14 +50,14 @@ export class PrismaAuthSessionRepository implements IAuthSessionRepository {
 
   async findById(id: string): Promise<AuthSession | null> {
     const row = await this.prisma.authSession.findUnique({ where: { id } });
-    return row ? toAuthSession(row as AuthSessionRow) : null;
+    return row ? toAuthSession(row) : null;
   }
 
   async findByRefreshTokenHash(hash: string): Promise<AuthSession | null> {
     const row = await this.prisma.authSession.findUnique({
       where: { refreshToken: hash },
     });
-    return row ? toAuthSession(row as AuthSessionRow) : null;
+    return row ? toAuthSession(row) : null;
   }
 
   async findActiveByUserId(

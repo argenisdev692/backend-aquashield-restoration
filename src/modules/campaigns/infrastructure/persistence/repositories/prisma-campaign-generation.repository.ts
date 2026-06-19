@@ -8,7 +8,10 @@ import type { ICampaignGenerationRepository } from '../../../domain/ports/campai
 import { CampaignGeneration } from '../../../domain/entities/campaign-generation.aggregate';
 import { CampaignGenerationMapper } from '../mappers/campaign-generation.mapper';
 import { StageExportResult } from '../../../domain/value-objects/stage-export-result.vo';
-import { buildDateRangeWhere, type DateRange } from '../../../../../shared/crud/date-range.util';
+import {
+  buildDateRangeWhere,
+  type DateRange,
+} from '../../../../../shared/crud/date-range.util';
 
 /**
  * Prisma implementation of the CampaignGeneration repository.

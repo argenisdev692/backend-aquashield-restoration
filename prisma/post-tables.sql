@@ -22,6 +22,7 @@ DROP TRIGGER IF EXISTS set_updated_at_company_data     ON company_data;
 DROP TRIGGER IF EXISTS set_updated_at_appointments     ON appointments;
 DROP TRIGGER IF EXISTS set_updated_at_contact_supports ON contact_supports;
 DROP TRIGGER IF EXISTS set_updated_at_auth_sessions    ON auth_sessions;
+DROP TRIGGER IF EXISTS set_updated_at_retell_calls     ON retell_calls;
 
 CREATE TRIGGER set_updated_at_users
   BEFORE UPDATE ON users
@@ -49,6 +50,10 @@ CREATE TRIGGER set_updated_at_contact_supports
 
 CREATE TRIGGER set_updated_at_auth_sessions
   BEFORE UPDATE ON auth_sessions
+  FOR EACH ROW EXECUTE FUNCTION trigger_set_updated_at();
+
+CREATE TRIGGER set_updated_at_retell_calls
+  BEFORE UPDATE ON retell_calls
   FOR EACH ROW EXECUTE FUNCTION trigger_set_updated_at();
 
 -- ------------------------------------------------------------

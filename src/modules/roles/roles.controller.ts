@@ -121,7 +121,12 @@ export class RolesController {
       withTrashed: query.withTrashed,
       onlyTrashed: query.onlyTrashed,
     });
-    const result = await this.service.findAll(query.limit, skip, query.search, trashed);
+    const result = await this.service.findAll(
+      query.limit,
+      skip,
+      query.search,
+      trashed,
+    );
     return {
       data: result.data,
       total: result.total,

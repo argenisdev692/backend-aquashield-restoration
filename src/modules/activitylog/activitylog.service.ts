@@ -4,7 +4,10 @@ import type { ActivityLog } from './activitylog.entity';
 import type { ActivityLogFilterDto } from './dto/activitylog-filter.dto';
 import { LoggerService } from '../../logger/logger.service';
 import { ClsService } from 'nestjs-cls';
-import { resolveDateRange, type DateRange } from '../../shared/crud/date-range.util';
+import {
+  resolveDateRange,
+  type DateRange,
+} from '../../shared/crud/date-range.util';
 
 @Injectable()
 export class ActivityLogService {
@@ -22,7 +25,9 @@ export class ActivityLogService {
     return this.findOrFail(id);
   }
 
-  async findAll(filter: ActivityLogFilterDto): Promise<{ data: ActivityLog[]; total: number }> {
+  async findAll(
+    filter: ActivityLogFilterDto,
+  ): Promise<{ data: ActivityLog[]; total: number }> {
     const traceId = this.cls.get<string>('traceId');
     this.logger.info('ActivityLogService.findAll', {
       traceId,

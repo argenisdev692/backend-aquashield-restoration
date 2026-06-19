@@ -7,7 +7,6 @@ import {
 import { QueryHandler, IQueryHandler } from '@nestjs/cqrs';
 import { ClsService } from 'nestjs-cls';
 
-// eslint-disable-next-line @typescript-eslint/no-var-requires
 const archiver = require('archiver');
 import {
   DownloadSocialZipQuery,

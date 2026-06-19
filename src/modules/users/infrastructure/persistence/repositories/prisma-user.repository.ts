@@ -10,7 +10,10 @@ import {
   buildTrashedWhere,
   type TrashedMode,
 } from '../../../../../shared/crud/trashed.util';
-import { buildDateRangeWhere, type DateRange } from '../../../../../shared/crud/date-range.util';
+import {
+  buildDateRangeWhere,
+  type DateRange,
+} from '../../../../../shared/crud/date-range.util';
 
 @Injectable()
 export class PrismaUserRepository implements IUserRepository {
