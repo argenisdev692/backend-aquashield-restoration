@@ -5,14 +5,13 @@ import type { AppointmentEmailData } from '../../../domain/ports/outbound/email.
 /**
  * Blade-faithful HTML for the appointment lifecycle emails. Ported from
  * `docs/emails/appointment-*.blade.php`, with branding sourced from the
- * CompanyData singleton instead of the hardcoded V General Contractors logo.
+ * CompanyData singleton (env `COMPANY_NAME` fallback) — never a hardcoded brand.
  *
  * All user/company-controlled values are HTML-escaped at render time
  * (OWASP #3 Injection). Dates are formatted in UTC to mirror the
  * `@db.Date` / `@db.Time` columns without timezone drift.
  */
 
-const FALLBACK_COMPANY_NAME = 'Aquashield Restoration LLC';
 const INSPECTION_DURATION_HOURS = 2;
 /** Blade renders the end-of-visit hint at +3h (date math), label says 2h. */
 const SCHEDULE_BLOCK_HOURS = 3;
@@ -84,7 +83,10 @@ export function formatUsPhone(phone: string | null): string {
 }
 
 function companyName(company: AppointmentCompanyInfo | null): string {
-  return escapeHtml(company?.companyName ?? FALLBACK_COMPANY_NAME);
+  // The adapter resolves the name (CompanyData → COMPANY_NAME env) before
+  // rendering, so `companyName` is already populated; '' is only a defensive
+  // guard and never a hardcoded brand.
+  return escapeHtml(company?.companyName ?? '');
 }
 
 function renderAddressBlock(a: AppointmentEmailData): string {

@@ -77,9 +77,9 @@ export function renderNewCallEmail(data: NewCallTemplateData): {
   html: string;
 } {
   const { call, company } = data;
-  const companyName = escapeHtml(
-    company?.companyName ?? 'Aquashield Restoration',
-  );
+  // The adapter resolves the name (CompanyData → COMPANY_NAME env) before
+  // rendering; '' is only a defensive guard, never a hardcoded brand.
+  const companyName = escapeHtml(company?.companyName ?? '');
   const year = new Date().getFullYear();
 
   const row = (icon: string, label: string, value: string): string =>

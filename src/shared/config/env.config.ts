@@ -76,8 +76,15 @@ export const EnvSchema = z.object({
   EMAIL_PROVIDER: z.enum(['resend', 'console']).default('resend'),
   RESEND_API_KEY: z.string().min(1),
   RESEND_FROM_EMAIL: z.string().email(),
+  // Route all outbound mail through the shared `email` BullMQ queue. Set to
+  // `false` in dev / E2E (or when no worker runs) to deliver synchronously.
+  EMAIL_QUEUE_ENABLED: booleanFromString.default(true),
   // Contact-support notifications go to every active super-admin user
   // (resolved from the DB at runtime) — no static admin address needed.
+  // Brand name fallback for email templates when the CompanyData singleton is
+  // not configured. The DB record is the source of truth; this is the
+  // deployment-configurable fallback so no company name is ever hardcoded.
+  COMPANY_NAME: z.string().min(1).default('Company'),
 
   // ── Application ─────────────────────────────────────────────
   APP_URL: z.string().url().default('http://localhost:3000'),

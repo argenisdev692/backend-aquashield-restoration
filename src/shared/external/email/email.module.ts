@@ -1,22 +1,27 @@
+import { BullModule } from '@nestjs/bullmq';
 import { Global, Module, type Provider } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { ClsService } from 'nestjs-cls';
 import { LoggerService } from '../../../logger/logger.service';
-import { MAILER } from './mailer.port';
+import { QUEUE_NAMES } from '../../messaging/queues.constants';
+import { EmailProcessor } from './email.processor';
+import { MAILER, MAILER_TRANSPORT } from './mailer.port';
+import { QueuedMailerAdapter } from './queued-mailer.adapter';
 import { ResendMailerAdapter } from './resend-mailer.adapter';
 import { ConsoleMailerAdapter } from './console-mailer.adapter';
 
 /**
- * Provider selector for the shared mailer.
+ * Low-level transport selector.
  *
  * `EMAIL_PROVIDER=console` switches to {@link ConsoleMailerAdapter} (dev / E2E).
  * Anything else (including unset) falls back to {@link ResendMailerAdapter}.
  *
- * Both adapters are registered as providers so unit tests can override either
- * one with `overrideProvider(MAILER)` without re-wiring the module.
+ * Bound to {@link MAILER_TRANSPORT} — injected ONLY by the queue worker
+ * (`EmailProcessor`). Application code injects {@link MAILER} (the queued
+ * facade) instead.
  */
-const mailerProvider: Provider = {
-  provide: MAILER,
+const transportProvider: Provider = {
+  provide: MAILER_TRANSPORT,
   inject: [ConfigService, LoggerService, ClsService],
   useFactory: (
     config: ConfigService,
@@ -35,9 +40,25 @@ const mailerProvider: Provider = {
   },
 };
 
+/**
+ * Public mailer — the queued facade. Every consumer injects {@link MAILER}
+ * and its `send()` enqueues onto the shared `email` BullMQ queue (with
+ * synchronous fallback). See {@link QueuedMailerAdapter}.
+ */
+const mailerProvider: Provider = {
+  provide: MAILER,
+  useExisting: QueuedMailerAdapter,
+};
+
 @Global()
 @Module({
-  providers: [ResendMailerAdapter, ConsoleMailerAdapter, mailerProvider],
-  exports: [MAILER],
+  imports: [BullModule.registerQueue({ name: QUEUE_NAMES.EMAIL })],
+  providers: [
+    transportProvider,
+    QueuedMailerAdapter,
+    mailerProvider,
+    EmailProcessor,
+  ],
+  exports: [MAILER, MAILER_TRANSPORT],
 })
 export class EmailModule {}

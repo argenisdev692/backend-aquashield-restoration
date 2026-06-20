@@ -118,9 +118,11 @@ describe('appointment-email templates', () => {
       expect(html).toContain('&lt;script&gt;');
     });
 
-    it('falls back to default branding when company is null', () => {
+    it('renders no hardcoded brand when company is null (name resolved upstream)', () => {
       const html = renderAppointmentScheduledInternalHtml(appointment, null);
-      expect(html).toContain('Aquashield Restoration LLC');
+      // The adapter resolves the name (CompanyData → COMPANY_NAME env) before
+      // rendering; the template itself must never embed a hardcoded brand.
+      expect(html).not.toContain('Aquashield Restoration LLC');
     });
   });
 });

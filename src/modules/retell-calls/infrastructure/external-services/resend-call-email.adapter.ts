@@ -1,12 +1,14 @@
 import { Inject, Injectable } from '@nestjs/common';
 import { ClsService } from 'nestjs-cls';
 import { LoggerService } from '../../../../logger/logger.service';
+import { CompanyBrandingService } from '../../../companydata/company-branding.service';
 import { MAILER } from '../../../../shared/external/email/mailer.port';
 import type { IMailer } from '../../../../shared/external/email/mailer.port';
 import type {
   ICallEmailPort,
   NewCallEmailData,
 } from '../../domain/ports/outbound/call-email.port.interface';
+import type { RetellCallCompanyInfo } from '../../domain/ports/outbound/company-data-lookup.port.interface';
 import { renderNewCallEmail } from './templates/call-email.templates';
 
 /**
@@ -18,6 +20,7 @@ import { renderNewCallEmail } from './templates/call-email.templates';
 export class ResendCallEmailAdapter implements ICallEmailPort {
   constructor(
     @Inject(MAILER) private readonly mailer: IMailer,
+    private readonly branding: CompanyBrandingService,
     private readonly logger: LoggerService,
     private readonly cls: ClsService,
   ) {
@@ -26,10 +29,24 @@ export class ResendCallEmailAdapter implements ICallEmailPort {
 
   async notifyNewCall(data: NewCallEmailData): Promise<void> {
     const traceId = this.cls.get<string>('traceId');
-    const { subject, html } = renderNewCallEmail({
-      call: data.call,
-      company: data.company,
-    });
+    // Guarantee a non-empty brand name (CompanyData → COMPANY_NAME env) so the
+    // template never renders an empty brand — even when the CompanyData lookup
+    // returns null (DB unavailable / singleton not configured).
+    const companyName = this.branding.resolveName(data.company?.companyName);
+    const company: RetellCallCompanyInfo = data.company
+      ? { ...data.company, companyName }
+      : {
+          companyName,
+          email: null,
+          phone: null,
+          address: null,
+          website: null,
+          facebookLink: null,
+          instagramLink: null,
+          linkedinLink: null,
+          twitterLink: null,
+        };
+    const { subject, html } = renderNewCallEmail({ call: data.call, company });
 
     try {
       const result = await this.mailer.send({

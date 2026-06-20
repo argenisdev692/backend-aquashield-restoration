@@ -1,6 +1,7 @@
 import { Inject, Injectable } from '@nestjs/common';
 import { ClsService } from 'nestjs-cls';
 import { LoggerService } from '../../../../logger/logger.service';
+import { CompanyBrandingService } from '../../../companydata/company-branding.service';
 import { escapeHtml } from '../../../../shared/external/email/email-html.util';
 import { MAILER } from '../../../../shared/external/email/mailer.port';
 import type { IMailer } from '../../../../shared/external/email/mailer.port';
@@ -9,7 +10,10 @@ import type {
   IEmailPort,
 } from '../../domain/ports/outbound/email.port.interface';
 import { COMPANY_DATA_LOOKUP_PORT } from '../../domain/ports/outbound/company-data-lookup.port.interface';
-import type { ICompanyDataLookupPort } from '../../domain/ports/outbound/company-data-lookup.port.interface';
+import type {
+  AppointmentCompanyInfo,
+  ICompanyDataLookupPort,
+} from '../../domain/ports/outbound/company-data-lookup.port.interface';
 import {
   renderAppointmentCancelledClientHtml,
   renderAppointmentCancelledInternalHtml,
@@ -33,10 +37,33 @@ export class ResendAppointmentEmailAdapter implements IEmailPort {
     @Inject(MAILER) private readonly mailer: IMailer,
     @Inject(COMPANY_DATA_LOOKUP_PORT)
     private readonly companyLookup: ICompanyDataLookupPort,
+    private readonly branding: CompanyBrandingService,
     private readonly logger: LoggerService,
     private readonly cls: ClsService,
   ) {
     this.logger.setContext(ResendAppointmentEmailAdapter.name);
+  }
+
+  /**
+   * Loads the CompanyData footer snapshot and guarantees a non-empty
+   * `companyName` (env `COMPANY_NAME` fallback) so templates never render a
+   * hardcoded brand.
+   */
+  private async resolveCompany(): Promise<AppointmentCompanyInfo> {
+    const company = await this.companyLookup.getCompanyInfo();
+    const companyName = this.branding.resolveName(company?.companyName);
+    if (company) return { ...company, companyName };
+    return {
+      companyName,
+      email: null,
+      phone: null,
+      address: null,
+      website: null,
+      facebookLink: null,
+      instagramLink: null,
+      linkedinLink: null,
+      twitterLink: null,
+    };
   }
 
   async sendEmail(params: {
@@ -66,6 +93,7 @@ export class ResendAppointmentEmailAdapter implements IEmailPort {
     message: string | null;
   }): Promise<void> {
     const traceId = this.cls.get<string>('traceId');
+    const companyName = escapeHtml(await this.branding.getCompanyName());
 
     const safe = {
       firstName: escapeHtml(params.firstName),
@@ -102,7 +130,7 @@ export class ResendAppointmentEmailAdapter implements IEmailPort {
           ${safe.message}
         </div>
         <hr style="margin: 20px 0; border: none; border-top: 1px solid #e2e8f0;" />
-        <p style="color: #6b7280; font-size: 12px;">Aquashield Restoration LLC</p>
+        <p style="color: #6b7280; font-size: 12px;">${companyName}</p>
       </div>
     `;
 
@@ -131,6 +159,7 @@ export class ResendAppointmentEmailAdapter implements IEmailPort {
     toName: string;
   }): Promise<void> {
     const traceId = this.cls.get<string>('traceId');
+    const companyName = escapeHtml(await this.branding.getCompanyName());
 
     const safe = { toName: escapeHtml(params.toName) };
     const html = `
@@ -142,7 +171,7 @@ export class ResendAppointmentEmailAdapter implements IEmailPort {
           Thank you for reaching out.
         </p>
         <hr style="margin: 20px 0; border: none; border-top: 1px solid #e2e8f0;" />
-        <p style="color: #6b7280; font-size: 12px;">Aquashield Restoration LLC</p>
+        <p style="color: #6b7280; font-size: 12px;">${companyName}</p>
       </div>
     `;
 
@@ -167,7 +196,7 @@ export class ResendAppointmentEmailAdapter implements IEmailPort {
     appointment: AppointmentEmailData;
   }): Promise<void> {
     if (!params.appointment.email) return;
-    const company = await this.companyLookup.getCompanyInfo();
+    const company = await this.resolveCompany();
     await this.deliver(
       params.appointment.email,
       '✅ ¡Su cita ha sido confirmada!',
@@ -183,7 +212,7 @@ export class ResendAppointmentEmailAdapter implements IEmailPort {
     previousInspectionTime: Date | null;
   }): Promise<void> {
     if (!params.appointment.email) return;
-    const company = await this.companyLookup.getCompanyInfo();
+    const company = await this.resolveCompany();
     await this.deliver(
       params.appointment.email,
       '🔄 Su cita ha sido reprogramada',
@@ -202,7 +231,7 @@ export class ResendAppointmentEmailAdapter implements IEmailPort {
     appointment: AppointmentEmailData;
   }): Promise<void> {
     if (!params.appointment.email) return;
-    const company = await this.companyLookup.getCompanyInfo();
+    const company = await this.resolveCompany();
     await this.deliver(
       params.appointment.email,
       '❌ Su cita ha sido cancelada',
@@ -217,7 +246,7 @@ export class ResendAppointmentEmailAdapter implements IEmailPort {
     appointment: AppointmentEmailData;
   }): Promise<void> {
     if (params.adminEmails.length === 0) return;
-    const company = await this.companyLookup.getCompanyInfo();
+    const company = await this.resolveCompany();
     await this.deliver(
       params.adminEmails,
       `📅 New Appointment Confirmed: ${params.appointment.firstName} ${params.appointment.lastName}`,
@@ -234,7 +263,7 @@ export class ResendAppointmentEmailAdapter implements IEmailPort {
     previousInspectionTime: Date | null;
   }): Promise<void> {
     if (params.adminEmails.length === 0) return;
-    const company = await this.companyLookup.getCompanyInfo();
+    const company = await this.resolveCompany();
     await this.deliver(
       params.adminEmails,
       `🔄 Appointment Rescheduled Alert: ${params.appointment.firstName} ${params.appointment.lastName}`,
@@ -254,7 +283,7 @@ export class ResendAppointmentEmailAdapter implements IEmailPort {
     appointment: AppointmentEmailData;
   }): Promise<void> {
     if (params.adminEmails.length === 0) return;
-    const company = await this.companyLookup.getCompanyInfo();
+    const company = await this.resolveCompany();
     await this.deliver(
       params.adminEmails,
       `❌ Appointment Cancelled Alert: ${params.appointment.firstName} ${params.appointment.lastName}`,

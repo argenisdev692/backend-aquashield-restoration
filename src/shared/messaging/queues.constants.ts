@@ -5,14 +5,13 @@
  * using one of these names — never hardcode the string at the call site.
  */
 export const QUEUE_NAMES = {
-  EMAIL: 'email',
   /**
-   * Dedicated queue for auth transactional emails (OTP, verification,
-   * password reset, suspicious-activity alerts, 2FA notifications).
-   * Kept separate from the generic EMAIL queue so a backlog on marketing /
-   * notification emails cannot delay a login OTP.
+   * Single queue for ALL transactional emails (auth OTP/verification/reset,
+   * appointment notifications, contact-support, retell call alerts, …).
+   * Senders enqueue an already-rendered `{ to, subject, html }` job; the shared
+   * `EmailProcessor` delivers it through the transport + circuit breaker.
    */
-  AUTH_EMAIL: 'auth-email',
+  EMAIL: 'email',
   EXPORT: 'export',
   NOTIFICATIONS: 'notifications',
   AI_GENERATION: 'ai-generation',

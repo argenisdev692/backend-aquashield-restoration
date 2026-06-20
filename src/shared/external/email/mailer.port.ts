@@ -14,4 +14,15 @@ export interface IMailer {
   send(params: SendMailParams): Promise<SendMailResult>;
 }
 
+/**
+ * Public token every consumer injects. Bound to the {@link QueuedMailerAdapter}
+ * so all outbound mail flows through the shared BullMQ `email` queue.
+ */
 export const MAILER = Symbol('IMailer');
+
+/**
+ * Low-level transport token (Resend in prod, Console in dev). Injected ONLY by
+ * code that runs INSIDE a queue worker (`EmailProcessor`) — it must deliver
+ * directly, never re-enqueue. Application code MUST use {@link MAILER} instead.
+ */
+export const MAILER_TRANSPORT = Symbol('IMailerTransport');

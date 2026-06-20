@@ -1,33 +1,33 @@
-import { InjectQueue } from '@nestjs/bullmq';
-import { Injectable } from '@nestjs/common';
-import { Queue } from 'bullmq';
+import { Inject, Injectable } from '@nestjs/common';
 import { LoggerService } from '../../../../logger/logger.service';
-import { QUEUE_NAMES } from '../../../../shared/messaging/queues.constants';
+import { CompanyBrandingService } from '../../../companydata/company-branding.service';
+import {
+  MAILER,
+  type IMailer,
+} from '../../../../shared/external/email/mailer.port';
 import type { IAuthEmailService } from '../../domain/ports/auth-email.port';
-import type {
-  AuthEmailJob,
-  AuthEmailJobKind,
-} from '../jobs/auth-email-job.types';
+import { AuthEmailRenderer } from './auth-email-renderer.service';
+import type { AuthEmailJob } from '../jobs/auth-email-job.types';
 
 /**
- * `IAuthEmailService` implementation that simply ENQUEUES the email — the
- * actual rendering + delivery happens in `AuthEmailProcessor` so:
- *   - the user's HTTP request returns in <10 ms even when Resend is slow,
- *   - failures are retried by BullMQ with exponential backoff,
+ * `IAuthEmailService` implementation that renders the transactional email and
+ * hands it to the shared {@link IMailer} (`MAILER`), which enqueues it onto the
+ * general `email` BullMQ queue. So:
+ *   - the user's HTTP request returns immediately even when Resend is slow,
+ *   - failures are retried by BullMQ with exponential backoff (in EmailProcessor),
  *   - delivery is wrapped in the shared circuit breaker (profile 'email'),
  *   - a Resend outage cannot cascade and lock up the auth flow.
  *
- * Job options:
- *  - `name = job.kind` so the dashboard groups by category
- *  - `removeOnComplete`: short TTL — these jobs are personal data
- *  - `attempts: 5` with exponential backoff (queue-level default is 3, but
- *    these are safety-critical so a fifth attempt is cheap)
+ * Rendering happens here (cheap, synchronous string building) so the queue
+ * carries the generic, already-rendered `{ to, subject, html }` payload like
+ * every other module — no auth-specific queue or processor.
  */
 @Injectable()
 export class QueuedAuthEmailAdapter implements IAuthEmailService {
   constructor(
-    @InjectQueue(QUEUE_NAMES.AUTH_EMAIL)
-    private readonly queue: Queue<AuthEmailJob>,
+    @Inject(MAILER) private readonly mailer: IMailer,
+    private readonly renderer: AuthEmailRenderer,
+    private readonly branding: CompanyBrandingService,
     private readonly logger: LoggerService,
   ) {
     this.logger.setContext(QueuedAuthEmailAdapter.name);
@@ -179,16 +179,14 @@ export class QueuedAuthEmailAdapter implements IAuthEmailService {
 
   private async enqueue(job: AuthEmailJob): Promise<void> {
     try {
-      await this.queue.add(job.kind satisfies AuthEmailJobKind, job, {
-        attempts: 5,
-        backoff: { type: 'exponential', delay: 2000 },
-        removeOnComplete: { age: 3600, count: 500 },
-        removeOnFail: { age: 24 * 3600 },
-      });
+      const companyName = await this.branding.getCompanyName();
+      const rendered = this.renderer.render(job, companyName);
+      // MAILER (QueuedMailerAdapter) enqueues onto the general `email` queue.
+      await this.mailer.send(rendered);
     } catch (err) {
-      // Enqueue failure is a real problem (Redis down) — log but never throw
-      // to the caller; the auth flow must keep working.
-      this.logger.error('Failed to enqueue auth email job', {
+      // Never throw to the caller — the auth flow must keep working even if
+      // rendering or enqueue fails.
+      this.logger.error('Failed to dispatch auth email', {
         kind: job.kind,
         error: (err as Error).message,
       });

@@ -13,15 +13,23 @@ import type { AuthEmailJob } from '../jobs/auth-email-job.types';
  */
 @Injectable()
 export class AuthEmailRenderer {
-  private readonly appName: string;
   private readonly appUrl: string;
+  /** Brand name for the current render. Set per-call from CompanyData/env. */
+  private appName = '';
 
   constructor(config: ConfigService) {
-    this.appName = 'Aquashield Restoration LLC';
     this.appUrl = config.get<string>('APP_URL', 'http://localhost:4200');
   }
 
-  render(job: AuthEmailJob): { to: string; subject: string; html: string } {
+  /**
+   * @param companyName resolved brand name (CompanyData singleton, or the
+   *   `COMPANY_NAME` env fallback) — never hardcoded in this renderer.
+   */
+  render(
+    job: AuthEmailJob,
+    companyName: string,
+  ): { to: string; subject: string; html: string } {
+    this.appName = companyName;
     switch (job.kind) {
       case 'email_verification':
         return {

@@ -1,9 +1,9 @@
 import { Inject, Injectable } from '@nestjs/common';
 import { Transactional } from '@nestjs-cls/transactional';
-import { ConfigService } from '@nestjs/config';
 import { toDataURL as qrToDataUrl } from 'qrcode';
 import { ClsService } from 'nestjs-cls';
 import { LoggerService } from '../../../../logger/logger.service';
+import { CompanyBrandingService } from '../../../companydata/company-branding.service';
 import { CLS_KEYS } from '../../../../shared/cls/cls.constants';
 import {
   AUDIT_PORT,
@@ -37,19 +37,16 @@ export interface SetupTotpResult {
  */
 @Injectable()
 export class SetupTotpUseCase {
-  private readonly issuer: string;
-
   constructor(
     @Inject(USER_ACCOUNT_REPOSITORY)
     private readonly accounts: IUserAccountRepository,
     @Inject(TOTP_SERVICE) private readonly totp: ITotpService,
     @Inject(AUDIT_PORT) private readonly audit: IAuditPort,
-    config: ConfigService,
+    private readonly branding: CompanyBrandingService,
     private readonly cls: ClsService,
     private readonly logger: LoggerService,
   ) {
     this.logger.setContext(SetupTotpUseCase.name);
-    this.issuer = config.get<string>('APP_URL', 'AquaShield CRM');
   }
 
   @Transactional()
@@ -67,10 +64,14 @@ export class SetupTotpUseCase {
     account.startTwoFactorSetup(secret);
     await this.accounts.save(account);
 
+    // Issuer label shown in the authenticator app — the company brand
+    // (CompanyData singleton, COMPANY_NAME env fallback), never a hardcoded
+    // brand. Resolved per-execution so a renamed company propagates.
+    const issuer = await this.branding.getCompanyName();
     const otpAuthUri = this.totp.buildOtpAuthUri({
       secret: secretRaw,
       accountName: account.email.value,
-      issuer: this.issuer,
+      issuer,
     });
     const qrCodeDataUrl = await qrToDataUrl(otpAuthUri, {
       errorCorrectionLevel: 'M',

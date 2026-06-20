@@ -5,7 +5,6 @@
  * cases per operation. No CommandBus / QueryBus is registered. Domain
  * events are dispatched via `EventEmitter2` (per project rules).
  */
-import { BullModule } from '@nestjs/bullmq';
 import { Module } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { EventEmitterModule } from '@nestjs/event-emitter';
@@ -17,7 +16,6 @@ import { PassportModule } from '@nestjs/passport';
 // re-importing. StorageModule is NOT global so we import it explicitly
 // (needed for the profile-photo upload).
 import { StorageModule } from '../../shared/storage/storage.module';
-import { QUEUE_NAMES } from '../../shared/messaging/queues.constants';
 import {
   PERMISSION_REPOSITORY,
   PrismaPermissionRepository,
@@ -70,7 +68,6 @@ import { GoogleOAuthAdapter } from './infrastructure/adapters/google-oauth.adapt
 import { RedisRateLimiterAdapter } from './infrastructure/adapters/redis-rate-limiter.adapter';
 import { QueuedAuthEmailAdapter } from './infrastructure/adapters/queued-auth-email.adapter';
 import { AuthEmailRenderer } from './infrastructure/adapters/auth-email-renderer.service';
-import { AuthEmailProcessor } from './infrastructure/jobs/auth-email.processor';
 
 // Guards
 import { TwoFactorRequiredGuard } from './infrastructure/guards/two-factor-required.guard';
@@ -104,7 +101,6 @@ import { AUTH_RATE_LIMITER } from './domain/ports/rate-limiter.port';
     }),
     EventEmitterModule,
     StorageModule,
-    BullModule.registerQueue({ name: QUEUE_NAMES.AUTH_EMAIL }),
   ],
   controllers: [
     AuthController,
@@ -155,7 +151,6 @@ import { AUTH_RATE_LIMITER } from './domain/ports/rate-limiter.port';
     RedisRateLimiterAdapter,
     AuthEmailRenderer,
     QueuedAuthEmailAdapter,
-    AuthEmailProcessor,
 
     // Local copy of PrismaPermissionRepository (CoreModule does not export it).
     PrismaPermissionRepository,

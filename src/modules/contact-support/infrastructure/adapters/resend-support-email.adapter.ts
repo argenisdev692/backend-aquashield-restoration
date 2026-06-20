@@ -1,6 +1,7 @@
 import { Inject, Injectable } from '@nestjs/common';
 import { ClsService } from 'nestjs-cls';
 import { LoggerService } from '../../../../logger/logger.service';
+import { CompanyBrandingService } from '../../../companydata/company-branding.service';
 import { escapeHtml } from '../../../../shared/external/email/email-html.util';
 import { MAILER } from '../../../../shared/external/email/mailer.port';
 import type { IMailer } from '../../../../shared/external/email/mailer.port';
@@ -17,6 +18,7 @@ import type { ISupportEmailPort } from '../../domain/ports/support-email.port';
 export class ResendSupportEmailAdapter implements ISupportEmailPort {
   constructor(
     @Inject(MAILER) private readonly mailer: IMailer,
+    private readonly branding: CompanyBrandingService,
     private readonly logger: LoggerService,
     private readonly cls: ClsService,
   ) {
@@ -33,6 +35,7 @@ export class ResendSupportEmailAdapter implements ISupportEmailPort {
     message: string;
   }): Promise<void> {
     const traceId = this.cls.get<string>('traceId');
+    const companyName = escapeHtml(await this.branding.getCompanyName());
 
     const safe = {
       fromName: escapeHtml(params.fromName),
@@ -69,7 +72,7 @@ export class ResendSupportEmailAdapter implements ISupportEmailPort {
           ${safe.message}
         </div>
         <hr style="margin: 20px 0; border: none; border-top: 1px solid #e2e8f0;" />
-        <p style="color: #6b7280; font-size: 12px;">Aquashield Restoration LLC</p>
+        <p style="color: #6b7280; font-size: 12px;">${companyName}</p>
       </div>
     `;
 
@@ -99,6 +102,7 @@ export class ResendSupportEmailAdapter implements ISupportEmailPort {
     subject: string;
   }): Promise<void> {
     const traceId = this.cls.get<string>('traceId');
+    const companyName = escapeHtml(await this.branding.getCompanyName());
 
     const safe = {
       toName: escapeHtml(params.toName),
@@ -114,7 +118,7 @@ export class ResendSupportEmailAdapter implements ISupportEmailPort {
           you shortly. Thank you for reaching out.
         </p>
         <hr style="margin: 20px 0; border: none; border-top: 1px solid #e2e8f0;" />
-        <p style="color: #6b7280; font-size: 12px;">Aquashield Restoration LLC</p>
+        <p style="color: #6b7280; font-size: 12px;">${companyName}</p>
       </div>
     `;
 
