@@ -39,6 +39,7 @@ export const AppointmentResponseSchema = z.object({
   createdAt: z.string().datetime(),
   updatedAt: z.string().datetime(),
   deletedAt: z.string().datetime().nullable(),
+  status: z.enum(['active', 'suspended']),
 });
 
 export class AppointmentResponse extends createZodDto(

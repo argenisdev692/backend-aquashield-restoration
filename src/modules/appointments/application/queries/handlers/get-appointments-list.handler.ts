@@ -37,6 +37,7 @@ export class GetAppointmentsListHandler implements IQueryHandler<GetAppointments
       page: query.dto.page,
       limit: query.dto.limit,
       trashed: resolveTrashedMode({
+        status: query.dto.status,
         withTrashed: query.dto.withTrashed,
         onlyTrashed: query.dto.onlyTrashed,
       }),

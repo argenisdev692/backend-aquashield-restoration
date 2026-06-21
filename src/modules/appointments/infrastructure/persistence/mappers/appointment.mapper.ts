@@ -6,6 +6,7 @@ import { Email } from '../../../domain/value-objects/email.vo';
 import { $Enums, Prisma } from '../../../../../generated/prisma/client';
 import type { Appointment as AppointmentRow } from '../../../../../generated/prisma/client';
 import { AppointmentReadModel } from '../../../domain/repositories/appointment-repository.interface';
+import { entityStatus } from '../../../../../shared/crud/trashed.util';
 
 export class AppointmentMapper {
   static toDomain(row: AppointmentRow): Appointment {
@@ -135,6 +136,7 @@ export class AppointmentMapper {
       createdAt: row.createdAt.toISOString(),
       updatedAt: row.updatedAt.toISOString(),
       deletedAt: row.deletedAt?.toISOString() ?? null,
+      status: entityStatus(row.deletedAt),
     };
   }
 }

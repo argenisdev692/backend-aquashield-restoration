@@ -46,11 +46,13 @@ const activeReadModel: AppointmentReadModel = {
   createdAt: new Date().toISOString(),
   updatedAt: new Date().toISOString(),
   deletedAt: null,
+  status: 'active',
 };
 
 const suspendedReadModel: AppointmentReadModel = {
   ...activeReadModel,
   deletedAt: '2026-05-01T10:00:00.000Z',
+  status: 'suspended',
 };
 
 describe('GetAppointmentByIdHandler — withTrashed', () => {

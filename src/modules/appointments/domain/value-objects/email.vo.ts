@@ -1,3 +1,5 @@
+import { AppointmentDomainException } from '../exceptions/appointment-domain.exception';
+
 export class Email {
   private constructor(public readonly value: string | null) {}
 
@@ -7,11 +9,11 @@ export class Email {
     }
     const email = value.trim();
     if (email.length > 255) {
-      throw new Error('Email cannot exceed 255 characters');
+      throw new AppointmentDomainException('Email cannot exceed 255 characters');
     }
     const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
     if (!emailRegex.test(email)) {
-      throw new Error('Invalid email format');
+      throw new AppointmentDomainException('Invalid email format');
     }
     return new Email(email);
   }

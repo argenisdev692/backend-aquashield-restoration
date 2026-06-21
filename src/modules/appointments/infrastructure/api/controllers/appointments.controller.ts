@@ -143,6 +143,13 @@ export class AppointmentsController {
       'Filter appointments created on or before this date (inclusive). Format: YYYY-MM-DD.',
   })
   @ApiQuery({
+    name: 'status',
+    required: false,
+    enum: ['active', 'suspended', 'all'],
+    description:
+      'Canonical soft-delete filter. `active` (default) = alive, `suspended` = soft-deleted (requires `Action.Restore`), `all` = both. Cannot be combined with `withTrashed`/`onlyTrashed`.',
+  })
+  @ApiQuery({
     name: 'withTrashed',
     required: false,
     type: Boolean,
@@ -161,7 +168,10 @@ export class AppointmentsController {
     @Query() query: AppointmentFiltersDto,
     @CurrentUser() user: AuthenticatedUser,
   ): Promise<PaginatedResult<AppointmentReadModel>> {
-    await this.assertCanReadTrash(query.onlyTrashed, user);
+    await this.assertCanReadTrash(
+      Boolean(query.onlyTrashed) || query.status === 'suspended',
+      user,
+    );
     const range = resolveDateRange({
       start_date: query.start_date,
       end_date: query.end_date,
@@ -202,6 +212,13 @@ export class AppointmentsController {
   @ApiQuery({ name: 'country', required: false, type: String })
   @ApiQuery({ name: 'owner', required: false, type: String })
   @ApiQuery({
+    name: 'status',
+    required: false,
+    enum: ['active', 'suspended', 'all'],
+    description:
+      'Canonical soft-delete filter. `active` (default) = alive, `suspended` = soft-deleted (requires `Action.Restore`), `all` = both. Cannot be combined with `withTrashed`/`onlyTrashed`.',
+  })
+  @ApiQuery({
     name: 'withTrashed',
     required: false,
     type: Boolean,
@@ -237,7 +254,10 @@ export class AppointmentsController {
     @CurrentUser() user: AuthenticatedUser,
     @Res({ passthrough: true }) res: Response,
   ): Promise<StreamableFile> {
-    await this.assertCanReadTrash(query.onlyTrashed, user);
+    await this.assertCanReadTrash(
+      Boolean(query.onlyTrashed) || query.status === 'suspended',
+      user,
+    );
     const range = resolveDateRange({
       start_date: query.start_date,
       end_date: query.end_date,
@@ -259,20 +279,26 @@ export class AppointmentsController {
   @CheckAbilities({ action: Action.Read, subject: 'APPOINTMENT' })
   @ApiOkResponse({ type: AppointmentResponse })
   @ApiNotFoundResponse()
+  @ApiForbiddenResponse({
+    description: '`withTrashed=true` requires `Action.Restore`',
+  })
   @ApiParam({ name: 'id', type: String, format: 'uuid' })
   @ApiQuery({
     name: 'withTrashed',
     required: false,
     type: Boolean,
     description:
-      'When `true`, return the appointment even if it has been soft-deleted. Without it, soft-deleted rows yield 404.',
+      'When `true`, return the appointment even if it has been soft-deleted (requires `Action.Restore`). Without it, soft-deleted rows yield 404.',
   })
   @CacheTTL(TTL_SECONDS.SHORT)
   async findOne(
     @Param('id', ParseUUIDPipe) id: string,
+    @CurrentUser() user: AuthenticatedUser,
     @Query('withTrashed') withTrashedRaw?: string,
   ): Promise<AppointmentReadModel> {
     const withTrashed = withTrashedRaw === 'true';
+    // Revealing a soft-deleted row by id requires `Action.Restore`.
+    await this.assertCanReadTrash(withTrashed, user);
     return this.queryBus.execute(new GetAppointmentByIdQuery(id, withTrashed));
   }
 
@@ -368,14 +394,15 @@ export class AppointmentsController {
   }
 
   /**
-   * Enumerating tombstoned rows requires `Action.Restore` (not `Action.Read`)
-   * so the standard read role cannot pivot through `?onlyTrashed=true`.
+   * Reading tombstoned rows requires `Action.Restore` (not `Action.Read`) so
+   * the standard read role cannot pivot through `?onlyTrashed=true`,
+   * `?status=suspended`, or a `:id?withTrashed=true` lookup.
    */
   private async assertCanReadTrash(
-    onlyTrashed: boolean | undefined,
+    wantsTrashed: boolean,
     user: AuthenticatedUser,
   ): Promise<void> {
-    if (!onlyTrashed) return;
+    if (!wantsTrashed) return;
     const ability = await this.abilityFactory.createForUser(user);
     if (!ability.can(Action.Restore, 'APPOINTMENT')) {
       throw new ForbiddenException('Insufficient permissions');

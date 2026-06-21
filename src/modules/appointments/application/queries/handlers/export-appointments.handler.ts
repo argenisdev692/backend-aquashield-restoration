@@ -125,6 +125,7 @@ export class ExportAppointmentsHandler implements IQueryHandler<ExportAppointmen
       country: dto.country,
       owner: dto.owner,
       trashed: resolveTrashedMode({
+        status: dto.status,
         withTrashed: dto.withTrashed,
         onlyTrashed: dto.onlyTrashed,
       }),

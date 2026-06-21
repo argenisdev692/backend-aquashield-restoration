@@ -36,6 +36,8 @@ export interface AppointmentReadModel {
   createdAt: string;
   updatedAt: string;
   deletedAt: string | null;
+  /** Derived soft-delete badge: `active` when `deletedAt` is null. */
+  status: 'active' | 'suspended';
 }
 
 export interface AppointmentFilters {
