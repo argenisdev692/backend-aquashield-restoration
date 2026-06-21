@@ -17,6 +17,7 @@ import {
   sheetEscape,
 } from '../../../../../shared/export/export.util';
 import { resolveDateRange } from '../../../../../shared/crud/date-range.util';
+import { CompanyBrandingService } from '../../../../companydata/company-branding.service';
 import type { SocialMediaGeneration } from '../../../domain/entities/social-media-generation.entity';
 import ExcelJS from 'exceljs';
 import PDFDocument from 'pdfkit';
@@ -60,6 +61,7 @@ export class ExportSocialMediaHandler implements ICommandHandler<ExportSocialMed
     private readonly logger: LoggerService,
     private readonly cls: NestClsService,
     private readonly eventEmitter: EventEmitter2,
+    private readonly branding: CompanyBrandingService,
   ) {
     this.logger.setContext(ExportSocialMediaHandler.name);
   }
@@ -146,7 +148,7 @@ export class ExportSocialMediaHandler implements ICommandHandler<ExportSocialMed
     rows: SocialMediaGeneration[],
   ): Promise<ExportSocialMediaResult> {
     const wb = new ExcelJS.Workbook();
-    wb.creator = 'Aquashield Restoration LLC';
+    wb.creator = this.branding.getFallbackName();
     wb.created = new Date();
 
     const sheet = wb.addWorksheet('SocialMedia');

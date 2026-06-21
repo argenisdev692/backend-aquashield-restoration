@@ -5,7 +5,7 @@ import { Resend } from 'resend';
 import { LoggerService } from '../../../logger/logger.service';
 import type { IMailer } from './mailer.port';
 import type { SendMailParams, SendMailResult } from './mailer.types';
-import { sanitizeRecipients } from './email-html.util';
+import { resolveRecipientsOrSkip } from './mailer-recipients';
 
 /**
  * Resend implementation of {@link IMailer}.
@@ -40,18 +40,11 @@ export class ResendMailerAdapter implements IMailer, OnModuleInit {
 
   async send(params: SendMailParams): Promise<SendMailResult> {
     const traceId = this.cls.get<string>('traceId');
-    const recipients = sanitizeRecipients(params.to);
-
-    if (recipients.length === 0) {
-      this.logger.info(
-        'Mailer skip — all recipients filtered (empty or example.com)',
-        {
-          traceId,
-          subject: params.subject,
-        },
-      );
-      return { delivered: false, skipped: true };
+    const resolution = resolveRecipientsOrSkip(params, this.logger, traceId);
+    if ('skip' in resolution) {
+      return resolution.skip;
     }
+    const { recipients } = resolution;
 
     const { error } = await this.resend.emails.send({
       from: this.from,

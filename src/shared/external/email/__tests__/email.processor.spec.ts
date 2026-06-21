@@ -1,9 +1,9 @@
 import { Test, TestingModule } from '@nestjs/testing';
 import { Job } from 'bullmq';
 
-// Pass-through policy: no real retry/backoff so the failure test stays fast.
+// Pass-through policy: no real breaker so the failure test stays fast.
 jest.mock('../../resilience', () => ({
-  createExternalServicePolicy: () => ({
+  createCircuitBreakerOnlyPolicy: () => ({
     execute: (fn: () => unknown) => fn(),
   }),
 }));

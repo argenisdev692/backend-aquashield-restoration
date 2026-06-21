@@ -23,6 +23,7 @@ describe('ExportCampaignExportsHandler', () => {
       audit,
       logger as any,
       cls as any,
+      { getFallbackName: () => 'Company' } as any,
     );
   });
 

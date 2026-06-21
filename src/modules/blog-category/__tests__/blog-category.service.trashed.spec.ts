@@ -77,6 +77,7 @@ const makeService = (repo: ReturnType<typeof makeRepo>) =>
     cls as never,
     audit,
     tx as never,
+    { getFallbackName: () => 'Company' } as never,
   );
 
 describe('BlogCategoryService — trashed semantics', () => {

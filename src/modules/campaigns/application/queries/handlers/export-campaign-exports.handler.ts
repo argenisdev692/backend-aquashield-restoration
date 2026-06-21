@@ -17,6 +17,7 @@ import {
   sheetEscape,
 } from '../../../../../shared/export/export.util';
 import { resolveDateRange } from '../../../../../shared/crud/date-range.util';
+import { CompanyBrandingService } from '../../../../companydata/company-branding.service';
 
 const COLUMNS = [
   { header: 'id', key: 'id', width: 38 },
@@ -84,6 +85,7 @@ export class ExportCampaignExportsHandler implements IQueryHandler<
     private readonly audit: IAuditPort,
     private readonly logger: LoggerService,
     private readonly cls: ClsService,
+    private readonly branding: CompanyBrandingService,
   ) {
     this.logger.setContext(ExportCampaignExportsHandler.name);
   }
@@ -173,7 +175,7 @@ export class ExportCampaignExportsHandler implements IQueryHandler<
     rows: Awaited<ReturnType<ICampaignGenerationRepository['findForExport']>>,
   ): Promise<CampaignExportFileResult> {
     const wb = new ExcelJS.Workbook();
-    wb.creator = 'Aquashield Restoration LLC';
+    wb.creator = this.branding.getFallbackName();
     wb.created = new Date();
 
     const sheet = wb.addWorksheet('CampaignExports');

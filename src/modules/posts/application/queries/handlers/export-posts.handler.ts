@@ -22,6 +22,7 @@ import {
   csvEscape,
   sheetEscape,
 } from '../../../../../shared/export/export.util';
+import { CompanyBrandingService } from '../../../../companydata/company-branding.service';
 
 const COLUMNS = [
   { header: 'id', key: 'id', width: 38 },
@@ -78,6 +79,7 @@ export class ExportPostsHandler implements IQueryHandler<ExportPostsQuery> {
     @Inject(AUDIT_PORT) private readonly audit: IAuditPort,
     private readonly logger: LoggerService,
     private readonly cls: ClsService,
+    private readonly branding: CompanyBrandingService,
   ) {
     this.logger.setContext(ExportPostsHandler.name);
   }
@@ -156,7 +158,7 @@ export class ExportPostsHandler implements IQueryHandler<ExportPostsQuery> {
 
   private async buildXlsx(rows: PostReadModel[]): Promise<ExportPostsResult> {
     const wb = new ExcelJS.Workbook();
-    wb.creator = 'Aquashield Restoration LLC';
+    wb.creator = this.branding.getFallbackName();
     wb.created = new Date();
 
     const sheet = wb.addWorksheet('Posts');

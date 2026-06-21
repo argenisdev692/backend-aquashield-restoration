@@ -5,8 +5,8 @@ import { Queue } from 'bullmq';
 import { ClsService } from 'nestjs-cls';
 import { LoggerService } from '../../../logger/logger.service';
 import { QUEUE_NAMES } from '../../messaging/queues.constants';
-import { sanitizeRecipients } from './email-html.util';
 import { EMAIL_JOB_NAME, type EmailJob } from './email-job.types';
+import { resolveRecipientsOrSkip } from './mailer-recipients';
 import { MAILER_TRANSPORT, type IMailer } from './mailer.port';
 import type { SendMailParams, SendMailResult } from './mailer.types';
 
@@ -48,15 +48,11 @@ export class QueuedMailerAdapter implements IMailer {
 
   async send(params: SendMailParams): Promise<SendMailResult> {
     const traceId = this.cls.get<string>('traceId');
-    const recipients = sanitizeRecipients(params.to);
-
-    if (recipients.length === 0) {
-      this.logger.info(
-        'Mailer skip — all recipients filtered (empty or example.com)',
-        { traceId, subject: params.subject },
-      );
-      return { delivered: false, skipped: true };
+    const resolution = resolveRecipientsOrSkip(params, this.logger, traceId);
+    if ('skip' in resolution) {
+      return resolution.skip;
     }
+    const { recipients } = resolution;
 
     if (!this.queueEnabled) {
       return this.transport.send(params);

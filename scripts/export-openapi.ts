@@ -23,8 +23,9 @@ import { AppModule } from '../src/app.module';
 async function exportOpenApi() {
 
   const app = await NestFactory.create(AppModule);
+  const companyName = process.env.COMPANY_NAME ?? 'Company';
   const swaggerConfig = new DocumentBuilder()
-    .setTitle('Aquashield Restoration LLC API')
+    .setTitle(`${companyName} API`)
     .setDescription('REST API — OpenAPI 3.0')
     .setVersion('1.0')
     .addBearerAuth({

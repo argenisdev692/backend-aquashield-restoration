@@ -5,5 +5,8 @@
  * Never leak cockatiel types or internal config outside this folder.
  */
 
-export { createExternalServicePolicy } from './resilience.factory';
+export {
+  createExternalServicePolicy,
+  createCircuitBreakerOnlyPolicy,
+} from './resilience.factory';
 export type { ExternalServiceProfile } from './resilience.types';

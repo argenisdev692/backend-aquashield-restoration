@@ -11,6 +11,7 @@ import {
   type IAuditPort,
 } from '../../domain/ports/outbound/audit.port.interface';
 import { LoggerService } from '../../../../logger/logger.service';
+import { CompanyBrandingService } from '../../../companydata/company-branding.service';
 
 describe('ExportAppointmentsHandler — trashed semantics', () => {
   let handler: ExportAppointmentsHandler;
@@ -49,6 +50,10 @@ describe('ExportAppointmentsHandler — trashed semantics', () => {
         {
           provide: ClsService,
           useValue: { get: jest.fn().mockReturnValue('trace-id') },
+        },
+        {
+          provide: CompanyBrandingService,
+          useValue: { getFallbackName: () => 'Company' },
         },
       ],
     }).compile();

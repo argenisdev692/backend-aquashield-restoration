@@ -44,6 +44,7 @@ import {
   TRANSACTION_MANAGER,
   type ITransactionManager,
 } from '../../../../shared/database/transaction-manager.port';
+import { CompanyBrandingService } from '../../../companydata/company-branding.service';
 
 // Score thresholds from AI MODULES prompt
 const SCORE_THRESHOLDS = {
@@ -169,6 +170,7 @@ export class SocialMediaGenerationProcessor extends WorkerHost {
     private readonly cls: ClsService,
     private readonly eventEmitter: EventEmitter2,
     private readonly gateway: SocialMediaGateway,
+    private readonly branding: CompanyBrandingService,
   ) {
     super();
     this.logger.setContext(SocialMediaGenerationProcessor.name);
@@ -355,7 +357,7 @@ export class SocialMediaGenerationProcessor extends WorkerHost {
         .font('Helvetica')
         .fillColor('#94a3b8')
         .text(
-          `Generation ID: ${input.generationId}  ·  Aquashield Restoration LLC Social Media Engine`,
+          `Generation ID: ${input.generationId}  ·  ${this.branding.getFallbackName()} Social Media Engine`,
           { align: 'center' },
         )
         .fillColor('#000');

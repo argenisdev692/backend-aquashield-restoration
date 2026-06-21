@@ -6,7 +6,7 @@ import { ClsService } from 'nestjs-cls';
 import { LoggerService } from '../../../logger/logger.service';
 import { QUEUE_NAMES } from '../../messaging/queues.constants';
 import {
-  createExternalServicePolicy,
+  createCircuitBreakerOnlyPolicy,
   type ExternalServiceProfile,
 } from '../resilience';
 import type { EmailJob } from './email-job.types';
@@ -17,15 +17,16 @@ const POLICY_PROFILE: ExternalServiceProfile = 'email';
 /**
  * Consumes the shared `email` BullMQ queue. For each job it delivers the
  * already-rendered HTML through the low-level transport ({@link IMailer}
- * bound to {@link MAILER_TRANSPORT}) wrapped in the
- * `createExternalServicePolicy('email', 'email')` retry + circuit-breaker
- * policy.
+ * bound to {@link MAILER_TRANSPORT}) wrapped in a circuit-breaker-ONLY policy
+ * (`createCircuitBreakerOnlyPolicy('email', 'email')`).
  *
- * Two layers of protection:
- *   - BullMQ handles job-level retries with exponential backoff.
- *   - The cockatiel circuit breaker short-circuits subsequent attempts during
- *     a provider outage (N consecutive failures) so we stop hammering it; the
- *     breaker re-tests after `halfOpenAfterMs`.
+ * Retries are owned by ONE layer only — BullMQ's job-level `attempts` +
+ * exponential `backoff`. We deliberately do NOT use the inner cockatiel retry
+ * here: stacking it on top of BullMQ's attempts would multiply provider calls
+ * per email. The breaker still short-circuits subsequent attempts during a
+ * provider outage (N consecutive failures) so we stop hammering it; it
+ * re-tests after `halfOpenAfterMs`. The instance is built once in the
+ * constructor so its consecutive-failure state persists across jobs.
  *
  * Re-throwing on failure triggers the queue-level backoff.
  */
@@ -41,7 +42,7 @@ export class EmailProcessor extends WorkerHost {
   ) {
     super();
     this.logger.setContext(EmailProcessor.name);
-    this.policy = createExternalServicePolicy('email', POLICY_PROFILE);
+    this.policy = createCircuitBreakerOnlyPolicy('email', POLICY_PROFILE);
   }
 
   process(job: Job<EmailJob>): Promise<void> {

@@ -15,6 +15,7 @@ import { STORAGE_PORT } from '../../../../../shared/storage/storage.port';
 import { TRANSACTION_MANAGER } from '../../../../../shared/database/transaction-manager.port';
 import { LoggerService } from '../../../../../logger/logger.service';
 import { SocialMediaGateway } from '../../../infrastructure/gateways/social-media.gateway';
+import { CompanyBrandingService } from '../../../../companydata/company-branding.service';
 
 describe('SocialMediaGenerationProcessor', () => {
   let processor: SocialMediaGenerationProcessor;
@@ -156,6 +157,10 @@ describe('SocialMediaGenerationProcessor', () => {
         },
         { provide: EventEmitter2, useValue: { emit: jest.fn() } },
         { provide: SocialMediaGateway, useValue: mockGateway },
+        {
+          provide: CompanyBrandingService,
+          useValue: { getFallbackName: () => 'Company' },
+        },
       ],
     }).compile();
 

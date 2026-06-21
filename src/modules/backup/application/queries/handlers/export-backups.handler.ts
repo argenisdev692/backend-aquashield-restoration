@@ -10,6 +10,7 @@ import {
   csvEscape,
   sheetEscape,
 } from '../../../../../shared/export/export.util';
+import { CompanyBrandingService } from '../../../../companydata/company-branding.service';
 import type { IBackupRepository } from '../../../domain/ports/backup.repository.interface';
 import { BACKUP_REPOSITORY } from '../../../domain/ports/backup.repository.interface';
 import type { BackupReadModel } from '../../../domain/read-models/backup.read-model';
@@ -60,6 +61,7 @@ export class ExportBackupsHandler implements IQueryHandler<ExportBackupsQuery> {
     @Inject(AUDIT_PORT) private readonly audit: IAuditPort,
     private readonly logger: LoggerService,
     private readonly cls: ClsService,
+    private readonly branding: CompanyBrandingService,
   ) {
     this.logger.setContext(ExportBackupsHandler.name);
   }
@@ -125,7 +127,7 @@ export class ExportBackupsHandler implements IQueryHandler<ExportBackupsQuery> {
     rows: BackupReadModel[],
   ): Promise<ExportBackupsResult> {
     const wb = new ExcelJS.Workbook();
-    wb.creator = 'Aquashield Restoration LLC';
+    wb.creator = this.branding.getFallbackName();
     wb.created = new Date();
 
     const sheet = wb.addWorksheet('Backups');

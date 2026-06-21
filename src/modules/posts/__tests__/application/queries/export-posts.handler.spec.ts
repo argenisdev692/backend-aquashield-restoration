@@ -11,6 +11,7 @@ import {
   type IAuditPort,
 } from '../../../../../shared/activity-log/audit.port';
 import { LoggerService } from '../../../../../logger/logger.service';
+import { CompanyBrandingService } from '../../../../companydata/company-branding.service';
 
 describe('ExportPostsHandler', () => {
   let handler: ExportPostsHandler;
@@ -49,6 +50,10 @@ describe('ExportPostsHandler', () => {
         {
           provide: ClsService,
           useValue: { get: jest.fn().mockReturnValue('trace-id') },
+        },
+        {
+          provide: CompanyBrandingService,
+          useValue: { getFallbackName: () => 'Company' },
         },
       ],
     }).compile();

@@ -69,7 +69,7 @@ async function bootstrap(): Promise<void> {
 
   if (config.get<boolean>('SWAGGER_ENABLED')) {
     const swaggerConfig = new DocumentBuilder()
-      .setTitle('Aquashield Restoration LLC API')
+      .setTitle(`${config.get<string>('COMPANY_NAME', 'Company')} API`)
       .setDescription('REST API — OpenAPI 3.0')
       .setVersion('1.0')
       .addBearerAuth({

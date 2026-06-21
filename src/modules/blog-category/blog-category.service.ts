@@ -32,6 +32,7 @@ import {
   type DateRange,
 } from '../../shared/crud/date-range.util';
 import { csvEscape, sheetEscape } from '../../shared/export/export.util';
+import { CompanyBrandingService } from '../companydata/company-branding.service';
 
 @Injectable()
 export class BlogCategoryService {
@@ -47,6 +48,7 @@ export class BlogCategoryService {
     private readonly cls: ClsService,
     @Inject(AUDIT_PORT) private readonly audit: IAuditPort,
     @Inject(TRANSACTION_MANAGER) private readonly tx: ITransactionManager,
+    private readonly branding: CompanyBrandingService,
   ) {
     this.logger.setContext(BlogCategoryService.name);
   }
@@ -474,7 +476,7 @@ export class BlogCategoryService {
     timestamp: string,
   ): Promise<{ buffer: Buffer; filename: string; contentType: string }> {
     const wb = new ExcelJS.Workbook();
-    wb.creator = 'Aquashield Restoration LLC';
+    wb.creator = this.branding.getFallbackName();
     wb.created = new Date();
 
     const sheet = wb.addWorksheet('BlogCategories');

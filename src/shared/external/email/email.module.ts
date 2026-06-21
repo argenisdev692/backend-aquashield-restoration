@@ -59,6 +59,6 @@ const mailerProvider: Provider = {
     mailerProvider,
     EmailProcessor,
   ],
-  exports: [MAILER, MAILER_TRANSPORT],
+  exports: [MAILER],
 })
 export class EmailModule {}

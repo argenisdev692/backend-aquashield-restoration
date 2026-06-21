@@ -29,6 +29,7 @@ import {
   type TrashedMode,
 } from '../../shared/crud/trashed.util';
 import { csvEscape, sheetEscape } from '../../shared/export/export.util';
+import { CompanyBrandingService } from '../companydata/company-branding.service';
 
 const PDF_PAGE_BREAK_Y = 520;
 
@@ -41,6 +42,7 @@ export class RolesService {
     private readonly cls: ClsService,
     @Inject(AUDIT_PORT) private readonly audit: IAuditPort,
     @Inject(TRANSACTION_MANAGER) private readonly tx: ITransactionManager,
+    private readonly branding: CompanyBrandingService,
   ) {
     this.logger.setContext(RolesService.name);
   }
@@ -367,7 +369,7 @@ export class RolesService {
 
   private async buildXlsx(roles: Role[], timestamp: string) {
     const wb = new ExcelJS.Workbook();
-    wb.creator = 'Aquashield Restoration LLC';
+    wb.creator = this.branding.getFallbackName();
     wb.created = new Date();
 
     const sheet = wb.addWorksheet('Roles');

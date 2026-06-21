@@ -12,6 +12,7 @@ import {
 import { QUEUE_NAMES } from '../../../../shared/messaging/queues.constants';
 import { AUDIT_PORT } from '../../../../shared/activity-log/audit.port';
 import type { IAuditPort } from '../../../../shared/activity-log/audit.port';
+import { CompanyBrandingService } from '../../../companydata/company-branding.service';
 
 import type { ICampaignGenerationRepository } from '../../domain/ports/campaign-generation.repository.port';
 import { CAMPAIGN_GENERATION_REPOSITORY } from '../../domain/ports/campaign-generation.repository.port';
@@ -122,6 +123,7 @@ export class CampaignExportProcessor extends WorkerHost {
     private readonly eventEmitter: EventEmitter2,
     private readonly logger: LoggerService,
     private readonly cls: ClsService,
+    private readonly branding: CompanyBrandingService,
 
     @Optional()
     @Inject(AUDIO_GENERATOR_PORT)
@@ -345,7 +347,7 @@ export class CampaignExportProcessor extends WorkerHost {
         .font('Helvetica')
         .fillColor('#94a3b8')
         .text(
-          `Generation ID: ${input.generationId}  ·  Aquashield Restoration LLC Campaign Engine`,
+          `Generation ID: ${input.generationId}  ·  ${this.branding.getFallbackName()} Campaign Engine`,
           { align: 'center' },
         )
         .fillColor('#000');
