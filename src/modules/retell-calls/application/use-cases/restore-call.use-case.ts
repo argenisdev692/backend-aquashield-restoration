@@ -49,10 +49,12 @@ export class RestoreCallUseCase {
 
   @Transactional()
   private async persist(id: string, actorId?: string): Promise<void> {
-    const existing = await this.repo.findById(id, true);
-    if (!existing) throw new RetellCallNotFoundException(id);
+    // Honor the affected-row count: a missing OR not-deleted record yields
+    // `false`, so we abort BEFORE writing an audit row / emitting an event.
+    // This keeps restore idempotent (no spurious audit + WS broadcast).
+    const restored = await this.repo.restore(id);
+    if (!restored) throw new RetellCallNotFoundException(id);
 
-    await this.repo.restore(id);
     await this.audit.log(
       {
         action: 'call-records.restored',

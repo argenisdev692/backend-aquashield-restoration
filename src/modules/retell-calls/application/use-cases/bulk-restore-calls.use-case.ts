@@ -40,32 +40,38 @@ export class BulkRestoreCallsUseCase {
       actorId,
     });
 
-    const count = await this.persist(ids, actorId);
+    const affected = await this.persist(ids, actorId);
     await this.cache.delByPattern(RETELL_CALLS_CACHE_PATTERN);
-    this.events.emit(
-      RetellCallsBulkRestoredEvent.eventName,
-      new RetellCallsBulkRestoredEvent(ids),
-    );
+    if (affected.length > 0) {
+      this.events.emit(
+        RetellCallsBulkRestoredEvent.eventName,
+        new RetellCallsBulkRestoredEvent(affected),
+      );
+    }
 
-    this.logger.info('Retell calls bulk restored', { traceId, count });
-    return count;
+    this.logger.info('Retell calls bulk restored', {
+      traceId,
+      count: affected.length,
+    });
+    return affected.length;
   }
 
   @Transactional()
   private async persist(
     ids: readonly string[],
     actorId?: string,
-  ): Promise<number> {
-    const count = await this.repo.bulkRestore(ids);
+  ): Promise<string[]> {
+    const affected = await this.repo.bulkRestore(ids);
+    if (affected.length === 0) return affected;
     await this.audit.log(
       {
         action: 'call-records.bulk_restored',
         actorId,
         traceId: this.cls.get<string>('traceId'),
-        metadata: { ids, count },
+        metadata: { ids: affected, count: affected.length },
       },
       { strict: true },
     );
-    return count;
+    return affected;
   }
 }

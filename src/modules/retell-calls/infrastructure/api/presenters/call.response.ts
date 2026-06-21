@@ -4,7 +4,7 @@ import { entityStatus } from '../../../../../shared/crud/trashed.util';
 import type { RetellCallReadModel } from '../../../domain/repositories/retell-call-repository.interface';
 
 export const CallResponseSchema = z.object({
-  id: z.string().uuid(),
+  id: z.uuid(),
   callId: z.string(),
   agentId: z.string().nullable(),
   callType: z.string().nullable(),
@@ -13,8 +13,8 @@ export const CallResponseSchema = z.object({
   toNumber: z.string().nullable(),
   callStatus: z.string().nullable(),
   disconnectionReason: z.string().nullable(),
-  startedAt: z.string().datetime().nullable(),
-  endedAt: z.string().datetime().nullable(),
+  startedAt: z.iso.datetime().nullable(),
+  endedAt: z.iso.datetime().nullable(),
   durationMs: z.number().int().nullable(),
   userSentiment: z.string().nullable(),
   callSummary: z.string().nullable(),
@@ -24,9 +24,9 @@ export const CallResponseSchema = z.object({
   isRead: z.boolean(),
   /** Derived soft-delete badge so the client renders without null-checks. */
   status: z.enum(['active', 'suspended']),
-  createdAt: z.string().datetime(),
-  updatedAt: z.string().datetime(),
-  deletedAt: z.string().datetime().nullable(),
+  createdAt: z.iso.datetime(),
+  updatedAt: z.iso.datetime(),
+  deletedAt: z.iso.datetime().nullable(),
 });
 
 export class CallResponse extends createZodDto(CallResponseSchema) {}

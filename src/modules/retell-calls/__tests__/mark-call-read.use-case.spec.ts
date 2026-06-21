@@ -5,12 +5,10 @@ jest.mock('@nestjs-cls/transactional', () => ({
 }));
 
 import { Test, TestingModule } from '@nestjs/testing';
-import { EventEmitter2 } from '@nestjs/event-emitter';
-import { DeleteCallUseCase } from '../application/use-cases/delete-call.use-case';
+import { MarkCallReadUseCase } from '../application/use-cases/mark-call-read.use-case';
 import {
   RETELL_CALL_REPOSITORY,
   type IRetellCallRepository,
-  type RetellCallReadModel,
 } from '../domain/repositories/retell-call-repository.interface';
 import {
   AUDIT_PORT,
@@ -20,88 +18,61 @@ import { CACHE_PORT, type ICachePort } from '../../../shared/cache/cache.port';
 import { LoggerService } from '../../../logger/logger.service';
 import { ClsService } from 'nestjs-cls';
 
-describe('DeleteCallUseCase', () => {
-  let useCase: DeleteCallUseCase;
+describe('MarkCallReadUseCase', () => {
+  let useCase: MarkCallReadUseCase;
   let repo: jest.Mocked<IRetellCallRepository>;
   let cache: jest.Mocked<ICachePort>;
-  let events: jest.Mocked<EventEmitter2>;
   let audit: jest.Mocked<IAuditPort>;
 
   beforeEach(async () => {
     repo = {
       upsertByCallId: jest.fn(),
-      findById: jest.fn().mockResolvedValue({ id: 'rec-1' }),
+      findById: jest.fn(),
       paginate: jest.fn(),
       findForExport: jest.fn(),
-      markRead: jest.fn(),
-      softDelete: jest.fn().mockResolvedValue(true),
+      markRead: jest.fn().mockResolvedValue(true),
+      softDelete: jest.fn(),
       restore: jest.fn(),
       bulkSoftDelete: jest.fn(),
       bulkRestore: jest.fn(),
     };
-    cache = {
-      get: jest.fn(),
-      set: jest.fn(),
-      del: jest.fn(),
-      delByPattern: jest.fn(),
-    };
-    events = { emit: jest.fn() };
+    cache = { get: jest.fn(), set: jest.fn(), del: jest.fn(), delByPattern: jest.fn() };
     audit = { log: jest.fn() };
 
     const module: TestingModule = await Test.createTestingModule({
       providers: [
-        DeleteCallUseCase,
+        MarkCallReadUseCase,
         { provide: RETELL_CALL_REPOSITORY, useValue: repo },
         { provide: AUDIT_PORT, useValue: audit },
         { provide: CACHE_PORT, useValue: cache },
-        { provide: EventEmitter2, useValue: events },
         {
           provide: LoggerService,
-          useValue: {
-            info: jest.fn(),
-            warn: jest.fn(),
-            error: jest.fn(),
-            debug: jest.fn(),
-            setContext: jest.fn(),
-          },
+          useValue: { info: jest.fn(), warn: jest.fn(), error: jest.fn(), debug: jest.fn(), setContext: jest.fn() },
         },
-        {
-          provide: ClsService,
-          useValue: { get: jest.fn().mockReturnValue('trace-1') },
-        },
+        { provide: ClsService, useValue: { get: jest.fn().mockReturnValue('trace-1') } },
       ],
     }).compile();
 
-    useCase = module.get(DeleteCallUseCase);
+    useCase = module.get(MarkCallReadUseCase);
   });
 
-  it('soft-deletes, audits (strict), invalidates cache and emits', async () => {
+  it('marks read, audits (strict) and invalidates cache', async () => {
     await useCase.execute('rec-1', 'user-1');
 
-    expect(repo.softDelete).toHaveBeenCalledWith('rec-1');
+    expect(repo.markRead).toHaveBeenCalledWith('rec-1');
     expect(audit.log).toHaveBeenCalledWith(
-      {
-        action: 'call-records.deleted',
-        actorId: 'user-1',
-        resourceId: 'rec-1',
-        traceId: 'trace-1',
-      },
+      { action: 'call-records.read', actorId: 'user-1', resourceId: 'rec-1', traceId: 'trace-1' },
       { strict: true },
     );
     expect(cache.delByPattern).toHaveBeenCalledWith('http:*:/retell/calls*');
-    expect(events.emit).toHaveBeenCalledWith(
-      'retell-call.deleted',
-      expect.objectContaining({ recordId: 'rec-1' }),
-    );
   });
 
-  it('throws and skips audit/event when no live row matched', async () => {
-    repo.softDelete.mockResolvedValue(false);
+  it('throws and skips audit when no live row matched', async () => {
+    repo.markRead.mockResolvedValue(false);
 
     await expect(useCase.execute('missing', 'user-1')).rejects.toThrow(
       'Retell call missing not found',
     );
     expect(audit.log).not.toHaveBeenCalled();
-    expect(events.emit).not.toHaveBeenCalled();
   });
 });

@@ -47,6 +47,11 @@ export class SyncCallsUseCase {
   }
 
   async execute(limit = 100, actorId?: string): Promise<SyncCallsResult> {
+    this.logger.info('Syncing Retell calls from REST API', {
+      traceId: this.cls.get<string>('traceId'),
+      limit,
+      actorId,
+    });
     const calls = await this.retell.listCalls({ limit });
     const result = await this.persist(calls, actorId);
     await this.cache.delByPattern(RETELL_CALLS_CACHE_PATTERN);

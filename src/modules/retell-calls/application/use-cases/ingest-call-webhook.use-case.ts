@@ -48,6 +48,12 @@ export class IngestCallWebhookUseCase {
    * Non-`call_analyzed` events are acked and ignored.
    */
   async execute(payload: RetellWebhookPayload): Promise<void> {
+    this.logger.info('Ingesting Retell webhook', {
+      traceId: this.traceId,
+      event: payload.event,
+      callId: payload.call.call_id,
+    });
+
     if (payload.event !== HANDLED_EVENT) {
       this.logger.info('Retell webhook ignored — not call_analyzed', {
         traceId: this.traceId,

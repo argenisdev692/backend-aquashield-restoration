@@ -49,10 +49,12 @@ export class DeleteCallUseCase {
 
   @Transactional()
   private async persist(id: string, actorId?: string): Promise<void> {
-    const existing = await this.repo.findById(id, true);
-    if (!existing) throw new RetellCallNotFoundException(id);
+    // Honor the affected-row count: a missing OR already-deleted record yields
+    // `false`, so we abort BEFORE writing an audit row / emitting an event.
+    // This keeps the delete idempotent (no spurious audit + WS broadcast).
+    const deleted = await this.repo.softDelete(id);
+    if (!deleted) throw new RetellCallNotFoundException(id);
 
-    await this.repo.softDelete(id);
     await this.audit.log(
       {
         action: 'call-records.deleted',

@@ -6,11 +6,10 @@ jest.mock('@nestjs-cls/transactional', () => ({
 
 import { Test, TestingModule } from '@nestjs/testing';
 import { EventEmitter2 } from '@nestjs/event-emitter';
-import { DeleteCallUseCase } from '../application/use-cases/delete-call.use-case';
+import { RestoreCallUseCase } from '../application/use-cases/restore-call.use-case';
 import {
   RETELL_CALL_REPOSITORY,
   type IRetellCallRepository,
-  type RetellCallReadModel,
 } from '../domain/repositories/retell-call-repository.interface';
 import {
   AUDIT_PORT,
@@ -20,8 +19,8 @@ import { CACHE_PORT, type ICachePort } from '../../../shared/cache/cache.port';
 import { LoggerService } from '../../../logger/logger.service';
 import { ClsService } from 'nestjs-cls';
 
-describe('DeleteCallUseCase', () => {
-  let useCase: DeleteCallUseCase;
+describe('RestoreCallUseCase', () => {
+  let useCase: RestoreCallUseCase;
   let repo: jest.Mocked<IRetellCallRepository>;
   let cache: jest.Mocked<ICachePort>;
   let events: jest.Mocked<EventEmitter2>;
@@ -30,73 +29,54 @@ describe('DeleteCallUseCase', () => {
   beforeEach(async () => {
     repo = {
       upsertByCallId: jest.fn(),
-      findById: jest.fn().mockResolvedValue({ id: 'rec-1' }),
+      findById: jest.fn(),
       paginate: jest.fn(),
       findForExport: jest.fn(),
       markRead: jest.fn(),
-      softDelete: jest.fn().mockResolvedValue(true),
-      restore: jest.fn(),
+      softDelete: jest.fn(),
+      restore: jest.fn().mockResolvedValue(true),
       bulkSoftDelete: jest.fn(),
       bulkRestore: jest.fn(),
     };
-    cache = {
-      get: jest.fn(),
-      set: jest.fn(),
-      del: jest.fn(),
-      delByPattern: jest.fn(),
-    };
-    events = { emit: jest.fn() };
+    cache = { get: jest.fn(), set: jest.fn(), del: jest.fn(), delByPattern: jest.fn() };
+    events = { emit: jest.fn() } as unknown as jest.Mocked<EventEmitter2>;
     audit = { log: jest.fn() };
 
     const module: TestingModule = await Test.createTestingModule({
       providers: [
-        DeleteCallUseCase,
+        RestoreCallUseCase,
         { provide: RETELL_CALL_REPOSITORY, useValue: repo },
         { provide: AUDIT_PORT, useValue: audit },
         { provide: CACHE_PORT, useValue: cache },
         { provide: EventEmitter2, useValue: events },
         {
           provide: LoggerService,
-          useValue: {
-            info: jest.fn(),
-            warn: jest.fn(),
-            error: jest.fn(),
-            debug: jest.fn(),
-            setContext: jest.fn(),
-          },
+          useValue: { info: jest.fn(), warn: jest.fn(), error: jest.fn(), debug: jest.fn(), setContext: jest.fn() },
         },
-        {
-          provide: ClsService,
-          useValue: { get: jest.fn().mockReturnValue('trace-1') },
-        },
+        { provide: ClsService, useValue: { get: jest.fn().mockReturnValue('trace-1') } },
       ],
     }).compile();
 
-    useCase = module.get(DeleteCallUseCase);
+    useCase = module.get(RestoreCallUseCase);
   });
 
-  it('soft-deletes, audits (strict), invalidates cache and emits', async () => {
+  it('restores, audits (strict), invalidates cache and emits', async () => {
     await useCase.execute('rec-1', 'user-1');
 
-    expect(repo.softDelete).toHaveBeenCalledWith('rec-1');
+    expect(repo.restore).toHaveBeenCalledWith('rec-1');
     expect(audit.log).toHaveBeenCalledWith(
-      {
-        action: 'call-records.deleted',
-        actorId: 'user-1',
-        resourceId: 'rec-1',
-        traceId: 'trace-1',
-      },
+      { action: 'call-records.restored', actorId: 'user-1', resourceId: 'rec-1', traceId: 'trace-1' },
       { strict: true },
     );
     expect(cache.delByPattern).toHaveBeenCalledWith('http:*:/retell/calls*');
     expect(events.emit).toHaveBeenCalledWith(
-      'retell-call.deleted',
+      'retell-call.restored',
       expect.objectContaining({ recordId: 'rec-1' }),
     );
   });
 
-  it('throws and skips audit/event when no live row matched', async () => {
-    repo.softDelete.mockResolvedValue(false);
+  it('throws and skips audit/event when no deleted row matched', async () => {
+    repo.restore.mockResolvedValue(false);
 
     await expect(useCase.execute('missing', 'user-1')).rejects.toThrow(
       'Retell call missing not found',

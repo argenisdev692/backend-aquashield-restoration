@@ -1,4 +1,6 @@
 import { Inject, Injectable } from '@nestjs/common';
+import { ClsService } from 'nestjs-cls';
+import { LoggerService } from '../../../../logger/logger.service';
 import {
   RETELL_CALL_REPOSITORY,
   type IRetellCallRepository,
@@ -14,11 +16,21 @@ export class GetCallsListUseCase {
   constructor(
     @Inject(RETELL_CALL_REPOSITORY)
     private readonly repo: IRetellCallRepository,
-  ) {}
+    private readonly logger: LoggerService,
+    private readonly cls: ClsService,
+  ) {
+    this.logger.setContext(GetCallsListUseCase.name);
+  }
 
   execute(
     filters: CallFiltersInput,
   ): Promise<PaginatedResult<RetellCallReadModel>> {
+    this.logger.info('Listing Retell calls', {
+      traceId: this.cls.get<string>('traceId'),
+      page: filters.page,
+      limit: filters.limit,
+      status: filters.status,
+    });
     const mode = resolveTrashedMode({
       status: filters.status,
       withTrashed: filters.withTrashed,

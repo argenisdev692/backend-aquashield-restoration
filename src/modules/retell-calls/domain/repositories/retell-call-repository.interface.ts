@@ -100,9 +100,13 @@ export interface IRetellCallRepository {
   softDelete(id: string): Promise<boolean>;
   restore(id: string): Promise<boolean>;
 
-  /** Bulk soft-delete / restore — one `updateMany`, returns affected count. */
-  bulkSoftDelete(ids: readonly string[]): Promise<number>;
-  bulkRestore(ids: readonly string[]): Promise<number>;
+  /**
+   * Bulk soft-delete / restore. Returns the ids that ACTUALLY transitioned
+   * (already-deleted ids are skipped by `bulkSoftDelete`, not-deleted ids by
+   * `bulkRestore`) so callers audit + broadcast only real state changes.
+   */
+  bulkSoftDelete(ids: readonly string[]): Promise<string[]>;
+  bulkRestore(ids: readonly string[]): Promise<string[]>;
 }
 
 export const RETELL_CALL_REPOSITORY = Symbol('IRetellCallRepository');

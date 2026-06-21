@@ -206,19 +206,39 @@ export class PrismaRetellCallRepository implements IRetellCallRepository {
     return count > 0;
   }
 
-  async bulkSoftDelete(ids: readonly string[]): Promise<number> {
-    const { count } = await this.prisma.retellCall.updateMany({
-      where: { id: { in: [...ids] }, deletedAt: null },
-      data: { deletedAt: new Date() },
-    });
-    return count;
+  async bulkSoftDelete(ids: readonly string[]): Promise<string[]> {
+    return this.bulkTransition(
+      { id: { in: [...ids] }, deletedAt: null },
+      { deletedAt: new Date() },
+    );
   }
 
-  async bulkRestore(ids: readonly string[]): Promise<number> {
-    const { count } = await this.prisma.retellCall.updateMany({
-      where: { id: { in: [...ids] }, deletedAt: { not: null } },
-      data: { deletedAt: null },
+  async bulkRestore(ids: readonly string[]): Promise<string[]> {
+    return this.bulkTransition(
+      { id: { in: [...ids] }, deletedAt: { not: null } },
+      { deletedAt: null },
+    );
+  }
+
+  /**
+   * Snapshot the matching ids, then flip them with a SINGLE `updateMany`. The
+   * pre-read scopes the broadcast/audit to rows that really transitioned; both
+   * statements run inside the caller's `@Transactional()` boundary.
+   */
+  private async bulkTransition(
+    where: Prisma.RetellCallWhereInput,
+    data: Prisma.RetellCallUpdateManyMutationInput,
+  ): Promise<string[]> {
+    const rows = await this.prisma.retellCall.findMany({
+      where,
+      select: { id: true },
     });
-    return count;
+    if (rows.length === 0) return [];
+    const affected = rows.map((r) => r.id);
+    await this.prisma.retellCall.updateMany({
+      where: { id: { in: affected } },
+      data,
+    });
+    return affected;
   }
 }
