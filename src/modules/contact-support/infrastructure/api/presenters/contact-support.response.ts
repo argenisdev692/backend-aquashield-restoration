@@ -18,6 +18,8 @@ export const ContactSupportResponseSchema = z.object({
    * the request has been suspended.
    */
   deletedAt: z.string().datetime().nullable(),
+  /** Derived lifecycle status — `active` when `deletedAt` is null, else `suspended`. */
+  status: z.enum(['active', 'suspended']),
 });
 
 export class ContactSupportResponse extends createZodDto(

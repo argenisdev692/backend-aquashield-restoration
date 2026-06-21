@@ -1,29 +1,34 @@
 import { z } from 'zod';
 import { createZodDto } from 'nestjs-zod';
 import {
+  statusFlagShape,
   trashedFlagsShape,
   rejectBothTrashedFlags,
   BOTH_TRASHED_FLAGS_ERROR,
+  rejectMixedStatusAndTrashedFlags,
+  MIXED_STATUS_FLAGS_ERROR,
 } from '../../../../shared/crud/trashed.util';
 import {
   dateRangeShape,
   rejectInvertedDateRange,
   INVERTED_DATE_RANGE_ERROR,
 } from '../../../../shared/crud/date-range.util';
+import { isReadFlag } from '../contact-support.constants';
 
 export const ExportContactSupportSchema = z
   .object({
     format: z.enum(['csv', 'pdf']).default('csv'),
     /** `true` → only read, `false` → only unread, omitted → all. */
-    isRead: z
-      .enum(['true', 'false'])
-      .optional()
-      .transform((v) => (v === undefined ? undefined : v === 'true')),
+    isRead: isReadFlag,
+    // Canonical soft-delete visibility (default: only active rows).
+    ...statusFlagShape,
+    // Laravel-style raw aliases — supported for parity, cannot mix with `status`.
     ...trashedFlagsShape,
     // Date range filter (inclusive, optional).
     ...dateRangeShape,
   })
   .refine(rejectBothTrashedFlags, BOTH_TRASHED_FLAGS_ERROR)
+  .refine(rejectMixedStatusAndTrashedFlags, MIXED_STATUS_FLAGS_ERROR)
   .refine(rejectInvertedDateRange, INVERTED_DATE_RANGE_ERROR);
 
 export class ExportContactSupportDto extends createZodDto(

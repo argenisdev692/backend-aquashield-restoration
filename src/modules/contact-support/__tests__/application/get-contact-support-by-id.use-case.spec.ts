@@ -20,11 +20,13 @@ const activeRow = {
   createdAt: new Date().toISOString(),
   updatedAt: new Date().toISOString(),
   deletedAt: null,
+  status: 'active' as const,
 };
 
 const suspendedRow = {
   ...activeRow,
   deletedAt: '2026-05-01T10:00:00.000Z',
+  status: 'suspended' as const,
 };
 
 describe('GetContactSupportByIdUseCase — withTrashed', () => {

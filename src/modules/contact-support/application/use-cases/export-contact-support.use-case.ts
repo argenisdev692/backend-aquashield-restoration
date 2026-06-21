@@ -5,10 +5,11 @@ import { LoggerService } from '../../../../logger/logger.service';
 import { AUDIT_PORT } from '../../../../shared/activity-log/audit.port';
 import type { IAuditPort } from '../../../../shared/activity-log/audit.port';
 import { CONTACT_SUPPORT_REPOSITORY } from '../../domain/ports/contact-support.repository.interface';
-import type { IContactSupportRepository } from '../../domain/ports/contact-support.repository.interface';
+import type {
+  IContactSupportRepository,
+  ExportContactSupportFilters,
+} from '../../domain/ports/contact-support.repository.interface';
 import type { ContactSupportReadModel } from '../../domain/read-models/contact-support.read-model';
-import type { TrashedMode } from '../../../../shared/crud/trashed.util';
-import type { DateRange } from '../../../../shared/crud/date-range.util';
 import { csvEscape } from '../../../../shared/export/export.util';
 
 const CSV_HEADERS = [
@@ -44,13 +45,12 @@ export class ExportContactSupportUseCase {
     this.logger.setContext(ExportContactSupportUseCase.name);
   }
 
-  async execute(params: {
-    format: 'csv' | 'pdf';
-    actorId: string;
-    isRead?: boolean;
-    trashed: TrashedMode;
-    range?: DateRange;
-  }): Promise<ExportContactSupportResult> {
+  async execute(
+    params: ExportContactSupportFilters & {
+      format: 'csv' | 'pdf';
+      actorId: string;
+    },
+  ): Promise<ExportContactSupportResult> {
     const traceId = this.cls.get<string>('traceId');
     this.logger.info('ExportContactSupportUseCase start', {
       traceId,

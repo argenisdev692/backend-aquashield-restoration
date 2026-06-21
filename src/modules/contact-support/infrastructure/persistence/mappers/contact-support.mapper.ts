@@ -4,6 +4,7 @@ import type {
 } from '../../../../../generated/prisma/client';
 import { ContactSupport } from '../../../domain/entities/contact-support.aggregate';
 import type { ContactSupportReadModel } from '../../../domain/read-models/contact-support.read-model';
+import { entityStatus } from '../../../../../shared/crud/trashed.util';
 
 export class ContactSupportMapper {
   static toDomain(row: ContactSupportRow): ContactSupport {
@@ -52,6 +53,7 @@ export class ContactSupportMapper {
       createdAt: row.createdAt.toISOString(),
       updatedAt: row.updatedAt.toISOString(),
       deletedAt: row.deletedAt?.toISOString() ?? null,
+      status: entityStatus(row.deletedAt),
     };
   }
 }

@@ -17,6 +17,12 @@ export interface ContactSupportReadModel {
    * whenever this field is non-null.
    */
   deletedAt: string | null;
+  /**
+   * Derived lifecycle status from `deletedAt`, so the client can render the
+   * badge without null-checking. `active` when `deletedAt` is null, else
+   * `suspended`.
+   */
+  status: 'active' | 'suspended';
 }
 
 export interface PaginatedContactSupport {

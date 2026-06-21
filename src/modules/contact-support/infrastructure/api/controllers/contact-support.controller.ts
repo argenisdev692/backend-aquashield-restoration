@@ -40,7 +40,10 @@ import type { AuthenticatedUser } from '../../../../../core/access/actions.enum'
 import { CaslAbilityFactory } from '../../../../../core/access/casl-ability.factory';
 import { stringBoolean } from '../../../../../shared/crud/trashed.util';
 import { resolveTrashedMode } from '../../../../../shared/crud/trashed.util';
-import type { TrashedMode } from '../../../../../shared/crud/trashed.util';
+import type {
+  TrashedMode,
+  EntityStatus,
+} from '../../../../../shared/crud/trashed.util';
 import { resolveDateRange } from '../../../../../shared/crud/date-range.util';
 import type { DateRange } from '../../../../../shared/crud/date-range.util';
 import { CreateContactSupportUseCase } from '../../../application/use-cases/create-contact-support.use-case';
@@ -94,9 +97,11 @@ export class ContactSupportController {
 
   /**
    * Viewing soft-deleted ("suspended") requests — whether by listing/exporting
-   * them (`onlyTrashed`) or fetching a tombstoned row directly (`withTrashed`) —
-   * requires `Action.Restore`, NOT `Action.Read`, so a read-only role cannot
-   * enumerate or inspect deleted requests.
+   * them (`status=suspended|all`, `withTrashed`, `onlyTrashed`) or fetching a
+   * tombstoned row directly (`withTrashed`) — requires `Action.Restore`, NOT
+   * `Action.Read`, so a read-only role cannot enumerate or inspect deleted
+   * requests. List/export pass `trashed !== 'exclude'`; single-get passes the
+   * raw `withTrashed` boolean.
    */
   private async assertCanViewTrashed(
     wantsTrashed: boolean | undefined,
@@ -111,13 +116,14 @@ export class ContactSupportController {
 
   /** Shared soft-delete visibility + date-range resolution for list & export. */
   private resolveFilters(query: {
+    status?: EntityStatus;
     withTrashed?: boolean;
     onlyTrashed?: boolean;
     start_date?: Date;
     end_date?: Date;
   }): { trashed: TrashedMode; range: DateRange } {
     const trashed = resolveTrashedMode({
-      status: undefined,
+      status: query.status,
       withTrashed: query.withTrashed,
       onlyTrashed: query.onlyTrashed,
     });
@@ -159,6 +165,13 @@ export class ContactSupportController {
   @ApiQuery({ name: 'limit', required: false, type: Number, example: 20 })
   @ApiQuery({ name: 'isRead', required: false, enum: ['true', 'false'] })
   @ApiQuery({
+    name: 'status',
+    required: false,
+    enum: ['active', 'suspended', 'all'],
+    description:
+      'Soft-delete visibility (canonical). `suspended`/`all` require `Action.Restore`. Cannot be combined with withTrashed/onlyTrashed.',
+  })
+  @ApiQuery({
     name: 'withTrashed',
     required: false,
     type: Boolean,
@@ -191,8 +204,8 @@ export class ContactSupportController {
     query: ListContactSupportDto,
     @CurrentUser() user: AuthenticatedUser,
   ): Promise<PaginatedContactSupport> {
-    await this.assertCanViewTrashed(query.onlyTrashed, user);
     const { trashed, range } = this.resolveFilters(query);
+    await this.assertCanViewTrashed(trashed !== 'exclude', user);
     return this.listUseCase.execute({
       page: query.page,
       limit: query.limit,
@@ -221,6 +234,13 @@ export class ContactSupportController {
   @ApiBadRequestResponse({ description: 'Validation failed' })
   @ApiQuery({ name: 'format', required: false, enum: ['csv', 'pdf'] })
   @ApiQuery({ name: 'isRead', required: false, enum: ['true', 'false'] })
+  @ApiQuery({
+    name: 'status',
+    required: false,
+    enum: ['active', 'suspended', 'all'],
+    description:
+      'Soft-delete visibility (canonical). `suspended`/`all` require `Action.Restore`. Cannot be combined with withTrashed/onlyTrashed.',
+  })
   @ApiQuery({
     name: 'withTrashed',
     required: false,
@@ -255,8 +275,8 @@ export class ContactSupportController {
     @CurrentUser() user: AuthenticatedUser,
     @Res({ passthrough: true }) res: Response,
   ): Promise<StreamableFile> {
-    await this.assertCanViewTrashed(query.onlyTrashed, user);
     const { trashed, range } = this.resolveFilters(query);
+    await this.assertCanViewTrashed(trashed !== 'exclude', user);
     const result = await this.exportUseCase.execute({
       format: query.format,
       actorId: user.id,
