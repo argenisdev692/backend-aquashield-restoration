@@ -1,10 +1,13 @@
 import { z } from 'zod';
 import { createZodDto } from 'nestjs-zod';
+import { phoneSchema } from '../../../../shared/phone/phone.util';
 
 export const CreateAppointmentSchema = z.object({
   firstName: z.string().min(1).max(255),
   lastName: z.string().min(1).max(255),
-  phone: z.string().min(1).max(20),
+  // Validated against US/PT/ES; bare local numbers default to US.
+  // Stored as E.164 (`+15550000000`).
+  phone: phoneSchema,
   email: z.string().email().max(255).nullable().optional(),
   address: z.string().min(1).max(255),
   address2: z.string().max(255).nullable().optional(),

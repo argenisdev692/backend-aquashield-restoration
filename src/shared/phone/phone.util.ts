@@ -5,24 +5,26 @@ import { z } from 'zod';
 /**
  * Phone-number policy for this product:
  *
- * - Only three countries are accepted: Portugal, United States, Spain.
- * - Portugal is the default country when the input omits an international
- *   prefix (e.g. `912345678` is parsed as `+351 912 345 678`).
- * - Storage is always E.164 (`+351912345678`) — no separators, no national
+ * - Only three countries are accepted: United States, Portugal, Spain.
+ * - The United States is the default country when the input omits an
+ *   international prefix (e.g. `(555) 000-0000` / `5550000000` is parsed as
+ *   `+1 555 000 0000`). The product is a US-based business, so bare local
+ *   numbers normalize to `+1…`.
+ * - Storage is always E.164 (`+15550000000`) — no separators, no national
  *   prefix. Pretty formatting is applied on read (presenters, exports).
  */
-export const ALLOWED_PHONE_COUNTRIES = ['PT', 'US', 'ES'] as const;
+export const ALLOWED_PHONE_COUNTRIES = ['US', 'PT', 'ES'] as const;
 export type AllowedPhoneCountry = (typeof ALLOWED_PHONE_COUNTRIES)[number];
-export const DEFAULT_PHONE_COUNTRY: AllowedPhoneCountry = 'PT';
+export const DEFAULT_PHONE_COUNTRY: AllowedPhoneCountry = 'US';
 
 const ALLOWED_SET = new Set<CountryCode>(ALLOWED_PHONE_COUNTRIES);
 
 /**
  * Parse, validate and normalize a phone number to E.164.
  *
- * Accepts either an international format (`+351912345678`, `+14155552671`,
+ * Accepts either an international format (`+14155552671`, `+351912345678`,
  * `+34612345678`) or a national number that will be interpreted under the
- * default country (`912345678` → `+351912345678`).
+ * default country (`4155552671` → `+14155552671`).
  *
  * Throws `Error('Invalid phone number')` when the input cannot be parsed,
  * is not a valid number, or belongs to a country outside the allowed list.
