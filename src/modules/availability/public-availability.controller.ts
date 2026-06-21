@@ -30,10 +30,19 @@ export class PublicAvailabilityController {
     summary: 'Get day-level availability for a calendar month',
     description:
       'Returns one entry per day in the requested month. ' +
-      'Factors in weekly rules (is_available=false days) and date exceptions (holidays / closures).',
+      'Factors in weekly rules (is_available=false days) and date exceptions (holidays / closures). ' +
+      'When serviceDuration is supplied, rule-open days with no slot surviving the ±7h appointment ' +
+      "buffers are also returned as unavailable (reason 'full').",
   })
   @ApiQuery({ name: 'year', type: Number, example: 2026 })
   @ApiQuery({ name: 'month', type: Number, example: 6, description: '1–12' })
+  @ApiQuery({
+    name: 'serviceDuration',
+    type: Number,
+    required: false,
+    example: 420,
+    description: 'Optional duration in minutes (15–480). Enables day-level capacity checks.',
+  })
   @ApiOkResponse({
     description: 'Array of { date: YYYY-MM-DD, available: boolean, reason?: string }',
   })

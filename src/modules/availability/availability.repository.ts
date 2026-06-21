@@ -40,6 +40,11 @@ export interface AppointmentTimeEntry {
   inspectionTime: Date | null;
 }
 
+export interface AppointmentTimeRangeEntry {
+  inspectionDate: Date | null;
+  inspectionTime: Date | null;
+}
+
 interface FindExceptionsParams {
   page: number;
   limit: number;
@@ -248,6 +253,26 @@ export class AvailabilityRepository {
         inspectionTime: { not: null },
       },
       select: { inspectionTime: true },
+    });
+  }
+
+  /**
+   * Returns inspection date+time pairs for appointments within a date range
+   * (non-declined). Used to compute day-level capacity for the month calendar
+   * in a single query instead of one per day.
+   */
+  async findAppointmentTimesInRange(
+    from: Date,
+    to: Date,
+  ): Promise<AppointmentTimeRangeEntry[]> {
+    return this.prisma.appointment.findMany({
+      where: {
+        deletedAt: null,
+        inspectionDate: { gte: from, lte: to },
+        inspectionStatus: { notIn: ['Declined', 'Completed'] },
+        inspectionTime: { not: null },
+      },
+      select: { inspectionDate: true, inspectionTime: true },
     });
   }
 }

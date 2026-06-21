@@ -373,6 +373,12 @@ export class AvailabilityService {
     const ruleByDay = new Map(rules.map((r) => [r.dayOfWeek, r]));
     const exceptionByDate = new Map(exceptions.map((e) => [e.date, e]));
 
+    // Day-level capacity: only computed when a service duration is requested.
+    // A single range query feeds the ±7h buffers, grouped by calendar day.
+    const buffersByDate = query.serviceDuration
+      ? await this.buildMonthBuffers(monthStart.toDate(), monthEnd.toDate())
+      : undefined;
+
     const result: DayAvailability[] = [];
     for (let day = 1; day <= monthEnd.date(); day++) {
       const dateStr = `${query.year}-${String(query.month).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
@@ -383,10 +389,37 @@ export class AvailabilityService {
         now,
         exception: exceptionByDate.get(dateStr),
         rule: ruleByDay.get(dayjsDate.day()),
+        serviceDuration: query.serviceDuration,
+        buffers: buffersByDate?.get(dateStr) ?? [],
       }));
     }
 
     return result;
+  }
+
+  /**
+   * Groups all appointments in a date range into per-day ±7h buffers
+   * (keyed by YYYY-MM-DD), so the calendar can test day capacity without a
+   * query per day. Keys match the stored UTC-midnight inspection date.
+   */
+  private async buildMonthBuffers(
+    from: Date,
+    to: Date,
+  ): Promise<Map<string, AppointmentBuffer[]>> {
+    const appointments = await this.repository.findAppointmentTimesInRange(from, to);
+    const entriesByDate = new Map<string, AppointmentTimeEntry[]>();
+    for (const appt of appointments) {
+      if (!appt.inspectionDate) continue;
+      const key = appt.inspectionDate.toISOString().slice(0, 10);
+      const list = entriesByDate.get(key) ?? [];
+      list.push({ inspectionTime: appt.inspectionTime });
+      entriesByDate.set(key, list);
+    }
+    const buffersByDate = new Map<string, AppointmentBuffer[]>();
+    for (const [key, entries] of entriesByDate) {
+      buffersByDate.set(key, this.buildAppointmentBuffers(entries));
+    }
+    return buffersByDate;
   }
 
   // ──────────────────────────────
@@ -445,10 +478,13 @@ export class AvailabilityService {
     now: dayjs.Dayjs;
     exception?: AvailabilityExceptionEntity;
     rule?: AvailabilityRuleEntity;
+    serviceDuration?: number;
+    buffers?: AppointmentBuffer[];
   }): DayAvailability {
-    const { dateStr, dayjsDate, now, exception, rule } = params;
+    const { dateStr, dayjsDate, now, exception, rule, serviceDuration, buffers = [] } = params;
     if (dayjsDate.isBefore(now)) return { date: dateStr, available: false, reason: 'past' };
     if (exception) {
+      // Explicit admin override (open or closed) wins over computed capacity.
       return {
         date: dateStr,
         available: exception.isAvailable,
@@ -456,7 +492,28 @@ export class AvailabilityService {
       };
     }
     if (!rule || !rule.isAvailable) return { date: dateStr, available: false, reason: 'closed' };
+    // Capacity: a rule-open day with no slot surviving the ±7h buffers is full.
+    if (serviceDuration && !this.hasAvailableSlot(rule, serviceDuration, buffers)) {
+      return { date: dateStr, available: false, reason: 'full' };
+    }
     return { date: dateStr, available: true };
+  }
+
+  /** True when at least one 30-min-step slot of `serviceDuration` fits the rule
+   *  window without overlapping an appointment buffer. Mirrors `generateSlots`. */
+  private hasAvailableSlot(
+    rule: AvailabilityRuleEntity,
+    serviceDuration: number,
+    buffers: AppointmentBuffer[],
+  ): boolean {
+    const [ruleStartH, ruleStartM] = rule.startTime.split(':').map(Number);
+    const [ruleEndH, ruleEndM] = rule.endTime.split(':').map(Number);
+    const ruleStart = (ruleStartH ?? 0) * 60 + (ruleStartM ?? 0);
+    const ruleEnd = (ruleEndH ?? 0) * 60 + (ruleEndM ?? 0);
+    for (let current = ruleStart; current + serviceDuration <= ruleEnd; current += SLOT_STEP_MINUTES) {
+      if (!this.isSlotBlocked(current, current + serviceDuration, buffers)) return true;
+    }
+    return false;
   }
 
   // ──────────────────────────────
