@@ -420,8 +420,10 @@ describe('AvailabilityService', () => {
       expect(result).toEqual([]);
     });
 
-    it('returns slots when rule is available and no conflicts', async () => {
+    it('offers every 30-min start from opening to the flat 4 PM cutoff', async () => {
       repo.findExceptionByDate.mockResolvedValue(null);
+      // The rule's closing time (10:00) is overridden by the flat 4 PM cap:
+      // inspections may start 08:00 → 16:00 regardless of the rule end.
       repo.findRuleByDay.mockResolvedValue(makeRule({
         startTime: '08:00:00',
         endTime: '10:00:00',
@@ -431,23 +433,39 @@ describe('AvailabilityService', () => {
 
       const result = await service.getTimeSlots({ date: '2026-07-07', serviceDuration: 60 });
 
-      // 08:00+60=09:00<=10:00, 08:30+60=09:30<=10:00, 09:00+60=10:00<=10:00
-      expect(result.length).toBe(3);
+      // 08:00, 08:30, … 16:00 = 17 slots.
+      expect(result.length).toBe(17);
       expect(result[0]?.formattedTime).toBe('08:00');
-      expect(result[1]?.formattedTime).toBe('08:30');
-      expect(result[2]?.formattedTime).toBe('09:00');
+      expect(result.at(-1)?.formattedTime).toBe('16:00');
     });
 
-    it('excludes slots within buffer zone of existing appointment', async () => {
+    it('leaves only the far-afternoon starts open around an 8 AM appointment', async () => {
       repo.findExceptionByDate.mockResolvedValue(null);
       repo.findRuleByDay.mockResolvedValue(makeRule({
         startTime: '08:00:00',
         endTime: '18:00:00',
         isAvailable: true,
       }));
-      // Appointment at 13:00 (780 min) → 7-hour buffer: 06:00 (360 min) – 20:00 (1200 min)
-      // All slots 8 AM–6 PM fall within buffer → entire day blocked
-      const inspectionTime = new Date('2026-07-07T13:00:00.000Z');
+      // Appointment at 08:00 → ±7h buffer 01:00–15:00. Starts ≤ 15:00 are blocked
+      // (15:00 inclusive); 15:30 and 16:00 survive (≥ 7h of spacing).
+      // Local-time constructor so the buffer hour is deterministic across runner TZs.
+      const inspectionTime = new Date(2026, 6, 7, 8, 0, 0);
+      repo.findAppointmentTimesOnDate.mockResolvedValue([{ inspectionTime }]);
+
+      const result = await service.getTimeSlots({ date: '2026-07-07', serviceDuration: 60 });
+
+      expect(result.map((s) => s.formattedTime)).toEqual(['15:30', '16:00']);
+    });
+
+    it('blocks the entire day when a midday appointment spans the whole window', async () => {
+      repo.findExceptionByDate.mockResolvedValue(null);
+      repo.findRuleByDay.mockResolvedValue(makeRule({
+        startTime: '08:00:00',
+        endTime: '18:00:00',
+        isAvailable: true,
+      }));
+      // Appointment at 12:00 → ±7h buffer 05:00–19:00 covers every start 08:00–16:00.
+      const inspectionTime = new Date(2026, 6, 7, 12, 0, 0);
       repo.findAppointmentTimesOnDate.mockResolvedValue([{ inspectionTime }]);
 
       const result = await service.getTimeSlots({ date: '2026-07-07', serviceDuration: 60 });

@@ -40,11 +40,16 @@ dayjs.extend(timezone);
 
 const HOUSTON_TZ = 'America/Chicago';
 const SLOT_STEP_MINUTES = 30;
-// 7-hour exclusion zone around each booked inspection.
-// Symmetric: an appointment at 11 AM blocks 4 AM–6 PM, effectively
-// making the full business day (8 AM–6 PM) unavailable. An appointment
-// at 8 AM blocks 1 AM–3 PM, leaving afternoon slots open.
+// 7-hour exclusion zone around each booked inspection — this is the *spacing*
+// between two inspections, NOT the inspection's own length. Symmetric and
+// point-based: a candidate start is blocked when it falls within ±7h of an
+// existing appointment time. An 8 AM booking blocks 1 AM–3 PM (so 3:30 PM is the
+// next free start); a noon booking blocks 5 AM–7 PM (the whole day → 'full').
 const BUFFER_MINUTES = 420;
+// Flat cutoff for the LATEST inspection start, every day, regardless of the
+// rule's closing time. Inspections may be booked from the rule's opening time
+// (08:00) up to and including 4:00 PM.
+const INSPECTION_LATEST_START_MINUTES = 16 * 60;
 
 export interface TimeSlot {
   time: string;
@@ -350,7 +355,7 @@ export class AvailabilityService {
 
     const appointments = await this.repository.findAppointmentTimesOnDate(dateStr);
     const buffers = this.buildAppointmentBuffers(appointments);
-    return this.generateSlots(rule, query.serviceDuration, buffers, requestedDate);
+    return this.generateSlots(rule, buffers, requestedDate);
   }
 
   // ──────────────────────────────
@@ -447,23 +452,21 @@ export class AvailabilityService {
 
   private generateSlots(
     rule: AvailabilityRuleEntity,
-    serviceDuration: number,
     buffers: AppointmentBuffer[],
     baseDate: dayjs.Dayjs,
   ): TimeSlot[] {
     const [ruleStartH, ruleStartM] = rule.startTime.split(':').map(Number);
-    const [ruleEndH, ruleEndM] = rule.endTime.split(':').map(Number);
     const ruleStart = (ruleStartH ?? 0) * 60 + (ruleStartM ?? 0);
-    const ruleEnd = (ruleEndH ?? 0) * 60 + (ruleEndM ?? 0);
 
+    // From the rule's opening time up to the flat 4 PM cutoff, every 30 min.
+    // A start is offered unless it falls inside an existing appointment's ±7h
+    // spacing buffer (point-based — the inspection's own length is irrelevant).
     const slots: TimeSlot[] = [];
-    let current = ruleStart;
-    while (current + serviceDuration <= ruleEnd) {
-      if (!this.isSlotBlocked(current, current + serviceDuration, buffers)) {
+    for (let current = ruleStart; current <= INSPECTION_LATEST_START_MINUTES; current += SLOT_STEP_MINUTES) {
+      if (!this.isSlotBlocked(current, current, buffers)) {
         const d = baseDate.hour(Math.floor(current / 60)).minute(current % 60).second(0);
         slots.push({ time: d.toISOString(), formattedTime: d.format('HH:mm') });
       }
-      current += SLOT_STEP_MINUTES;
     }
     return slots;
   }
@@ -492,26 +495,24 @@ export class AvailabilityService {
       };
     }
     if (!rule || !rule.isAvailable) return { date: dateStr, available: false, reason: 'closed' };
-    // Capacity: a rule-open day with no slot surviving the ±7h buffers is full.
-    if (serviceDuration && !this.hasAvailableSlot(rule, serviceDuration, buffers)) {
+    // Capacity: a rule-open day with no start surviving the ±7h buffers is full.
+    // `serviceDuration` only acts as the opt-in flag to compute capacity at all.
+    if (serviceDuration && !this.hasAvailableSlot(rule, buffers)) {
       return { date: dateStr, available: false, reason: 'full' };
     }
     return { date: dateStr, available: true };
   }
 
-  /** True when at least one 30-min-step slot of `serviceDuration` fits the rule
-   *  window without overlapping an appointment buffer. Mirrors `generateSlots`. */
+  /** True when at least one start (rule opening → 4 PM cutoff, 30-min step)
+   *  survives the ±7h appointment buffers. Mirrors `generateSlots`. */
   private hasAvailableSlot(
     rule: AvailabilityRuleEntity,
-    serviceDuration: number,
     buffers: AppointmentBuffer[],
   ): boolean {
     const [ruleStartH, ruleStartM] = rule.startTime.split(':').map(Number);
-    const [ruleEndH, ruleEndM] = rule.endTime.split(':').map(Number);
     const ruleStart = (ruleStartH ?? 0) * 60 + (ruleStartM ?? 0);
-    const ruleEnd = (ruleEndH ?? 0) * 60 + (ruleEndM ?? 0);
-    for (let current = ruleStart; current + serviceDuration <= ruleEnd; current += SLOT_STEP_MINUTES) {
-      if (!this.isSlotBlocked(current, current + serviceDuration, buffers)) return true;
+    for (let current = ruleStart; current <= INSPECTION_LATEST_START_MINUTES; current += SLOT_STEP_MINUTES) {
+      if (!this.isSlotBlocked(current, current, buffers)) return true;
     }
     return false;
   }

@@ -103,7 +103,10 @@ export class CreateAppointmentHandler
       insuranceProperty: dto.insuranceProperty,
       message: dto.message ?? null,
       smsConsent: dto.smsConsent,
-      registrationDate: toNullableDate(dto.registrationDate),
+      // Registration date is server-owned: stamp "now" on create when the
+      // client doesn't supply one (the admin form no longer exposes the field,
+      // and the public submission never sends it).
+      registrationDate: toNullableDate(dto.registrationDate) ?? new Date(),
       inspectionDate: toNullableDate(dto.inspectionDate),
       inspectionTime: toNullableDate(dto.inspectionTime),
       inspectionStatus: dto.inspectionStatus ?? null,

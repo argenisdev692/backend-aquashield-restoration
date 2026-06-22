@@ -62,12 +62,13 @@ describe('AvailabilityService.getCalendarAvailability — capacity', () => {
   });
 
   it("marks a rule-open day fully consumed by a ±7h appointment as 'full'", async () => {
-    // An 08:00 inspection blocks every morning start for a 7h (420m) service.
+    // A noon inspection's ±7h buffer (05:00–19:00) covers every start from the
+    // 08:00 opening to the 4 PM cutoff, so the day has no free slot left.
     const repo = makeRepo({
       findAppointmentTimesInRange: jest.fn().mockResolvedValue([
         {
           inspectionDate: new Date(Date.UTC(YEAR, MONTH - 1, 10)),
-          inspectionTime: new Date(YEAR, MONTH - 1, 10, 8, 0, 0),
+          inspectionTime: new Date(YEAR, MONTH - 1, 10, 12, 0, 0),
         },
       ]),
     });
